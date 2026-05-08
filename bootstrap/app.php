@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            \App\Http\Middleware\CompressionMiddleware::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
@@ -38,7 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetLocale::class,
         ]);
 
-        // Log all requests with real IP and user agent (for tunnel monitoring)
+        // Optimized heartbeat for user online status
         $middleware->web(append: [
             \App\Http\Middleware\LogRealTimeRequests::class,
         ]);
@@ -47,6 +48,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\ForceHttps::class,
         ]);
+
+        // Enable Sanctum's stateful API authentication for sessions
+        $middleware->statefulApi();
 
         // Admin middleware alias
         $middleware->alias([
@@ -58,7 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withCommands([
         \App\Console\Commands\BackfillIpLocations::class,
-        \App\Console\Commands\SendBirthdayReminders::class,
+
         \App\Console\Commands\Troubleshoot::class,
     ])
     ->withExceptions(function (Exceptions $exceptions): void {
