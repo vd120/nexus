@@ -29,10 +29,10 @@ return [
     'messages' => 'الرسائل',
     'notifications' => 'الإشعارات',
     'groups' => 'المجموعات',
-    'ai_assistant' => 'مساعد الذكاء الاصطناعي',
+    'ai_assistant' => 'Nexus AI',
+    'global_chat' => 'الدردشة العامة',
     'explore' => 'استكشاف المستخدمين',
-    'life_events' => 'أحداث الحياة',
-    'memory_book' => 'كتاب الذكريات',
+
 
     // Admin
     'admin_panel' => 'لوحة الإدارة',

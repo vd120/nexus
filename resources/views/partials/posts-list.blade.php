@@ -1,5 +1,5 @@
 @forelse($posts as $post)
-    @include('partials.post', ['post' => $post])
+    @include('partials.post', ['post' => $post, 'hideGroupContext' => $hideGroupContext ?? false])
 @empty
     @if(!isset($skipEmpty) || !$skipEmpty)
     <div class="empty-state">

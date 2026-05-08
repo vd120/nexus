@@ -4,7 +4,14 @@
 
 @section('content')
 
+@push('styles')
 <link rel="stylesheet" href="{{ asset('css/posts-index.css') }}">
+<style>
+    @media (max-width: 768px) {
+        :is(.app-layout, .main-content) { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+    }
+</style>
+@endpush
 
 <div class="feed-container">
     @if(session('verified'))
@@ -67,9 +74,14 @@
     <div class="create-post">
         <div class="create-post-header">
             <img src="{{ auth()->user()->avatar_url }}" alt="Avatar" class="create-post-avatar">
-            <span class="create-post-author">{{ auth()->user()->name }}</span>
+            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                <span class="create-post-author">{{ auth()->user()->username }}</span>
+                <button type="button" class="privacy-btn" id="privacy-btn" onclick="togglePrivacy()" style="padding: 3px 8px; font-size: 11px;">
+                    <i class="fas fa-globe" id="privacy-icon"></i> <span id="privacy-text">{{ __('messages.public') }}</span>
+                </button>
+            </div>
         </div>
-        <textarea id="post-content" placeholder="{{ __('messages.whats_on_your_mind') }}" dir="auto"></textarea>
+        <textarea id="post-content" placeholder="{{ __('messages.whats_on_your_mind') }}" dir="auto" style="margin-top: 12px;"></textarea>
         
         {{-- Hashtag Autocomplete Dropdown --}}
         <div id="hashtag-suggestions" class="hashtag-suggestions" style="display: none;"></div>
@@ -77,22 +89,17 @@
         <div class="post-actions">
             <div class="post-actions-left">
                 <label for="media" class="post-action-btn" style="cursor: pointer;">
-                    <i class="fas fa-image"></i> <span>{{ __('messages.photo') }}</span>
+                    <i class="fas fa-image" style="color: #45bd62;"></i> <span>{{ __('messages.media') }}</span>
                 </label>
                 <input type="file" id="media" accept="image/*,video/*" multiple style="display: none;" onchange="previewMedia(this)">
-                <button type="button" class="privacy-btn" id="privacy-btn" onclick="togglePrivacy()">
-                    <i class="fas fa-globe" id="privacy-icon"></i> <span id="privacy-text">{{ __('messages.public') }}</span>
-                </button>
-                <button type="button" class="post-action-btn" onclick="openLifeEventModal()">
-                    <i class="fas fa-star"></i> <span>{{ __('navigation.life_events') }}</span>
-                </button>
+
             </div>
             <button type="button" class="btn btn-primary" onclick="submitPost()">
                 {{ __('messages.post') }}
             </button>
         </div>
         <input type="hidden" id="is-private" value="0">
-        <div id="media-preview-container" style="display: none; margin-top: 16px;">
+        <div id="media-preview-container" style="display: none; margin-top: 12px;">
             <div id="media-previews" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
         </div>
     </div>
@@ -221,11 +228,13 @@ function togglePrivacy() {
         icon.className = 'fas fa-globe';
         text.textContent = (window.chatTranslations && window.chatTranslations.public) || 'Public';
         input.value = '0';
+        showToast('{{ __('messages.privacy_changed_to_public') }}', 'info', null, null, 3000);
     } else {
         btn.classList.add('active');
         icon.className = 'fas fa-lock';
         text.textContent = (window.chatTranslations && window.chatTranslations.private) || 'Private';
         input.value = '1';
+        showToast('{{ __('messages.privacy_changed_to_private') }}', 'info', null, null, 3000);
     }
 }
 
@@ -264,12 +273,16 @@ function renderMediaPreviews() {
     clearAllBtn.style.cssText = `
         padding: 8px 16px; background: rgba(220,38,38,0.1); color: #dc2626; 
         border: 1px solid rgba(220,38,38,0.3); border-radius: 8px; cursor: pointer;
-        font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px;
-        transition: all 0.2s; margin-bottom: 8px;
+        font-size: 13px; font-weight: 600; display: flex; align-items: center; 
+        justify-content: center; gap: 8px; transition: all 0.2s; 
+        margin-bottom: 12px; width: 100%; white-space: nowrap;
     `;
     clearAllBtn.onmouseover = function() { this.style.background = 'rgba(220,38,38,0.2)'; };
     clearAllBtn.onmouseout = function() { this.style.background = 'rgba(220,38,38,0.1)'; };
-    previews.appendChild(clearAllBtn);
+    const btnWrapper = document.createElement('div');
+    btnWrapper.style.cssText = 'width: 100%; flex: 0 0 100%; display: flex; justify-content: flex-start;';
+    btnWrapper.appendChild(clearAllBtn);
+    previews.appendChild(btnWrapper);
     
     uploadedFiles.forEach((file, index) => {
         const reader = new FileReader();
@@ -379,8 +392,27 @@ function submitPost() {
     .then(data => {
         if (data.success) {
             showToast('{{ __('messages.post_created_toast') }}', 'success');
-            // Reload page to show new post
-            setTimeout(() => location.reload(), 500);
+            
+            // Prepend new post to container
+            const container = document.getElementById('posts-container');
+            if (container && data.post_html) {
+                // Remove empty state if exists
+                const emptyState = container.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+                
+                container.insertAdjacentHTML('afterbegin', data.post_html);
+            }
+            
+            // Clear form
+            document.getElementById('post-content').value = '';
+            document.getElementById('media').value = '';
+            document.getElementById('media-previews').innerHTML = ''; // Assuming this exists
+            
+            // Reset button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
         } else {
             showToast(data.message || '{{ __('messages.failed_to_create_post') }}', 'error');
             submitBtn.innerHTML = originalText;
@@ -422,7 +454,7 @@ function loadMorePosts() {
     const nextPage = currentPage + 1;
     const perPage = 15;
     
-    fetch(`{{ route('posts.load-more') }}?page=${nextPage}&per_page=${perPage}`, {
+    fetch(`/posts/load-more?page=${nextPage}&per_page=${perPage}`, {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
@@ -449,7 +481,11 @@ function loadMorePosts() {
             });
             
             // Update pagination state
-            currentPage = data.next_page || currentPage + 1;
+            if (data.next_page) {
+                currentPage = data.next_page - 1; // Sync with server page
+            } else {
+                currentPage = nextPage;
+            }
             hasMorePosts = data.has_more;
             
             // Hide or update load more button
@@ -464,9 +500,6 @@ function loadMorePosts() {
                     noMorePosts.style.display = 'block';
                 }
             }
-            
-            // Show success toast with translation
-            showToast(window.postTranslations.new_posts_loaded, 'success');
         }
     })
     .catch(error => {
@@ -510,172 +543,10 @@ if (hasMorePosts) {
     });
 }
 
-// Track followed users online status
-let followedUsersOnlineState = {
-    lastCheck: null,
-    onlineUserIds: new Set(JSON.parse(sessionStorage.getItem('shownOnlineUsers') || '[]')),
-    offlineUserIds: new Set(), // Track users who went offline
-    pollInterval: null,
-    pollingActive: false
-};
-
-// Poll for followed users' online status
-function pollFollowedUsersOnline() {
-    if (!document.visibilityState || document.visibilityState === 'visible') {
-        fetch(`{{ route('followed-users.online') }}${followedUsersOnlineState.lastCheck ? `?last_check=${followedUsersOnlineState.lastCheck}` : ''}`, {
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update last check time
-                followedUsersOnlineState.lastCheck = data.current_time;
-
-                // Get current online user IDs
-                const currentOnlineIds = new Set(data.online_users.map(u => u.id));
-
-                // Check which users went offline (were online before but not now)
-                followedUsersOnlineState.onlineUserIds.forEach(userId => {
-                    if (!currentOnlineIds.has(userId)) {
-                        // User went offline, remove from shown list so toast can show again
-                        followedUsersOnlineState.offlineUserIds.add(userId);
-                        followedUsersOnlineState.onlineUserIds.delete(userId);
-                    }
-                });
-
-                // Show toast for newly online users
-                if (data.newly_online && data.newly_online.length > 0) {
-                    data.newly_online.forEach(onlineUser => {
-                        // Show toast if user was offline before or never shown
-                        if (followedUsersOnlineState.offlineUserIds.has(onlineUser.id) || 
-                            !followedUsersOnlineState.onlineUserIds.has(onlineUser.id)) {
-                            showFollowedUserOnlineToast(onlineUser);
-                            followedUsersOnlineState.onlineUserIds.add(onlineUser.id);
-                            followedUsersOnlineState.offlineUserIds.delete(onlineUser.id);
-                            // Save to sessionStorage
-                            sessionStorage.setItem('shownOnlineUsers', JSON.stringify(Array.from(followedUsersOnlineState.onlineUserIds)));
-                        }
-                    });
-                }
-
-                // Track all currently online users
-                data.online_users.forEach(onlineUser => {
-                    followedUsersOnlineState.onlineUserIds.add(onlineUser.id);
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error polling followed users online status:', error);
-        });
-    }
-}
-
-// Show toast when a followed user comes online
-function showFollowedUserOnlineToast(user) {
-    const avatarHtml = user.avatar_url 
-        ? `<img src="${user.avatar_url}" alt="${user.username}" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px;">`
-        : `<div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; margin-right: 10px; color: white; font-weight: bold;">${user.username.charAt(0).toUpperCase()}</div>`;
-    
-    const message = `
-        <div style="display: flex; align-items: center;">
-            ${avatarHtml}
-            <div>
-                <strong>${user.username}</strong>
-                <span style="display: block; font-size: 13px; opacity: 0.8;">${window.chatTranslations.is_now_online || 'is now online'}</span>
-            </div>
-        </div>
-    `;
-    
-    showToast(message, 'success', 3000);
-}
-
-// Start polling for followed users' online status
-function startFollowedUsersOnlinePolling() {
-    if (followedUsersOnlineState.pollingActive) return;
-    
-    followedUsersOnlineState.pollingActive = true;
-    
-    // Initial poll
-    pollFollowedUsersOnline();
-    
-    // Poll every 10 seconds
-    followedUsersOnlineState.pollInterval = setInterval(pollFollowedUsersOnline, 10000);
-}
-
-// Stop polling when page is hidden
-document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'hidden') {
-        if (followedUsersOnlineState.pollInterval) {
-            clearInterval(followedUsersOnlineState.pollInterval);
-            followedUsersOnlineState.pollingActive = false;
-        }
-    } else {
-        startFollowedUsersOnlinePolling();
-    }
-});
-
-// Start polling on page load
-startFollowedUsersOnlinePolling();
-
-// Initialize - using global showToast from layout
+// Track followed users online status (deprecated - handled via Socket.IO)
+// Followed users online status is now handled via real-time Socket.IO events (NexusSocket)
+// No manual polling required.
 </script>
-
-<!-- Report Modal -->
-<div id="report-modal" class="modal report-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-flag"></i> {{ __('messages.report_post') }}</h3>
-            <button type="button" class="modal-close" onclick="closeReportModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <form id="report-form" method="POST">
-            @csrf
-            <div class="modal-body">
-                <p class="report-description">{{ __('messages.report_description') }}</p>
-                
-                <div class="form-group">
-                    <label for="report-reason">{{ __('messages.select_reason') }}:</label>
-                    <select name="reason" id="report-reason" required onchange="toggleOtherReason()">
-                        <option value="">{{ __('messages.choose_reason') }}</option>
-                        <option value="spam">{{ __('messages.reason_spam') }}</option>
-                        <option value="inappropriate">{{ __('messages.reason_inappropriate') }}</option>
-                        <option value="harassment">{{ __('messages.reason_harassment') }}</option>
-                        <option value="hate_speech">{{ __('messages.reason_hate_speech') }}</option>
-                        <option value="violence">{{ __('messages.reason_violence') }}</option>
-                        <option value="misinformation">{{ __('messages.reason_misinformation') }}</option>
-                        <option value="copyright">{{ __('messages.reason_copyright') }}</option>
-                        <option value="other">{{ __('messages.reason_other') }}</option>
-                    </select>
-                </div>
-
-                <div class="form-group" id="other-reason-group" style="display: none;">
-                    <label for="report-content">{{ __('messages.additional_details') }} ({{ __('messages.optional') }}):</label>
-                    <textarea name="content" id="report-content" rows="4" maxlength="1000" placeholder="{{ __('messages.report_details_placeholder') }}"></textarea>
-                    <small class="char-count"><span id="char-count">0</span>/1000</small>
-                </div>
-
-                <div class="report-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>{{ __('messages.report_warning') }}</p>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeReportModal()">
-                    {{ __('messages.cancel') }}
-                </button>
-                <button type="submit" class="btn btn-danger" id="submit-report-btn" disabled>
-                    <i class="fas fa-flag"></i> {{ __('messages.submit_report') }}
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 {{-- Hashtag Autocomplete Styles --}}
 <style>
@@ -888,6 +759,8 @@ startFollowedUsersOnlinePolling();
 
 /* Mobile responsive for hashtag and user suggestions */
 @media (max-width: 640px) {
+
+
     .hashtag-suggestions,
     .user-suggestions {
         min-width: calc(100% - 16px) !important;
@@ -1372,485 +1245,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-// Life Event Modal Functions - Global scope for onclick handlers
-function openLifeEventModal() {
-    document.getElementById('lifeEventModal').style.display = 'flex';
-    document.getElementById('dropdownOverlay').style.display = 'block';
-}
-
-function closeLifeEventModal() {
-    document.getElementById('lifeEventModal').style.display = 'none';
-    document.getElementById('dropdownOverlay').style.display = 'none';
-    resetLifeEventForm();
-}
-
-function resetLifeEventForm() {
-    document.getElementById('lifeEventForm').reset();
-    document.getElementById('event-preview').style.display = 'none';
-}
-
-function selectEventType(type, icon, label) {
-    document.querySelectorAll('.event-type-option').forEach(opt => {
-        opt.classList.remove('selected');
-    });
-    const selected = document.querySelector(`.event-type-option[data-type="${type}"]`);
-    if (selected) {
-        selected.classList.add('selected');
-    }
-    document.getElementById('selected-event-type').value = type;
-    const titleInput = document.getElementById('event-title');
-    const myText = titleInput.getAttribute('data-my-text') || 'My';
-    titleInput.placeholder = `${myText} ${label}...`;
-}
-
-function previewLifeEvent() {
-    const eventType = document.getElementById('selected-event-type').value;
-    const title = document.getElementById('event-title').value;
-    const description = document.getElementById('event-description').value;
-    const eventDate = document.getElementById('event-date').value;
-    const isPrivate = document.getElementById('event-is-private').checked;
-
-    if (!eventType || !title) {
-        const pleaseFillText = document.getElementById('lifeEventModal').getAttribute('data-please-fill') || 'Please fill in all required fields';
-        alert(pleaseFillText);
-        return;
-    }
-
-    // Get icon from selected option
-    const selectedOption = document.querySelector(`.event-type-option[data-type="${eventType}"] .event-type-emoji`);
-    const icon = selectedOption ? selectedOption.textContent : '🎉';
-    
-    const dateObj = new Date(eventDate);
-    const locale = document.documentElement.getAttribute('lang') === 'ar' ? 'ar-EG' : 'en-US';
-    const formattedDate = dateObj.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
-
-    document.getElementById('preview-icon').textContent = icon;
-    document.getElementById('preview-title').textContent = title;
-    document.getElementById('preview-description').textContent = description || '';
-    document.getElementById('preview-date').textContent = formattedDate;
-    document.getElementById('preview-private').style.display = isPrivate ? 'inline' : 'none';
-    document.getElementById('event-preview').style.display = 'block';
-}
-
-function submitLifeEvent() {
-    const eventType = document.getElementById('selected-event-type').value;
-    const title = document.getElementById('event-title').value;
-    const description = document.getElementById('event-description').value;
-    const eventDate = document.getElementById('event-date').value;
-    const isAnniversary = document.getElementById('event-is-anniversary').checked;
-    const year = document.getElementById('event-year').value;
-    const isPrivate = document.getElementById('event-is-private').checked;
-
-    if (!eventType || !title || !eventDate) {
-        const pleaseFillText = document.getElementById('lifeEventModal').getAttribute('data-please-fill') || 'Please fill in all required fields';
-        alert(pleaseFillText);
-        return;
-    }
-
-    const modal = document.getElementById('lifeEventModal');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const username = modal.getAttribute('data-username') || '';
-
-    if (!csrfToken) {
-        alert('CSRF token not found. Please refresh the page.');
-        return;
-    }
-
-    console.log('Submitting event:', { event_type: eventType, title: title, event_date: eventDate });
-
-    fetch('/life-events', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-            event_type: eventType,
-            title: title,
-            description: description || null,
-            event_date: eventDate,
-            is_anniversary: isAnniversary,
-            year: year || null,
-            is_private: isPrivate
-        })
-    })
-    .then(response => {
-        console.log('Response status:', response.status);
-        return response.json();
-    })
-    .then(data => {
-        console.log('Response data:', data);
-        if (data.success || data.message) {
-            const successText = modal.getAttribute('data-success-text') || 'Life event created successfully! 🎉';
-            showToast(successText, 'success');
-            closeLifeEventModal();
-            setTimeout(() => {
-                window.location.href = '/memory-book/' + username;
-            }, 1000);
-        } else {
-            console.error('Error from server:', data);
-            const errorText = data.message || data.error || 'An error occurred';
-            alert('Error: ' + errorText);
-        }
-    })
-    .catch(error => {
-        console.error('Fetch error:', error);
-        alert('Network error: ' + error.message);
-    });
-}
 </script>
-
-{{-- Life Event Modal --}}
-<div id="lifeEventModal" class="life-event-modal" style="display: none;" 
-     data-username="{{ auth()->user()->username }}"
-     data-please-fill="{{ __('events.please_fill_required') }}"
-     data-success-text="{{ __('events.event_created_success') }}"
-     data-error-text="{{ __('messages.error_occurred') }}">
-    <div class="life-event-modal-content">
-        <div class="life-event-modal-header">
-            <h2><i class="fas fa-star"></i> {{ __('events.add_event') }}</h2>
-            <button type="button" class="modal-close" onclick="closeLifeEventModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <form id="lifeEventForm">
-            <div class="life-event-body">
-                <div class="event-types-section">
-                    <p class="event-types-title">{{ __('events.select_event_type') }}</p>
-                    <div class="event-type-options">
-                        <div class="event-type-option" data-type="new_job" onclick="selectEventType('new_job', '💼', '{{ __('events.types.new_job') }}')">
-                            <span class="event-type-emoji">💼</span>
-                            <span class="event-type-label">{{ __('events.types.new_job') }}</span>
-                        </div>
-                        <div class="event-type-option" data-type="graduation" onclick="selectEventType('graduation', '🎓', '{{ __('events.types.graduation') }}')">
-                            <span class="event-type-emoji">🎓</span>
-                            <span class="event-type-label">{{ __('events.types.graduation') }}</span>
-                        </div>
-                        <div class="event-type-option" data-type="engagement" onclick="selectEventType('engagement', '💍', '{{ __('events.types.engagement') }}')">
-                            <span class="event-type-emoji">💍</span>
-                            <span class="event-type-label">{{ __('events.types.engagement') }}</span>
-                        </div>
-                        <div class="event-type-option" data-type="baby" onclick="selectEventType('baby', '👶', '{{ __('events.types.baby') }}')">
-                            <span class="event-type-emoji">👶</span>
-                            <span class="event-type-label">{{ __('events.types.baby') }}</span>
-                        </div>
-                        <div class="event-type-option" data-type="moved" onclick="selectEventType('moved', '🏠', '{{ __('events.types.moved') }}')">
-                            <span class="event-type-emoji">🏠</span>
-                            <span class="event-type-label">{{ __('events.types.moved') }}</span>
-                        </div>
-                        <div class="event-type-option" data-type="birthday" onclick="selectEventType('birthday', '🎂', '{{ __('events.types.birthday') }}')">
-                            <span class="event-type-emoji">🎂</span>
-                            <span class="event-type-label">{{ __('events.types.birthday') }}</span>
-                        </div>
-                    </div>
-                    <input type="hidden" id="selected-event-type" value="">
-                </div>
-
-                <div class="event-form-fields">
-                    <div class="form-group">
-                        <label for="event-title">{{ __('events.title') }} *</label>
-                        <input type="text" id="event-title" class="form-control" 
-                               placeholder="{{ __('events.title_placeholder') }}" 
-                               data-my-text="{{ __('events.my') }}" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="event-description">{{ __('events.description') }}</label>
-                        <textarea id="event-description" class="form-control" rows="3" 
-                                  placeholder="{{ __('events.description_placeholder') }}"></textarea>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="event-date">{{ __('events.event_date') }} *</label>
-                            <input type="date" id="event-date" class="form-control" value="{{ date('Y-m-d') }}" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="event-year">{{ __('events.year') }}</label>
-                            <input type="number" id="event-year" class="form-control" 
-                                   min="1900" max="{{ date('Y') }}" placeholder="{{ date('Y') }}">
-                        </div>
-                    </div>
-
-                    <div class="form-checkboxes">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="event-is-anniversary">
-                            <span>{{ __('events.is_anniversary') }}</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="event-is-private">
-                            <span>{{ __('events.is_private') }}</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="event-preview" class="event-preview" style="display: none;">
-                    <h4>{{ __('messages.preview') }}</h4>
-                    <div class="event-preview-card">
-                        <div class="preview-header">
-                            <span id="preview-icon" class="preview-icon">🎉</span>
-                            <span id="preview-title" class="preview-title"></span>
-                        </div>
-                        <p id="preview-description" class="preview-description"></p>
-                        <div class="preview-meta">
-                            <span id="preview-date" class="preview-date"></span>
-                            <span id="preview-private" class="preview-private" style="display: none;">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="life-event-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeLifeEventModal()">
-                    {{ __('messages.cancel') }}
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="previewLifeEvent()">
-                    <i class="fas fa-eye"></i> {{ __('messages.preview') }}
-                </button>
-                <button type="button" class="btn btn-primary" onclick="submitLifeEvent()">
-                    <i class="fas fa-save"></i> {{ __('messages.save') }}
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<style>
-.life-event-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    padding: 1rem;
-}
-
-.life-event-modal-content {
-    background: var(--card-bg);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-hover);
-    width: 100%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.life-event-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.life-event-modal-header h2 {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 1.5rem;
-    color: var(--text);
-    margin: 0;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 6px;
-    transition: all 0.2s;
-}
-
-.modal-close:hover {
-    background: var(--bg);
-    color: var(--text);
-}
-
-.life-event-body {
-    padding: 1.5rem;
-}
-
-.event-types-title {
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 1rem;
-}
-
-.event-type-options {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-}
-
-.event-type-option {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 1rem;
-    background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.event-type-option:hover {
-    border-color: var(--accent);
-    background: var(--accent-light);
-}
-
-.event-type-option.selected {
-    border-color: var(--accent);
-    background: var(--accent-light);
-}
-
-.event-type-emoji {
-    font-size: 2rem;
-}
-
-.event-type-label {
-    font-size: 0.85rem;
-    color: var(--text);
-    font-weight: 500;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.form-control {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 1rem;
-    background: var(--bg);
-    color: var(--text);
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-.form-checkboxes {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 1rem;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-weight: normal;
-}
-
-.checkbox-label input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.event-preview {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    background: var(--bg);
-    border-radius: 12px;
-}
-
-.event-preview h4 {
-    color: var(--text);
-    margin-bottom: 0.75rem;
-}
-
-.event-preview-card {
-    padding: 1rem;
-    background: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.preview-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-}
-
-.preview-icon {
-    font-size: 1.5rem;
-}
-
-.preview-title {
-    font-weight: 600;
-    color: var(--text);
-    font-size: 1.1rem;
-}
-
-.preview-description {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-}
-
-.preview-meta {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-.life-event-footer {
-    display: flex;
-    gap: 0.75rem;
-    padding: 1.5rem;
-    border-top: 1px solid var(--border);
-    justify-content: flex-end;
-}
-
-@media (max-width: 640px) {
-    .event-type-options {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-
-    .life-event-footer {
-        flex-wrap: wrap;
-    }
-}
-</style>
 @endsection

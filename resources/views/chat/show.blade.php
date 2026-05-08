@@ -1,7 +1,8 @@
 @extends('layouts.app')
 
 @php
-$chatTitle = $conversation->is_group
+$isGroup = $conversation->is_group;
+$chatTitle = $isGroup
     ? ($conversation->display_name ?? 'Group Chat')
     : (($conversation->other_user->username ?? 'Chat'));
 @endphp
@@ -9,9 +10,15 @@ $chatTitle = $conversation->is_group
 @section('title', $chatTitle)
 
 @section('content')
+<script>
+    window.activeConversationId = {{ $conversation->id }};
+    window.activeConversationSlug = '{{ $conversation->slug }}';
+    window.isGroupChat = {{ $isGroup ? 'true' : 'false' }};
+</script>
+
 <style>
 /* Hide layout mobile nav on chat page */
-.mobile-nav { display: none !important; }
+.mobile-nav, .mobile-bottom-nav { display: none !important; }
 
 /* Override layout constraints for full width chat */
 .app-layout, .main-content {
@@ -21,206 +28,42 @@ $chatTitle = $conversation->is_group
     width: 100% !important;
 }
 .chat-page {
-    padding-top: 64px;
+    height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
+    overflow: hidden;
+    display: flex;
+    position: relative;
+    background: var(--wa-bg);
 }
 
-@media (min-width: 901px) {
-    .chat-page {
-        padding-top: 68px;
-    }
+.chat-date-divider.unread-divider {
+    margin: 32px 0 16px 0;
+}
+.chat-date-divider.unread-divider span {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--wa-panel);
 }
 </style>
 <div class="chat-page">
     <div class="chat-layout">
-        {{-- Sidebar --}}
-        <aside class="chat-sidebar" id="chatSidebar">
-            <header class="sidebar-header">
-                <div class="header-left">
-                    <div class="user-avatar-large">
-                        <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->username }}">
-                    </div>
-                    <span class="username-text">{{ auth()->user()->username }}</span>
-                </div>
-                <div class="header-actions">
-                    <a href="{{ route('groups.create') }}" class="icon-btn" title="{{ __('chat.new_group') }}">
-                        <i class="fas fa-users"></i>
-                    </a>
-                    <button class="icon-btn" onclick="showUserSearch()" title="{{ __('chat.new_message') }}">
-                        <i class="fas fa-message"></i>
-                    </button>
-                </div>
-            </header>
-
-            <div class="search-bar">
-                <div class="search-input-wrapper">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="{{ __('chat.search_or_start_chat') }}" id="sidebarSearch" oninput="filterSidebarConversations(this.value)">
-                </div>
-            </div>
-            <div class="conversations-list" id="sidebarConvList">
-                @php
-                    $conversations = \App\Models\Conversation::where('user1_id', auth()->id())
-                        ->orWhere('user2_id', auth()->id())
-                        ->with(['user1', 'user2', 'latestMessage.sender'])
-                        ->orderBy('last_message_at', 'desc')
-                        ->limit(50)
-                        ->get();
-                @endphp
-                @forelse($conversations as $conv)
-                @php
-                    $latestMessage = $conv->latestMessage;
-                    $isGroup = $conv->is_group;
-                    $displayName = $isGroup ? $conv->display_name : ($conv->other_user->username ?? 'User');
-                    $avatarUrl = $isGroup
-                        ? ($conv->group && $conv->group->avatar ? asset('storage/' . $conv->group->avatar) : null)
-                        : ($conv->other_user ? $conv->other_user->avatar_url : null);
-
-                    // Message preview logic
-                    $messagePreview = '';
-                    $messageIcon = '';
-                    if ($latestMessage) {
-                        $isOwn = $latestMessage->sender_id === auth()->id();
-                        $content = strip_tags($latestMessage->content);
-
-                        switch ($latestMessage->type) {
-                            case 'image':
-                                $messageIcon = '📷 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_photo') : __('chat.sent_photo');
-                                break;
-                            case 'video':
-                                $messageIcon = '🎥 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_video') : __('chat.sent_video');
-                                break;
-                            case 'audio':
-                                $messageIcon = '🎤 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_audio') : __('chat.sent_audio');
-                                break;
-                            case 'document':
-                                $messageIcon = '📎 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_document') : __('chat.sent_document');
-                                break;
-                            case 'gif':
-                                $messageIcon = 'GIF ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_gif') : __('chat.sent_gif');
-                                break;
-                            case 'sticker':
-                                $messageIcon = '⭐ ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_sticker') : __('chat.sent_sticker');
-                                break;
-                            case 'story_reply':
-                                $messageIcon = '📸 ';
-                                $content = trim(str_replace('📸 Reply to your story:', '', $content));
-                                $messagePreview = $isOwn ? __('chat.you_replied_to_story') : __('chat.replied_to_story');
-                                if (!empty($content)) {
-                                    $messagePreview .= ': ' . Str::limit($content, 25);
-                                }
-                                break;
-                            case 'voice':
-                                $messageIcon = '🎤 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_voice_message') : __('chat.sent_voice_message');
-                                break;
-                            default:
-                                $messagePreview = $content;
-                                break;
-                        }
-
-                        // Add "You: " prefix for own messages (except story replies)
-                        if ($isOwn && $latestMessage->type !== 'story_reply' && !in_array($latestMessage->type, ['image', 'video', 'audio', 'voice', 'document', 'gif', 'sticker', 'group_invite'])) {
-                            $messagePreview = __('chat.you').': ' . $messagePreview;
-                        }
-
-                        // For group chats, prefix non-self messages with sender username
-                        if ($isGroup && !$isOwn && $latestMessage->sender) {
-                            $messagePreview = $latestMessage->sender->username . ': ' . $messagePreview;
-                        }
-                    }
-
-                    if (empty($messagePreview)) {
-                        $messagePreview = __('chat.start_a_conversation');
-                    }
-                @endphp
-                <a href="{{ route('chat.show', $conv) }}" class="conversation-item {{ $conv->id === $conversation->id ? 'active' : '' }} {{ $conv->unread_count > 0 ? 'unread' : '' }}" data-name="{{ $displayName }}" data-user-id="{{ $isGroup ? '' : ($conv->other_user?->id ?? '') }}" data-conversation-slug="{{ $conv->slug }}">
-                    <div class="conv-avatar">
-                        @if($avatarUrl)
-                            <img src="{{ $avatarUrl }}" alt="{{ $displayName }}">
-                        @elseif($isGroup)
-                            <div class="avatar-fallback group"><i class="fas fa-users"></i></div>
-                        @else
-                            <div class="avatar-fallback">{{ substr($displayName, 0, 1) }}</div>
-                        @endif
-                    </div>
-                    <div class="conv-content">
-                        <div class="conv-header">
-                            <div class="conv-title-container">
-                                <span class="conv-title">
-                                    {{ $displayName }}
-                                    @if(!$isGroup && $conv->other_user)
-                                        <span class="online-status-text {{ $conv->other_user->is_online && $conv->other_user->last_active && $conv->other_user->last_active->diffInSeconds(now()) < 120 ? 'online' : 'offline' }}"
-                                              data-user-id="{{ $conv->other_user->id }}">
-                                            @if($conv->other_user->is_online && $conv->other_user->last_active && $conv->other_user->last_active->diffInSeconds(now()) < 120)
-                                                • {{ __('chat.online') }}
-                                            @endif
-                                        </span>
-                                    @endif
-                                </span>
-                                @if(!$isGroup && $conv->other_user)
-                                    <span class="typing-indicator-inline" style="display: none; color: #25d366; font-size: 11px; font-style: italic; margin-left: 6px;">{{ __('chat.typing') }}</span>
-                                @endif
-                            </div>
-                            <span class="conv-time">@if($conv->last_message_at){{ \Carbon\Carbon::parse($conv->last_message_at)->format('H:i') }}@endif</span>
-                        </div>
-                        <div class="conv-footer">
-                            <p class="conv-preview {{ $conv->unread_count > 0 ? 'unread-text' : '' }}">
-                                @if($latestMessage && $latestMessage->sender_id === auth()->id())
-                                    <i class="fas {{ $latestMessage->read_at ? 'fa-check-double read' : 'fa-check sent' }}"></i>
-                                @endif
-                                @if($latestMessage)
-                                    @if($latestMessage->type === 'image')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_an_image') }}</span>
-                                    @elseif($latestMessage->type === 'video')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_a_video') }}</span>
-                                    @elseif($latestMessage->type === 'audio')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_an_audio') }}</span>
-                                    @elseif($latestMessage->type === 'document')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_a_document') }}</span>
-                                    @elseif($latestMessage->type === 'gif')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_a_gif') }}</span>
-                                    @elseif($latestMessage->type === 'sticker')
-                                        <span class="preview-text">{{ $isOwn ? __('chat.you').': ' : '' }}{{ __('chat.sent_a_sticker') }}</span>
-                                    @elseif($latestMessage->type === 'story_reply')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @else
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @endif
-                                @else
-                                    <span class="preview-text">{{ __('chat.start_a_conversation') }}</span>
-                                @endif
-                            </p>
-                            @if($conv->unread_count > 0)
-                                <span class="unread-pill">{{ $conv->unread_count > 99 ? '99+' : $conv->unread_count }}</span>
-                            @endif
-                        </div>
-                    </div>
-                </a>
-                @empty
-                <div class="empty-state">
-                    <div class="empty-icon"><i class="fas fa-comments"></i></div>
-                    <h3>{{ __('chat.no_messages_yet') }}</h3>
-                    <p>{{ __('chat.start_new_conversation') }}</p>
-                </div>
-                @endforelse
-            </div>
-        </aside>
+        @include('chat.partials.sidebar')
 
         {{-- Main Chat Area --}}
         <main class="chat-main">
+            {{-- Scroll to Bottom Button --}}
+            <button id="scrollToBottomBtn" title="{{ __('chat.scroll_to_bottom') }}">
+                <i class="fas fa-chevron-down"></i>
+                <span class="new-msg-badge"></span>
+            </button>
+
             <header class="chat-header">
                 <button class="back-btn-mobile" onclick="window.location.href='{{ route('chat.index') }}'">
                     <i class="fas fa-arrow-left"></i>
                 </button>
                 <div class="chat-user-info">
                     @if($conversation->is_group)
-                        <a href="{{ route('groups.show', $conversation->group) }}" class="chat-avatar-link">
+                        <a href="{{ route('groups.show', $conversation->slug) }}" class="chat-avatar-link">
                             <div class="chat-avatar">
                                 @if($conversation->group && $conversation->group->avatar)
                                     <img src="{{ asset('storage/' . $conversation->group->avatar) }}" alt="{{ __('chat.group') }}">
@@ -229,7 +72,7 @@ $chatTitle = $conversation->is_group
                                 @endif
                             </div>
                         </a>
-                        <a href="{{ route('groups.show', $conversation->group) }}" class="chat-details-link">
+                        <a href="{{ route('groups.show', $conversation->slug) }}" class="chat-details-link">
                             <div class="chat-details">
                                 <h3>{{ $conversation->group->name ?? $conversation->display_name ?? __('chat.group') }}</h3>
                                 <span class="status">{{ __('chat.member_count', ['count' => $conversation->group->members->count() ?? 0]) }}</span>
@@ -245,16 +88,34 @@ $chatTitle = $conversation->is_group
                         </div>
                         <div class="chat-details">
                             <h3>{{ $conversation->other_user->username ?? __('chat.user') }}</h3>
-                            <span class="status" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}">
-                                <span class="status-dot"></span>
-                                <span class="status-text">{{ __('chat.offline') }}</span>
-                            </span>
+@php
+    $isUserOnline = $conversation->other_user && (bool)$conversation->other_user->is_online;
+@endphp
+<span class="status {{ $isUserOnline ? 'online' : 'offline' }}" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}">
+    <span class="status-dot"></span>
+    <span class="status-text">
+        @if($isUserOnline)
+            {{ __('chat.online') }}
+        @elseif($conversation->other_user && $conversation->other_user->last_active)
+            {{ __('messages.last_seen') }} 
+            @if($conversation->other_user->last_active->isToday())
+                {{ __('messages.today') }} {{ __('messages.at') }} {{ $conversation->other_user->last_active->format('h:i a') }}
+            @elseif($conversation->other_user->last_active->isYesterday())
+                {{ __('messages.yesterday') }} {{ __('messages.at') }} {{ $conversation->other_user->last_active->format('h:i a') }}
+            @else
+                {{ $conversation->other_user->last_active->format('d/m/Y h:i a') }}
+            @endif
+        @else
+            {{ __('chat.offline') }}
+        @endif
+    </span>
+</span>
                         </div>
                     @endif
                 </div>
                 <div class="chat-actions">
                     @if($conversation->is_group)
-                        <a href="{{ route('groups.show', $conversation->group) }}" class="action-btn" title="{{ __('chat.group') }}"><i class="fas fa-info-circle"></i></a>
+                        <a href="{{ route('groups.show', $conversation->slug) }}" class="action-btn" title="{{ __('chat.group') }}"><i class="fas fa-info-circle"></i></a>
                     @else
                         <button class="action-btn" onclick="clearChat()" title="{{ __('chat.clear_chat') }}"><i class="fas fa-trash"></i></button>
                     @endif
@@ -263,69 +124,127 @@ $chatTitle = $conversation->is_group
 
             <div class="chat-main-content">
                 <div class="chat-messages" id="chatMessages">
+                @php 
+                    $lastDate = null; 
+                    $unreadDividerShown = false;
+                @endphp
                 @forelse($messages as $message)
-                    @if($message->type === 'system')
+                    @php
+                        $groupedReactions = $message->getGroupedReactions();
+                        $totalReactionsCount = 0;
+                        foreach($groupedReactions as $r) {
+                            $totalReactionsCount += $r['count'];
+                        }
+                        $hasReactions = $totalReactionsCount > 0;
+                    @endphp
+
+                    @php
+                        $msgDate = $message->created_at->format('Y-m-d');
+                        $showDate = ($lastDate !== $msgDate);
+                        $lastDate = $msgDate;
+                    @endphp
+
+                    @if(!$unreadDividerShown && !$message->is_mine && !$message->isReadByUser(auth()->id()) && $message->type !== 'system' && $message->content !== 'system_cleared')
+                        <div class="chat-date-divider unread-divider">
+                            <span dir="auto">{{ __('chat.unread_messages') }}</span>
+                        </div>
+                        @php $unreadDividerShown = true; @endphp
+                    @endif
+                    @if($showDate)
+                        <div class="chat-date-divider" data-date="{{ $msgDate }}">
+                            <span dir="auto">
+                                @if($message->created_at->isToday())
+                                    {{ __('messages.today') }}
+                                @elseif($message->created_at->isYesterday())
+                                    {{ __('messages.yesterday') }}
+                                @else
+                                    {{ $message->created_at->format('d/m/Y') }}
+                                @endif
+                            </span>
+                        </div>
+                    @endif
+                    @if($message->type === 'system' || ($message->type === 'text' && $message->content === 'system_cleared'))
                         <div class="system-message">
-                            <span class="system-text">{{ $message->content }}</span>
-                            <span class="system-time">{{ $message->created_at->format('H:i') }}</span>
+                            <span class="system-text" dir="auto">
+                                @if($message->content === 'system_cleared')
+                                    {{ $message->is_mine ? __('chat.you_cleared_the_chat') : __('chat.cleared_the_chat', ['user' => $message->sender->username ?? 'User']) }}
+                                @else
+                                    {{ $message->content }}
+                                @endif
+                            </span>
+                            <span class="system-time">{{ $message->created_at->format('h:i a') }}</span>
                         </div>
                     @elseif($message->type === 'group_invite')
                         @php $inviteData = json_decode($message->media_path, true); @endphp
-                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} group-invite" data-message-id="{{ $message->id }}">
-                            @if(!$message->is_mine && $message->sender)
+                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} group-invite" data-message-id="{{ $message->id }}" data-sender-name="{{ $message->is_mine ? __('chat.you') : ($message->sender->username ?? 'User') }}">
+                            @if(!$message->is_mine && $message->sender && $isGroup)
                                 <div class="message-avatar">
                                     <img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}">
                                 </div>
                             @endif
-                            <div class="message-bubble">
-                                @if(!$message->is_mine && $message->sender)
-                                    <div class="sender-name">{{ $message->sender->username ?? $message->sender->name }}</div>
+                            <div class="message-bubble {{ $hasReactions ? 'has-reactions' : '' }}">
+
+                                @if(!$message->is_mine && $message->sender && $isGroup)
+                                    <div class="sender-name">{{ $message->sender->username ?? 'User' }}</div>
                                 @endif
                                 <div class="invite-card">
                                     <div class="invite-icon"><i class="fas fa-users"></i></div>
                                     <div class="invite-content">
                                         <div class="invite-title">{{ $inviteData['group_name'] ?? __('chat.group') }}</div>
-                                        <div class="invite-text">{{ $message->sender->username ?? $message->sender->name ?? __('chat.someone') }} {{ __('chat.invited_you_to_join') }}</div>
+                                        <div class="invite-text">{{ $message->sender->username ?? __('chat.someone') }} {{ __('chat.invited_you_to_join') }}</div>
                                     </div>
                                     @if(!$message->is_mine && ($inviteData['invite_link'] ?? null))
                                         <button class="accept-btn" onclick="acceptGroupInvite('{{ $inviteData['invite_link'] }}')"><i class="fas fa-check"></i> {{ __('chat.join') }}</button>
                                     @endif
                                 </div>
                                 <span class="message-time">
-                                    {{ $message->created_at->format('H:i') }}
+                                    {{ $message->created_at->format('h:i a') }}
                                     @if($message->is_mine)
                                         @if($message->read_at)
                                             <i class="fas fa-check-double read" title="{{ __('chat.seen') }}"></i>
+                                        @elseif($message->delivered_at)
+                                            <i class="fas fa-check-double sent" title="{{ __('chat.delivered') }}"></i>
                                         @else
                                             <i class="fas fa-check" title="{{ __('chat.sent') }}"></i>
                                         @endif
                                     @endif
                                 </span>
                             </div>
+                            <div class="msg-side-actions">
+                                <button class="side-action-btn react" onclick="openReactionPicker(event, '{{ $message->id }}')" title="{{ __('chat.react') }}">
+                                    <i class="far fa-smile"></i>
+                                </button>
+                                <button class="side-action-btn reply" onclick="initiateReply('{{ $message->id }}')" title="{{ __('chat.reply') }}">
+                                    <i class="fas fa-reply"></i>
+                                </button>
+                            </div>
                         </div>
                     @else
-                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} {{ $message->trashed() ? 'deleted' : '' }}" data-message-id="{{ $message->id }}">
-                            @if(!$message->is_mine && $message->sender)
+                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} {{ $message->trashed() ? 'deleted' : '' }}" data-message-id="{{ $message->id }}" data-sender-name="{{ $message->is_mine ? __('chat.you') : ($message->sender->username ?? 'User') }}">
+                            @php
+                                // Handle multiple media files (stored as JSON)
+                                $mediaItems = null;
+                                if ($message->media_path && str_starts_with($message->media_path, '[')) {
+                                    $mediaItems = json_decode($message->media_path, true);
+                                }
+                            @endphp
+                            @if(!$message->is_mine && $message->sender && $isGroup)
                                 <div class="message-avatar">
                                     <img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}">
                                 </div>
                             @endif
-                            <div class="message-bubble">
-                                @if(!$message->is_mine && $message->sender)
-                                    <div class="sender-name">{{ $message->sender->username ?? $message->sender->name }}</div>
-                                @endif
-                                <div class="message-content">
-                                    @if($message->trashed())
-                                        <em class="deleted-text">{{ __('chat.message_deleted') }}</em>
-                                    @else
-                                        @php
-                                            // Handle multiple media files (stored as JSON)
-                                            $mediaItems = null;
-                                            if ($message->media_path && str_starts_with($message->media_path, '[')) {
-                                                $mediaItems = json_decode($message->media_path, true);
-                                            }
-                                        @endphp
+                            <div class="message-bubble {{ $hasReactions ? 'has-reactions' : '' }}">
 
+                                @if(!$message->is_mine && $message->sender && $isGroup)
+                                    <div class="sender-name" dir="auto">{{ $message->sender->username ?? 'User' }}</div>
+                                @endif
+                                <div class="message-content {{ ($mediaItems || $message->type === 'image' || $message->type === 'video') ? 'has-media' : '' }} {{ ($message->content && $message->content !== '' && $message->type !== 'group_invite' && $message->content !== 'system_cleared') ? 'has-text' : '' }}">
+                                    @if($message->trashed())
+                                        <div class="deleted-msg-wrapper">
+                                            <i class="fas fa-ban"></i>
+                                            <em class="deleted-text">{{ __('chat.message_deleted') ?? 'This message was deleted' }}</em>
+                                        </div>
+                                    @else
                                         @if($mediaItems && is_array($mediaItems))
                                             {{-- Multiple media files - WhatsApp-style grid with max 4 items --}}
                                             <div class="message-media-album" data-message-id="{{ $message->id }}">
@@ -342,16 +261,16 @@ $chatTitle = $conversation->is_group
                                             {{-- Single image - full width --}}
                                             <div class="media-grid-single">
                                                 @php $media = $mediaItems[0]; @endphp
-                                                @if($media['type'] === 'image')
+                                                @if($media['type'] === 'image' && !empty($media['path']))
                                                     <div class="media-item">
                                                         <img src="{{ asset('storage/' . $media['path']) }}"
                                                              alt="Image"
                                                              onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)">
                                                     </div>
-                                                @elseif($media['type'] === 'video')
-                                                    <div class="media-item video">
-                                                        <video src="{{ asset('storage/' . $media['path']) }}" onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)"></video>
-                                                        <div class="media-overlay" onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)">
+                                                @elseif($media['type'] === 'video' && !empty($media['path']))
+                                                    <div class="media-item video" onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)">
+                                                        <video src="{{ asset('storage/' . $media['path']) }}"></video>
+                                                        <div class="media-overlay">
                                                             <i class="fas fa-play"></i>
                                                         </div>
                                                     </div>
@@ -406,31 +325,50 @@ $chatTitle = $conversation->is_group
                                             </div>
                                         @elseif($message->type === 'image' && $message->media_path)
                                             <div class="message-media">
-                                                <img src="{{ asset('storage/' . $message->media_path) }}" alt="Image" onclick="openMediaViewer(this.src)">
+                                                <img src="{{ asset('storage/' . $message->media_path) }}" alt="Image" onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)">
                                             </div>
                                         @elseif($message->type === 'video' && $message->media_path)
-                                            <div class="message-media">
-                                                <video src="{{ asset('storage/' . $message->media_path) }}" controls></video>
+                                            <div class="message-media" onclick="openMediaViewerFromAlbum(this, {{ $message->id }}, 0)">
+                                                <video src="{{ asset('storage/' . $message->media_path) }}"></video>
+                                                <div class="media-overlay">
+                                                    <i class="fas fa-play"></i>
+                                                </div>
                                             </div>
                                         @elseif($message->type === 'voice' && $message->media_path)
-                                            <div class="voice-message-simple" data-audio-url="{{ asset('storage/' . $message->media_path) }}">
-                                                <button class="voice-play-btn-simple" onclick="toggleVoiceMessage(this)">
-                                                    <i class="fas fa-play"></i>
-                                                </button>
-                                                <div class="voice-info">
-                                                    <span class="voice-label">Voice Message</span>
-                                                    <span class="voice-duration-simple">{{ $message->duration ?? 0 }}s</span>
+                                        <div class="voice-message" data-audio-url="{{ asset('storage/' . $message->media_path) }}" data-duration="{{ $message->duration ?? 0 }}">
+                                            <button class="voice-play-btn" onclick="toggleVoiceMessage(this)">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                            <div class="voice-info">
+                                                <div class="voice-progress-container" onclick="seekVoice(event, this)">
+                                                    <div class="voice-progress-bar"></div>
                                                 </div>
-                                                <button class="voice-speed-btn-simple" onclick="toggleVoiceSpeed(this)">1x</button>
+                                                <div class="voice-meta">
+                                                    <span class="voice-label">{{ __('chat.voice_message') }}</span>
+                                                    <span class="voice-duration">0:00 / {{ floor(($message->duration ?? 0) / 60) }}:{{ str_pad(($message->duration ?? 0) % 60, 2, '0', STR_PAD_LEFT) }}</span>
+                                                </div>
                                             </div>
+                                            <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)">1x</button>
+                                        </div>
                                         @endif
-                                        @if($message->content && $message->content !== '' && $message->type !== 'group_invite')
+                                        @if($message->content && $message->content !== '' && $message->type !== 'group_invite' && $message->content !== 'system_cleared')
                                             @php
-                                                // Check if this is a story reply message
-                                                $isStoryReply = str_starts_with($message->content, '📸 Reply to your story:');
+                                                $isReply = str_starts_with($message->content, '{"__nexus_reply__":true');
+                                                $replyData = $isReply ? json_decode($message->content, true) : null;
+                                                $displayContent = $isReply ? $replyData['content'] : $message->content;
+                                                
+                                                // Existing story reply detection
+                                                $isStoryReply = !$isReply && str_starts_with($message->content, '📸 Reply to your story:');
                                                 $storyReplyContent = $isStoryReply ? trim(str_replace('📸 Reply to your story:', '', $message->content)) : null;
                                             @endphp
-                                            @if($isStoryReply)
+                                            
+                                            @if($isReply)
+                                                <div class="replied-message-box" onclick="scrollToMessage(event, '{{ $replyData['reply_to']['id'] }}')">
+                                                    <span class="replied-user">{{ $replyData['reply_to']['username'] ?? $replyData['reply_to']['sender_name'] ?? $replyData['reply_to']['user'] ?? 'User' }}</span>
+                                                    <span class="replied-content">{{ $replyData['reply_to']['content'] ?? '' }}</span>
+                                                </div>
+                                                <span class="text">{{ $displayContent }}</span>
+                                            @elseif($isStoryReply)
                                                 <div class="story-reply-message">
                                                     <div class="story-reply-header">
                                                         <span class="story-reply-label">{{ __('chat.story_reply') }}</span>
@@ -438,29 +376,87 @@ $chatTitle = $conversation->is_group
                                                     <div class="story-reply-content">{{ $storyReplyContent }}</div>
                                                 </div>
                                             @else
-                                                <span class="text">{{ $message->content }}</span>
+                                                <span class="text" dir="auto">{{ $message->content }}</span>
                                             @endif
                                         @endif
                                     @endif
                                     <span class="message-time">
-                                        {{ $message->created_at->format('H:i') }}
+                                        {{ $message->created_at->format('h:i a') }}
                                         @if($message->is_mine)
                                             @if($message->read_at)
-                                                {{-- 2 blue checks - message read/seen --}}
                                                 <i class="fas fa-check-double read" title="{{ __('chat.seen') }}"></i>
+                                            @elseif($message->delivered_at)
+                                                <i class="fas fa-check-double sent" title="{{ __('chat.delivered') }}"></i>
                                             @else
-                                                {{-- 1 gray check - message sent but not delivered --}}
                                                 <i class="fas fa-check" title="{{ __('chat.sent') }}"></i>
                                             @endif
                                         @endif
                                     </span>
-                                </div>
-                                @if($message->is_mine && !$message->trashed())
-                                    <button class="delete-btn" onclick="deleteMessage({{ $message->id }})" title="{{ __('chat.delete_message') }}"><i class="fas fa-trash"></i></button>
-                                @endif
+                                        @if(!$message->trashed())
+                                             <div class="msg-item-actions">
+                                                 <button class="msg-action-trigger" onclick="toggleMsgMenu(event, '{{ $message->id }}')">
+                                                      <i class="fas fa-chevron-down"></i>
+                                                 </button>
+                                                 <div class="msg-dropdown" id="msgDropdown-{{ $message->id }}">
+                                                     <button class="menu-item" onclick="initiateReply('{{ $message->id }}')">
+                                                         <i class="fas fa-reply"></i> {{ __('chat.reply') }}
+                                                     </button>
+                                                     @if($message->is_mine)
+                                                         <button class="menu-item danger" onclick="deleteMessage({{ $message->id }})">
+                                                             <i class="fas fa-trash-alt"></i> {{ __('chat.delete_message') }}
+                                                         </button>
+                                                         <button class="menu-item info" onclick="showMessageInfo('{{ $message->id }}')">
+                                                             <i class="fas fa-info-circle"></i> {{ __('chat.message_info') }}
+                                                         </button>
+                                                     @endif
+                                                 </div>
+                                             </div>
+                                         @endif
+                                    </div>
+                                        @php
+                                            $myReaction = null;
+                                            $hasMine = false;
+                                            foreach($groupedReactions as $r) {
+                                                if (collect($r['users'])->contains('id', auth()->id())) {
+                                                    $hasMine = true;
+                                                    $myReaction = $r['reaction_type'];
+                                                }
+                                            }
+                                        @endphp
+
+                                        @if(!$message->trashed())
+                                            <div class="message-reactions-bar" 
+                                                 data-message-id="{{ $message->id }}" 
+                                                 data-my-reaction="{{ $myReaction }}"
+                                                 style="{{ !$hasReactions ? 'display:none;' : '' }}">
+                                                @if($hasReactions)
+    
+                                                    <div class="reaction-group-pill {{ $hasMine ? 'has-mine' : '' }}" 
+                                                         onclick="showMessageReactors('{{ $message->id }}')">
+                                                        <div class="reaction-emoji-stack">
+                                                            @foreach($groupedReactions as $r)
+                                                                <span class="stack-emoji">{{ $r['reaction_type'] }}</span>
+                                                            @endforeach
+                                                        </div>
+                                                        <span class="reaction-total-count">{{ $totalReactionsCount }}</span>
+    
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
                             </div>
+                            @if(!$message->trashed())
+                            <div class="msg-side-actions">
+                                <button class="side-action-btn react" onclick="openReactionPicker(event, '{{ $message->id }}')" title="{{ __('chat.react') }}">
+                                    <i class="far fa-smile"></i>
+                                </button>
+                                <button class="side-action-btn reply" onclick="initiateReply('{{ $message->id }}')" title="{{ __('chat.reply') }}">
+                                    <i class="fas fa-reply"></i>
+                                </button>
+                            </div>
+                            @endif
                         </div>
-                    @endif
+@endif
                 @empty
                     <div class="no-messages">
                         <i class="fas fa-comments"></i>
@@ -478,15 +474,23 @@ $chatTitle = $conversation->is_group
                         <span class="dot"></span>
                     </span>
                     <span class="typing-text">
-                        @if($isGroup)
-                            <span id="groupTypingText">{{ __('chat.users_typing') }}</span>
-                        @else
-                            <span id="singleTypingText">{{ __('chat.is_typing', ['user' => $conversation->other_user->username ?? __('chat.user')]) }}</span>
-                        @endif
+                        <span>{{ __('chat.typing') }}</span>
                     </span>
                 </div>
                 <form id="messageForm" onsubmit="sendMessage(event)">
-                    <div id="mediaPreview" class="media-preview" style="display: none;">
+                <div id="replyPreview" class="reply-preview-container" style="display: none;">
+                    <div class="reply-preview-content">
+                        <div class="reply-preview-border"></div>
+                        <div class="reply-preview-details" onclick="if(replyingTo) scrollToMessage(event, replyingTo.id)" style="cursor: pointer;">
+                            <div class="reply-preview-user" id="replyPreviewUser"></div>
+                            <div class="reply-preview-text" id="replyPreviewText"></div>
+                        </div>
+                        <button type="button" class="reply-preview-close" onclick="cancelReply()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="mediaPreview" class="media-preview" style="display: none;">
                         <div class="preview-carousel">
                             <button type="button" class="carousel-arrow left" onclick="movePreview(-1)" title="{{ __('chat.previous') }}">
                                 <i class="fas fa-chevron-left"></i>
@@ -512,7 +516,7 @@ $chatTitle = $conversation->is_group
                         <label for="mediaInput" class="attach-btn" title="{{ __('chat.attach') }}"><i class="fas fa-paperclip"></i></label>
                         <button type="button" id="voiceRecordBtn" class="voice-record-btn" title="{{ __('chat.record_voice') }}" onclick="toggleVoiceRecording()"><i class="fas fa-microphone"></i></button>
                         <input type="file" id="mediaInput" accept="image/*,video/*" multiple onchange="handleMediaSelect(event)" style="display: none;">
-                        <input type="text" id="messageInput" placeholder="{{ __('chat.type_a_message') }}" maxlength="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <input type="text" id="messageInput" dir="auto" placeholder="{{ __('chat.type_a_message') }}" maxlength="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                         <button type="submit" id="sendButton" class="send-btn" title="{{ __('chat.send') }}"><i class="fas fa-paper-plane"></i></button>
                     </div>
                     
@@ -533,35 +537,9 @@ $chatTitle = $conversation->is_group
         </main>
     </div>
 
-    {{-- Media Viewer Modal --}}
-    <div id="mediaViewer" class="media-viewer" onclick="closeMediaViewerOnOverlay(event)">
-        <button class="viewer-close" onclick="closeMediaViewer()" title="{{ __('chat.close') }}"><i class="fas fa-times"></i></button>
-        <button class="viewer-arrow left" onclick="navigateMedia(-1, event)" title="{{ __('chat.previous') }}"><i class="fas fa-chevron-left"></i></button>
-        <button class="viewer-arrow right" onclick="navigateMedia(1, event)" title="{{ __('chat.next') }}"><i class="fas fa-chevron-right"></i></button>
-        <div class="viewer-content">
-            <img id="viewerImage" src="" alt="Full size">
-            <video id="viewerVideo" src="" controls style="display: none; max-width: 90%; max-height: 90vh;"></video>
-        </div>
-        <div class="viewer-counter" id="viewerCounter">1 / 1</div>
-    </div>
 
     {{-- User Search Modal --}}
-    <div id="userSearchModal" class="modal-overlay" style="display: none;" onclick="if(event.target===this)hideUserSearch()">
-        <div class="modal-box">
-            <div class="modal-header">
-                <button class="back-btn" onclick="hideUserSearch()"><i class="fas fa-arrow-left"></i></button>
-                <h3>{{ __('chat.new_chat') }}</h3>
-                <div class="spacer"></div>
-            </div>
-            <div class="modal-body">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="userSearch" placeholder="{{ __('chat.search_contacts') }}" class="search-input">
-                </div>
-                <div id="userResults" class="results-list"></div>
-            </div>
-        </div>
-    </div>
+
 
     {{-- Delete Message Modal --}}
     <div id="deleteMessageModal" class="modal-overlay" style="display: none;" onclick="if(event.target===this)closeDeleteModal()">
@@ -588,13 +566,74 @@ $chatTitle = $conversation->is_group
                 </button>
             </div>
         </div>
+        {{-- Reactors modal moved to global layout --}}
+    </div>
+
+    {{-- Message Info Modal --}}
+    <div id="messageInfoModal" class="modal-overlay" style="display: none;" onclick="if(event.target===this)closeMessageInfoModal()">
+        <div class="modal-box message-info-modal">
+            <div class="modal-header">
+                <div class="spacer"></div>
+                <h3>{{ __('chat.message_info') }}</h3>
+                <button class="close-btn" onclick="closeMessageInfoModal()" title="{{ __('chat.close') }}"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="info-section">
+                    <div class="info-section-title"><i class="fas fa-check-double read"></i> {{ __('chat.read_by') }}</div>
+                    <div id="messageInfoReadList" class="info-user-list"></div>
+                </div>
+                <div class="info-section mt-3">
+                    <div class="info-section-title"><i class="fas fa-check-double sent"></i> {{ __('chat.delivered_to') }}</div>
+                    <div id="messageInfoDeliveredList" class="info-user-list"></div>
+                </div>
+                <div class="info-section mt-3">
+                    <div class="info-section-title"><i class="fas fa-check"></i> {{ __('chat.remaining') }}</div>
+                    <div id="messageInfoRemainingList" class="info-user-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Enhanced Media Viewer --}}
+<div id="mediaViewer" class="nexus-gallery" aria-hidden="true">
+    <div class="gallery-overlay"></div>
+    
+    <div class="gallery-header">
+        <div class="gallery-info"></div>
+        <div class="gallery-actions">
+            <button id="galleryClose" class="gallery-btn" title="{{ __('chat.close') }}">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="gallery-main">
+        <button id="galleryPrev" class="gallery-nav-btn left" title="{{ __('chat.previous') }}">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <div class="gallery-content">
+            <img id="galleryImage" src="" alt="{{ __('chat.gallery_image') }}" style="display: none;">
+            <video id="galleryVideo" src="" controls style="display: none;"></video>
+        </div>
+
+        <button id="galleryNext" class="gallery-nav-btn right" title="{{ __('chat.next') }}">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <div class="gallery-footer">
+        <span id="galleryCounter" class="gallery-counter">0 / 0</span>
     </div>
 </div>
 
 <style>
 /* Hide main layout mobile nav on chat pages */
 .chat-page ~ .mobile-nav,
-body:has(.chat-page) .mobile-nav {
+.chat-page ~ .mobile-bottom-nav,
+body:has(.chat-page) .mobile-nav,
+body:has(.chat-page) .mobile-bottom-nav {
     display: none !important;
 }
 
@@ -610,31 +649,102 @@ body:has(.chat-page) .mobile-nav {
     --wa-blue: var(--primary, #53bdeb);
     --wa-green: var(--success, #25d366);
     --wa-red: var(--danger, #f15c6d);
-    --wa-message-out: #005c4b;
-    --wa-message-in: #202c33;
+    --wa-message-out: #005c4b; /* Deep Forest Green */
+    --wa-message-in: #202c33;  /* Dark Slate */
+    --wa-message-out-text: #e9edef;
+    --wa-message-in-text: #e9edef;
+    --wa-icon-muted: #8696a0;
+}
+
+[data-theme="light"] {
+    --wa-message-out: #d9f2d9; /* Soft Mid-Light Green */
+    --wa-message-in: #ffffff;  /* Pure White */
+    --wa-message-out-text: #111b21;
+    --wa-message-in-text: #111b21;
+    --wa-icon-muted: #667781;
 }
 
 .chat-page {
     height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
     background: var(--wa-bg);
     overflow: hidden;
     position: relative;
+    display: flex; /* Flex-row by default for sidebar + main */
 }
 
-@media (min-width: 901px) {
+/* Consolidating mobile styles here to prevent conflicts */
+@media (max-width: 900px) {
     .chat-page {
-        height: calc(100vh - 68px);
-        padding-top: 1px;
+        position: fixed !important;
+        top: 68px !important; /* Standard header height */
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        height: calc(100% - 68px) !important;
+        width: 100% !important;
+        z-index: 10 !important;
+        flex-direction: column;
+    }
+
+    @media (max-width: 480px) {
+        .chat-page {
+            top: 48px !important;
+            height: calc(100% - 48px) !important;
+        }
+    }
+
+    .chat-layout {
+        height: 100%;
+        width: 100%;
+    }
+
+    .chat-main {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+    }
+
+    .chat-header {
+        position: relative !important;
+        top: 0 !important;
+        height: 60px;
+        flex-shrink: 0;
+        z-index: 10;
+        background: var(--wa-panel) !important;
+        border-bottom: 1px solid var(--wa-border);
+    }
+
+    .chat-main-content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px !important;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message {
+        max-width: calc(100% - 35px) !important;
+    }
+
+    .chat-input-area {
+        position: relative !important;
+        bottom: 0 !important;
+        padding: 10px;
+        flex-shrink: 0;
+        background: var(--wa-panel);
     }
 }
 
-/* Override layout constraints for full width */
-.chat-page ~ .app-layout,
-.chat-page ~ .main-content {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}
+/* Layout overrides handled at top of file */
 
 .chat-layout {
     display: flex;
@@ -825,27 +935,7 @@ body:has(.chat-page) .mobile-nav {
     border-radius: 50%;
 }
 
-.online-indicator {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--wa-text-muted);
-    border: 2px solid var(--wa-panel);
-    transition: background 0.3s;
-}
 
-.online-indicator.online {
-    background: var(--wa-green);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
 
 .avatar-fallback.group {
     background: linear-gradient(135deg, var(--wa-accent), var(--wa-blue));
@@ -880,32 +970,7 @@ body:has(.chat-page) .mobile-nav {
     white-space: nowrap;
 }
 
-.online-status-text {
-    font-size: 12px;
-    margin-left: 6px;
-    font-weight: 500;
-    position: relative;
-    display: inline-block;
-}
 
-.online-status-text.online {
-    color: #25d366;
-    animation: neon-pulse 2s ease-in-out infinite;
-}
-
-.online-status-text.offline {
-    color: #667781;
-    animation: none; /* ensure offline status never bounces */
-}
-
-@keyframes neon-pulse {
-    0%, 100% {
-        text-shadow: 0 0 2px rgba(37, 211, 102, 0.6);
-    }
-    50% {
-        text-shadow: 0 0 12px rgba(37, 211, 102, 1);
-    }
-}
 
 .conv-time {
     font-size: 12px;
@@ -1012,13 +1077,13 @@ body:has(.chat-page) .mobile-nav {
 /* Mobile - fixed header */
 @media (max-width: 900px) {
     .chat-header {
-        position: fixed;
-        top: 64px;
-        left: 0;
-        right: 0;
-        z-index: 100;
+        position: relative;
+        top: 0;
+        z-index: 10;
         height: 56px;
         padding: 10px 14px;
+        flex-shrink: 0;
+        background: var(--wa-panel);
     }
 }
 
@@ -1062,15 +1127,16 @@ body:has(.chat-page) .mobile-nav {
     flex-shrink: 0;
 }
 
-/* Mobile - fixed input */
+/* Mobile - stacked input */
 @media (max-width: 900px) {
     .chat-input-area {
-        position: fixed;
+        position: relative;
         bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 100;
+        z-index: 10;
         padding: 10px 14px;
+        background: var(--wa-panel);
+        border-top: 1px solid var(--wa-border);
+        flex-shrink: 0;
     }
 }
 
@@ -1099,15 +1165,30 @@ body:has(.chat-page) .mobile-nav {
     }
 }
 
-/* Mobile - add padding for fixed header/input */
+/* Mobile - stacked layout */
 @media (max-width: 900px) {
+    .chat-main {
+        height: 100% !important;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        width: 100%;
+        overflow: hidden;
+    }
+    
     .chat-main-content {
-        padding-top: 10px;
-        padding-bottom: 70px;
+        padding: 0 !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        height: auto;
     }
 
     .chat-messages {
-        padding-top: 70px;
+        padding: 15px 12px !important;
+        flex: 1;
+        overflow-y: auto;
     }
 }
 
@@ -1152,6 +1233,7 @@ body:has(.chat-page) .mobile-nav {
     font-size: 14px;
     font-weight: 600;
     color: var(--wa-text);
+    font-family: 'Inter', 'Cairo', sans-serif;
 }
 
 .back-btn {
@@ -1294,7 +1376,8 @@ body:has(.chat-page) .mobile-nav {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 200px;
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -1377,7 +1460,12 @@ body:has(.chat-page) .mobile-nav {
     font-size: 15px;
     font-weight: 500;
     color: var(--wa-text);
+    font-family: 'Inter', 'Cairo', sans-serif;
     transition: color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
 }
 
 .chat-details-link:hover h3 {
@@ -1404,30 +1492,13 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .status.online .status-dot {
-    animation: pulse 2s infinite;
+    box-shadow: none;
+    animation: none;
 }
 
 /* Online indicator for chat list */
-.online-indicator {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--wa-text-muted);
-    border: 2px solid var(--wa-panel);
-    transition: background 0.3s;
-}
-
-.online-indicator.online {
-    background: var(--wa-green);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+.status-text {
+    font-weight: 500;
 }
 
 .chat-actions {
@@ -1439,10 +1510,24 @@ body:has(.chat-page) .mobile-nav {
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 10px 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .action-btn {
@@ -1464,14 +1549,40 @@ body:has(.chat-page) .mobile-nav {
 .message {
     display: flex;
     gap: 8px;
-    max-width: 75%;
-    animation: msgIn 0.2s ease;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    z-index: 1;
+    overflow: visible !important;
+    transition: background 0.3s ease;
+    margin-bottom: 12px;
 }
 
-@keyframes msgIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.message:hover {
+    z-index: 10 !important;
 }
+
+@media (min-width: 901px) {
+    .message {
+        width: 100%;
+        max-width: 100%;
+        position: relative;
+        z-index: 1;
+        transition: z-index 0s, background 0.3s ease;
+    }
+    .message-bubble {
+        max-width: 85%;
+    }
+
+    .message:hover {
+        z-index: 10 !important;
+    }
+}
+
+/* @keyframes msgIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+} */
 
 .message.own {
     align-self: flex-end;
@@ -1482,6 +1593,10 @@ body:has(.chat-page) .mobile-nav {
 .message.other {
     align-self: flex-start;
     justify-self: flex-start;
+}
+
+.message.other + .message.other {
+    margin-top: 6px;
 }
 
 .message-avatar {
@@ -1502,6 +1617,8 @@ body:has(.chat-page) .mobile-nav {
     max-width: 100%;
     align-items: flex-end;
     word-break: break-word;
+    position: relative;
+    overflow: visible !important;
 }
 
 .message.own .message-bubble {
@@ -1518,66 +1635,134 @@ body:has(.chat-page) .mobile-nav {
     color: #53bdeb;
     margin-bottom: 3px;
     padding: 0 12px;
+    font-family: 'Inter', 'Cairo', sans-serif;
 }
 
 .message-content {
-    padding: 8px 12px;
+    padding: 8px 12px 10px 12px;
+    padding-inline-end: 34px;
     border-radius: 12px;
     font-size: 14px;
     line-height: 1.4;
     position: relative;
-    min-width: fit-content;
+    min-width: 60px;
     max-width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
     word-wrap: break-word;
     word-break: break-word;
     overflow-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+    transition: none;
+}
+
+.message-content[dir="rtl"] {
+    text-align: right;
+    align-items: flex-end;
 }
 
 .message.own .message-content {
     background: var(--wa-message-out);
-    color: #e9edef;
-    border-top-right-radius: 4px;
-    border: 1px solid rgba(0, 168, 132, 0.2);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: var(--wa-message-out-text);
+    border-top-right-radius: 0;
+}
+
+.message.own .message-content::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: -8px;
+    width: 12px;
+    height: 14px;
+    background: var(--wa-message-out);
+    clip-path: polygon(0 0, 0 100%, 100% 0);
 }
 
 .message.other .message-content {
     background: var(--wa-message-in);
-    color: #e9edef;
-    border-top-left-radius: 4px;
-    border: 1px solid rgba(83, 189, 235, 0.2);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: var(--wa-message-in-text);
+    border-top-left-radius: 0;
+}
+
+.message.other .message-content::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 12px;
+    height: 14px;
+    background: var(--wa-message-in);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
 
 .message-content .text {
     word-wrap: break-word;
     display: block;
     color: inherit;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans Arabic', 'Tahoma', 'Arial', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans Arabic', 'Cairo', 'Tahoma', 'Arial', sans-serif;
     unicode-bidi: embed;
     line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Arabic and RTL text support */
+/* Arabic and RTL text support - Enhanced for enhanced readability */
 .message-content .text:lang(ar),
 .message-content .text[dir="rtl"],
 .message-content .text[lang="ar"] {
     direction: rtl;
     text-align: right;
+    font-family: 'Cairo', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 15.5px; /* Slightly larger for better Arabic legibility */
+    line-height: 1.8; /* Increased line-height for Arabic script ascenders/descenders */
+    letter-spacing: 0;
+}
+
+.message-content .deleted-msg-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px;
+    color: #9ca3af;
+}
+
+.message-content .deleted-msg-wrapper i {
+    font-size: 14px;
+    color: #ef4444;
+    opacity: 0.8;
 }
 
 .message-content .deleted-text {
     font-style: italic;
-    color: #6b7280;
-    font-size: 13px;
+    font-size: 13.5px;
+    font-weight: 400;
+    opacity: 0.9;
 }
 
 .message.deleted .message-content {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.08) !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    opacity: 0.9;
+}
+
+[data-theme="dark"] .message.deleted .message-content {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border: 1px solid rgba(239, 68, 68, 0.15) !important;
+}
+
+.message.deleted .message-time {
+    position: relative !important;
+    bottom: auto !important;
+    right: auto !important;
+    margin-top: 8px !important;
+    align-self: flex-end;
+    background: transparent !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+    color: #9ca3af !important;
+    opacity: 0.7;
+    z-index: 1;
 }
 
 .message.deleted .text {
@@ -1729,7 +1914,7 @@ body:has(.chat-page) .mobile-nav {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 3px;
-    max-width: 320px;
+    max-width: min(100%, 320px);
     width: fit-content;
 }
 
@@ -1808,6 +1993,8 @@ body:has(.chat-page) .mobile-nav {
     border-radius: 8px;
     overflow: hidden;
     max-width: 100%;
+    position: relative;
+    cursor: pointer;
 }
 
 .message-media img, .message-media video {
@@ -1815,6 +2002,7 @@ body:has(.chat-page) .mobile-nav {
     width: auto;
     max-height: 250px;
     display: block;
+    cursor: pointer;
 }
 
 /* Voice Message Styles */
@@ -1836,26 +2024,28 @@ body:has(.chat-page) .mobile-nav {
     background: rgba(255, 255, 255, 0.1);
 }
 
-/* Simple Voice Message Design */
-.voice-message-simple {
+/* Clean Voice Message Design */
+.voice-message {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 10px 14px;
     background: rgba(255, 255, 255, 0.08);
-    border-radius: 24px;
-    min-width: 280px;
+    border-radius: 16px;
+    min-width: 260px;
     max-width: 100%;
     width: fit-content;
+    position: relative;
+    user-select: none;
 }
 
-.message.own .voice-message-simple {
-    background: rgba(0, 0, 0, 0.3);
+.message.own .voice-message {
+    background: rgba(0, 0, 0, 0.15);
 }
 
-.voice-play-btn-simple {
-    width: 40px;
-    height: 40px;
+.voice-play-btn {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: var(--wa-accent);
     border: none;
@@ -1866,52 +2056,103 @@ body:has(.chat-page) .mobile-nav {
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.2s;
-    font-size: 16px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 168, 132, 0.3);
 }
 
-.voice-play-btn-simple:hover {
-    transform: scale(1.08);
-    background: var(--wa-accent-hover, #1a73e8);
+.voice-play-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 168, 132, 0.4);
 }
 
 .voice-info {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     min-width: 0;
 }
 
+.voice-progress-container {
+    height: 16px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.voice-progress-bar {
+    height: 4px;
+    width: 0%;
+    background: var(--wa-accent);
+    border-radius: 2px;
+    position: relative;
+    transition: width 0.1s linear;
+}
+
+.voice-progress-bar::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 100%;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.voice-progress-container:hover .voice-progress-bar::after {
+    opacity: 1;
+}
+
+.voice-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .voice-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--wa-text);
-}
-
-.voice-duration-simple {
-    font-size: 12px;
-    color: var(--wa-text-muted);
-    font-weight: 500;
-}
-
-.voice-speed-btn-simple {
-    padding: 4px 10px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: var(--wa-text-muted);
     font-size: 11px;
     font-weight: 600;
+    color: var(--wa-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.voice-duration {
+    font-size: 11px;
+    color: var(--wa-text-muted);
+    font-family: monospace;
+}
+
+.voice-speed-btn {
+    padding: 4px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--wa-text);
+    font-size: 11px;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
-.voice-speed-btn-simple:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--wa-text);
+.voice-speed-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
 }
+
 
 .voice-message-controls {
     display: flex;
@@ -2203,22 +2444,29 @@ body:has(.chat-page) .mobile-nav {
     width: auto;
     max-height: 250px;
     display: block;
+    cursor: pointer;
 }
 
 .message-time {
-    font-size: 11px;
-    color: rgba(233, 237, 239, 0.7);
+    font-size: 10px;
+    color: var(--wa-text-muted);
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
-    margin-top: 4px;
-    flex-wrap: nowrap;
+    gap: 3px;
+    margin-top: -4px;
+    margin-bottom: -2px;
+    align-self: flex-end;
+    pointer-events: auto;
+    user-select: none;
 }
 
 .message-time i.read {
     color: #53bdeb;
-    /* WhatsApp blue for seen messages */
+}
+
+.message-time i.sent, .message-time i.delivered {
+    color: var(--wa-icon-muted);
 }
 
 .message.own .message-time {
@@ -2226,7 +2474,7 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .message.other .message-time {
-    justify-content: flex-start;
+    justify-content: flex-end;
 }
 
 .message.own .message-time i {
@@ -2234,22 +2482,536 @@ body:has(.chat-page) .mobile-nav {
     flex-shrink: 0;
 }
 
-.delete-btn {
-    background: transparent;
-    border: none;
-    color: var(--wa-text-muted);
-    cursor: pointer;
-    padding: 6px 10px;
-    font-size: 12px;
-    border-radius: 6px;
-    margin-top: 4px;
-    align-self: flex-end;
+/* Message Actions Dropdown - Clean Background-free Design */
+.msg-item-actions {
+    position: absolute;
+    top: 6px;
+    inset-inline-end: 6px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    padding: 0;
 }
 
-.delete-btn:hover { background: var(--wa-red); color: white; }
+.message:hover .msg-item-actions {
+    opacity: 1;
+}
 
-.message.deleted .message-content { opacity: 0.6; }
-.deleted-text { font-style: italic; }
+.msg-action-trigger {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.9);
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); /* Visibility on media */
+}
+
+[data-theme="light"] .msg-action-trigger {
+    color: #111b21 !important; /* Specific black color for light theme */
+    filter: none;
+}
+
+.msg-action-trigger:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .msg-action-trigger:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #000000;
+}
+
+.msg-dropdown {
+    position: absolute;
+    top: 28px;
+    background-color: #202c33 !important; /* Force solid dark */
+    border: 1px solid #2f3b43;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+    min-width: 170px;
+    display: none;
+    padding: 6px 0;
+    z-index: 99999; /* Higher than headers/inputs */
+    opacity: 1 !important; /* No transparency */
+}
+
+/* WhatsApp-Style Media Bubble Overrides */
+.message-content.has-media {
+    padding: 3px !important;
+    overflow: hidden;
+    max-width: 350px !important;
+    width: fit-content;
+}
+
+.message-content.has-media .message-media-album,
+.message-content.has-media .message-media {
+    margin: 0 !important;
+    border-radius: 8px 8px 4px 4px;
+}
+
+.message-content.has-media .text {
+    padding: 8px 12px 12px 12px !important;
+    margin: 0 !important;
+    display: block;
+    width: 100%;
+}
+
+.message-content.has-media .message-time {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: white !important;
+    backdrop-filter: blur(4px);
+    z-index: 15;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+}
+
+.message-content.has-media .message-time i {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 9px;
+}
+
+.message-content.has-media .message-time i.read {
+    color: #53bdeb !important;
+}
+
+.message-content.has-media .message-time i.sent {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.message-content.has-media.has-text .message-time {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 10px 8px 10px !important;
+    margin-top: -6px !important;
+    color: var(--wa-text-muted) !important;
+    backdrop-filter: none !important;
+    align-self: flex-end;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .message-content.has-media {
+        max-width: 100% !important;
+    }
+}
+
+.message.other .msg-dropdown {
+    inset-inline-start: 4px;
+    inset-inline-end: auto;
+}
+
+.message.own .msg-dropdown {
+    inset-inline-start: auto;
+    inset-inline-end: 4px;
+}
+
+[data-theme="light"] .msg-dropdown {
+    background-color: #ffffff !important; /* Force solid white */
+    border-color: #e9edef;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.msg-dropdown.show {
+    display: block !important;
+}
+
+.msg-dropdown.drop-up {
+    top: auto !important;
+    bottom: 32px !important;
+    animation: msgDropdownUp 0.2s ease-out !important;
+}
+
+@keyframes msgDropdownUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+    .msg-dropdown {
+        min-width: 140px;
+        max-width: 85vw;
+    }
+}
+
+.msg-dropdown button.menu-item {
+    width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--wa-text);
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s;
+}
+
+.msg-dropdown button.menu-item:hover {
+    background: var(--wa-panel-hover);
+}
+
+.msg-dropdown button.menu-item.danger {
+    color: #ff5c5c;
+}
+
+.msg-dropdown button.menu-item.info {
+    color: #53bdeb;
+}
+
+.msg-dropdown button.menu-item i {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+    .msg-item-actions {
+        opacity: 0.8;
+        background: none;
+        width: 24px;
+        height: 24px;
+    }
+    .msg-action-trigger {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.8);
+        filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+    }
+}
+
+/* Overridden by premium styles above */
+
+/* ═══════════════════════════════════════════════
+   MESSAGE REACTIONS
+   ═══════════════════════════════════════════════ */
+
+/* Reaction badges bar - Floating and positioned as requested */
+.message-reactions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    z-index: 10;
+    position: absolute;
+    bottom: -12px;
+    right: 12px;
+    pointer-events: auto;
+}
+
+/* My messages (right side) -> reactions on BOTTOM LEFT */
+.message.own .message-reactions-bar {
+    right: auto;
+    left: 12px;
+}
+
+/* Other users (left side) -> reactions on BOTTOM RIGHT */
+.message.other .message-reactions-bar {
+    right: 12px;
+}
+
+.reaction-group-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #1e262c;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-size: 13px;
+    user-select: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+
+.reaction-group-pill:hover {
+    background: #2a333d;
+    transform: scale(1.1);
+}
+
+.reaction-group-pill.has-mine {
+    background: #004a3a;
+    border-color: #00a884;
+}
+
+.reaction-emoji-stack {
+    display: flex;
+    align-items: center;
+}
+
+.reaction-emoji-stack .stack-emoji {
+    font-size: 14px;
+    line-height: 1;
+    margin-inline-start: -2px;
+}
+
+.reaction-emoji-stack .stack-emoji:first-child {
+    margin-inline-start: 0;
+}
+
+.reaction-total-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e9edef;
+    margin-inline-start: 2px;
+}
+
+.reaction-group-pill.has-mine .reaction-total-count {
+    color: #00a884;
+}
+
+[data-theme="light"] .reaction-group-pill {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+[data-theme="light"] .reaction-group-pill .reaction-total-count {
+    color: #54656f;
+}
+
+[data-theme="light"] .reaction-group-pill:hover {
+    background: #f0f2f5;
+}
+
+[data-theme="light"] .reaction-group-pill.has-mine {
+    background: #e7fce3;
+    border-color: #00a884;
+}
+
+/* Message Reactions positioning - ensure it stays floating without shrinking parent bubble */
+.message-bubble {
+    transition: none;
+    margin-bottom: 4px;
+}
+
+.message-bubble.has-reactions .message-content {
+    padding-bottom: 10px !important; /* Keep consistent with base padding */
+}
+
+/* Reactors modal CSS moved to global app-layout.css */
+
+/* Quick React Button - Next to bubble */
+.quick-react-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: #8696a0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0; /* Hidden by default, shown on message hover */
+    margin-top: auto;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.message:hover .quick-react-btn {
+    opacity: 1;
+}
+
+.quick-react-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e9edef;
+    transform: scale(1.1);
+}
+
+.message.own .quick-react-btn {
+    margin-inline-end: 4px;
+}
+
+.message.other .quick-react-btn {
+    margin-inline-start: 4px;
+}
+
+[data-theme="light"] .quick-react-btn:hover {
+    background: #f0f2f5;
+    color: #54656f;
+}
+
+@media (max-width: 768px) {
+    .quick-react-btn {
+        opacity: 0.5; /* Always visible but subtle on mobile */
+        width: 28px;
+        height: 28px;
+        transition: opacity 0.2s ease;
+    }
+    .message:active .quick-react-btn,
+    .message:hover .quick-react-btn {
+        opacity: 1;
+    }
+}
+
+/* Floating Reaction Picker */
+.reaction-picker-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: transparent;
+}
+
+.msg-reaction-picker {
+    position: fixed;
+    z-index: 9999;
+    background: rgba(22, 22, 22, 0.85);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 10px;
+    display: flex;
+    gap: 6px;
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.4), 
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: reactionPickerIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+
+@keyframes reactionPickerIn {
+    from { 
+        opacity: 0; 
+        transform: scale(0.9) translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+}
+
+
+.emoji-list {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    gap: 4px;
+    padding: 2px;
+}
+
+.emoji-list span {
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.emoji-list span:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.25);
+}
+
+.emoji-list span.active-pick {
+    background: #5e60ce !important;
+    color: white;
+    transform: scale(1.15);
+    box-shadow: 0 4px 15px rgba(94, 96, 206, 0.5);
+}
+
+
+[data-theme="light"] .msg-reaction-picker {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .msg-reaction-picker .emoji-list span:hover {
+    background: #f0f2f5;
+}
+
+@media (max-width: 768px) {
+    .msg-reaction-picker {
+        padding: 5px 8px;
+        gap: 0px;
+        border-radius: 30px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        white-space: nowrap;
+        width: max-content;
+        max-width: calc(100vw - 20px);
+        overflow: visible;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    .msg-reaction-picker button {
+        font-size: 22px;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+    }
+
+    .msg-reaction-picker button:hover {
+        transform: scale(1.1);
+        background: transparent;
+    }
+
+    .message-reactions-bar {
+        margin-top: -10px;
+        padding: 0 4px;
+        z-index: 10;
+    }
+
+    .reaction-badge {
+        padding: 1px 6px;
+        font-size: 11px;
+    }
+
+    .reaction-badge .reaction-emoji {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .msg-reaction-picker {
+        padding: 4px 6px;
+        border-radius: 25px;
+    }
+    .msg-reaction-picker button {
+        font-size: 20px;
+        width: 34px;
+        height: 34px;
+    }
+    .message-reactions-bar {
+        margin-top: -8px;
+    }
+}
+
+@media (max-width: 320px) {
+    .msg-reaction-picker button {
+        font-size: 18px;
+        width: 30px;
+        height: 30px;
+    }
+}
 
 /* Group Invite */
 .invite-card {
@@ -2306,14 +3068,27 @@ body:has(.chat-page) .mobile-nav {
 /* System Message */
 .system-message {
     align-self: center;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 6px 14px;
+    background: var(--wa-panel);
+    padding: 8px 20px;
     border-radius: 12px;
     text-align: center;
-    margin: 10px 0;
+    margin: 16px auto;
+    border: 1px solid var(--wa-border);
+    width: fit-content;
+    max-width: 85%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.system-text { font-size: 12px; color: var(--wa-text-muted); }
+
+.system-text { 
+    font-size: 12px; 
+    color: var(--wa-text-muted); 
+    font-family: 'Inter', 'Cairo', sans-serif;
+}
+.system-text[dir="rtl"] {
+    font-size: 13.5px;
+    line-height: 1.6;
+}
 .system-time { font-size: 10px; color: var(--wa-text-muted); opacity: 0.7; display: block; margin-top: 3px; }
 
 /* No Messages */
@@ -2321,7 +3096,7 @@ body:has(.chat-page) .mobile-nav {
     align-self: center;
     text-align: center;
     color: var(--wa-text-muted);
-    margin-top: 60px;
+    margin: auto 0;
 }
 
 .no-messages i { font-size: 56px; margin-bottom: 16px; opacity: 0.2; }
@@ -2330,6 +3105,34 @@ body:has(.chat-page) .mobile-nav {
 /* Input Area - styles only (position is fixed in earlier CSS) */
 #messageForm { display: flex; flex-direction: column; gap: 8px; }
 
+/* Date Dividers */
+.chat-date-divider {
+    display: flex;
+    justify-content: center;
+    margin: 24px 0;
+    position: relative;
+    z-index: 5;
+}
+
+.chat-date-divider span {
+    background: var(--wa-panel);
+    color: var(--wa-text-muted);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--wa-border);
+    font-family: 'Inter', 'Cairo', sans-serif;
+}
+
+.chat-date-divider span[dir="rtl"] {
+    font-size: 13.5px;
+    line-height: 1.6;
+    padding-bottom: 8px;
+}
+
 /* Typing Indicator */
 .typing-indicator {
     display: flex;
@@ -2337,9 +3140,32 @@ body:has(.chat-page) .mobile-nav {
     gap: 8px;
     padding: 8px 16px;
     margin-bottom: 4px;
-    color: var(--wa-text-muted);
+    color: #25d366;
     font-size: 13px;
+    font-weight: 500;
     transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.typing-indicator-sidebar {
+    display: none;
+    color: #25d366 !important;
+    font-size: 13px;
+    font-style: italic;
+    font-weight: 600;
+    animation: typing-fade 1.5s infinite;
+}
+
+.conversation-item.is-typing .preview-content-wrapper {
+    display: none !important;
+}
+
+.conversation-item.is-typing .typing-indicator-sidebar {
+    display: block !important;
+}
+
+@keyframes typing-fade {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
 }
 
 .typing-indicator.hiding {
@@ -2362,7 +3188,7 @@ body:has(.chat-page) .mobile-nav {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--wa-text-muted);
+    background: #25d366;
     animation: typingBounce 1.4s infinite ease-in-out both;
 }
 
@@ -2429,7 +3255,7 @@ body:has(.chat-page) .mobile-nav {
     flex: 1;
     overflow: hidden;
     position: relative;
-    height: 200px;
+    height: clamp(150px, 25vh, 200px);
 }
 
 .preview-slide {
@@ -2616,100 +3442,244 @@ body:has(.chat-page) .mobile-nav {
     -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Media Viewer */
-.media-viewer {
+/* Enhanced Nexus Gallery */
+.nexus-gallery {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 99999;
+    z-index: 2000000;
     display: none;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    user-select: none;
 }
 
-.media-viewer.active { display: flex; }
+.nexus-gallery[aria-hidden="false"] {
+    display: flex;
+}
 
-.viewer-content {
+.gallery-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+}
+
+.gallery-header {
+    height: 70px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+}
+
+.gallery-counter {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 1px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.gallery-footer {
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
-    max-width: 90%;
-    max-height: 90vh;
+    z-index: 100;
+    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
 }
 
-#viewerImage,
-#viewerVideo {
-    max-width: 90%;
-    max-height: 90vh;
-    object-fit: contain;
-    border-radius: 8px;
-}
-
-.viewer-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
+.gallery-btn {
     background: rgba(255, 255, 255, 0.1);
     border: none;
     color: white;
-    font-size: 24px;
     width: 44px;
     height: 44px;
-    border-radius: 50%;
+    border-radius: 12px;
     cursor: pointer;
-    z-index: 10;
-    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.viewer-close:hover {
+.gallery-btn:hover {
     background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
+    transform: scale(1.05);
 }
 
-.viewer-arrow {
+.gallery-main {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.gallery-content {
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+#galleryImage, #galleryVideo {
+    max-width: 95vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    transition: transform 0.3s ease;
+}
+
+.gallery-nav-btn {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
+    width: 64px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
-    font-size: 24px;
-    width: 50px;
-    height: 50px;
     border-radius: 50%;
     cursor: pointer;
-    z-index: 10;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 24px;
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(5px);
 }
 
-.viewer-arrow.left { left: 30px; }
-.viewer-arrow.right { right: 30px; }
-
-.viewer-arrow:hover {
-    background: rgba(255, 255, 255, 0.2);
+.gallery-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
     transform: translateY(-50%) scale(1.1);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
-.viewer-arrow:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+.gallery-nav-btn.left { left: 40px; }
+.gallery-nav-btn.right { right: 40px; }
+
+@media (max-width: 768px) {
+    .nexus-gallery {
+        z-index: 2147483647 !important;
+    }
+    
+    #galleryClose {
+        position: fixed !important;
+        top: calc(env(safe-area-inset-top, 0px) + 20px) !important;
+        right: 20px !important;
+        width: 50px !important;
+        height: 50px !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        border: 2px solid #fff !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 2147483647 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+    }
+
+    #galleryClose i {
+        font-size: 24px !important;
+        color: #fff !important;
+    }
+
+    .gallery-header { 
+        height: auto; 
+        padding: calc(env(safe-area-inset-top, 10px) + 15px) 20px 15px 20px;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent) !important;
+        pointer-events: none;
+    }
+    .gallery-header > * { pointer-events: auto; }
 }
 
-.viewer-counter {
+#scrollToBottomBtn {
     position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
+    bottom: 85px;
+    right: 20px;
+    width: 42px;
+    height: 42px;
+    background: var(--wa-panel);
+    color: var(--wa-text-muted);
+    border: 1px solid var(--wa-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 9000;
+    transition: all 0.2s ease;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
+#scrollToBottomBtn i {
+    font-size: 16px;
+}
+
+#scrollToBottomBtn.visible,
+#scrollToBottomBtn.has-new-msg {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+#scrollToBottomBtn:hover {
+    background: var(--wa-panel-hover);
+    color: var(--wa-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+#scrollToBottomBtn:active {
+    transform: translateY(0) scale(0.95);
+}
+
+#scrollToBottomBtn .new-msg-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--wa-accent);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--wa-panel);
+    display: none;
+}
+
+#scrollToBottomBtn.has-new-msg .new-msg-badge {
+    display: block;
+}
+
+@media (max-width: 900px) {
+    #scrollToBottomBtn {
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+        z-index: 1000;
+    }
+}
+
+
 
 /* Modal */
 .modal-overlay {
@@ -2724,11 +3694,115 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .modal-box {
-    background: var(--wa-panel);
+    background: #233138; /* Solid Dark Theme */
     width: 100%;
     max-width: 420px;
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .modal-box {
+    background: #ffffff; /* Solid Light Theme */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.message-info-modal {
+    max-width: 400px;
+}
+.info-section {
+    margin-bottom: 20px;
+}
+.message-info-modal {
+    max-width: 420px;
+    background: var(--wa-bg) !important;
+    border-radius: 12px;
+}
+.info-section {
+    margin-bottom: 24px;
+}
+.info-section:last-child {
+    margin-bottom: 0;
+}
+.info-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--wa-accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.info-section-title i.read {
+    color: var(--wa-blue);
+}
+.info-section-title i.sent {
+    color: var(--wa-icon-muted);
+}
+.info-user-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.info-user-list::-webkit-scrollbar {
+    width: 4px;
+}
+.info-user-list::-webkit-scrollbar-thumb {
+    background: var(--wa-border);
+    border-radius: 10px;
+}
+.info-user-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--wa-border);
+    transition: background 0.15s;
+}
+.info-user-item:last-child {
+    border-bottom: none;
+}
+.info-user-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.info-user-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.info-user-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.info-user-name {
+    font-size: 15px;
+    color: var(--wa-text);
+    font-weight: 500;
+}
+.info-user-time {
+    font-size: 12px;
+    color: var(--wa-text-muted);
+}
+.info-empty {
+    font-size: 13px;
+    color: var(--wa-text-muted);
+    padding: 15px 10px;
+    text-align: center;
+}
+.info-loading {
+    display: flex;
+    justify-content: center;
+    padding: 30px 0;
+    color: var(--wa-accent);
+    font-size: 24px;
 }
 
 .modal-header {
@@ -2745,6 +3819,28 @@ body:has(.chat-page) .mobile-nav {
     color: var(--wa-text);
     flex: 1;
     text-align: center;
+}
+
+.modal-header .close-btn {
+    background: none;
+    border: none;
+    color: var(--wa-text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    width: 36px;
+    height: 36px;
+    margin-right: -8px; /* Offset padding for alignment */
+}
+
+.modal-header .close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--wa-text);
 }
 
 .spacer { width: 36px; }
@@ -2782,22 +3878,6 @@ body:has(.chat-page) .mobile-nav {
     text-align: left;
 }
 
-.delete-modal .close-btn {
-    background: none;
-    border: none;
-    color: var(--wa-text-muted);
-    font-size: 20px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: 0.2s;
-}
-
-.delete-modal .close-btn:hover {
-    background: var(--wa-border);
-    color: var(--wa-text);
-}
-
 .delete-description {
     color: var(--wa-text-muted);
     font-size: 14px;
@@ -2811,12 +3891,17 @@ body:has(.chat-page) .mobile-nav {
     width: 100%;
     padding: 16px;
     margin-bottom: 12px;
-    background: var(--wa-bg);
+    background: #1c272d; /* Solid Dark Option */
     border: 1px solid var(--wa-border);
     border-radius: 10px;
     cursor: pointer;
     transition: 0.2s;
     text-align: left;
+}
+
+[data-theme="light"] .delete-option {
+    background: #f8f9fa; /* Solid Light Option */
+    border-color: #e9edef;
 }
 
 .delete-option:hover {
@@ -2868,6 +3953,38 @@ body:has(.chat-page) .mobile-nav {
     line-height: 1.4;
 }
 
+@media (max-width: 600px) {
+    .delete-modal {
+        width: 92% !important;
+        max-width: 340px !important;
+    }
+    .delete-option {
+        padding: 12px !important;
+        gap: 12px !important;
+        margin-bottom: 8px !important;
+    }
+    .delete-option-icon {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 15px !important;
+    }
+    .delete-option-title {
+        font-size: 14px !important;
+        margin-bottom: 2px !important;
+    }
+    .delete-option-desc {
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+    }
+    .delete-description {
+        font-size: 13px !important;
+        margin-bottom: 12px !important;
+    }
+    .modal-header h3 {
+        font-size: 16px !important;
+    }
+}
+
 .results-list { max-height: 320px; overflow-y: auto; }
 
 .result-item {
@@ -2917,6 +4034,13 @@ body:has(.chat-page) .mobile-nav {
     /* Show back button on mobile */
     .back-btn-mobile {
         display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        color: var(--wa-text);
+        font-size: 18px;
+        width: 32px;
+        height: 32px;
     }
 
     .chat-sidebar {
@@ -2973,6 +4097,11 @@ body:has(.chat-page) .mobile-nav {
     /* Voice recording overlay on mobile */
     .voice-recording-overlay {
         position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
     }
     
     .recording-timer {
@@ -3027,15 +4156,15 @@ body:has(.chat-page) .mobile-nav {
         flex-shrink: 0;
     }
 
-    /* Simple voice messages on mobile */
-    .voice-message-simple {
+    /* Clean voice messages on mobile */
+    .voice-message {
         padding: 8px 10px;
         min-width: 180px;
         gap: 8px;
         border-radius: 18px;
     }
 
-    .voice-play-btn-simple {
+    .voice-play-btn {
         width: 30px;
         height: 30px;
         font-size: 12px;
@@ -3045,7 +4174,7 @@ body:has(.chat-page) .mobile-nav {
         font-size: 11px;
     }
 
-    .voice-duration-simple {
+    .voice-duration {
         font-size: 10px;
     }
     
@@ -3093,15 +4222,15 @@ body:has(.chat-page) .mobile-nav {
         display: none; /* Hide speed control on very small screens */
     }
 
-    /* Simple voice messages on very small screens */
-    .voice-message-simple {
+    /* Clean voice messages on very small screens */
+    .voice-message {
         padding: 6px 8px;
         min-width: 160px;
         gap: 6px;
         border-radius: 16px;
     }
 
-    .voice-play-btn-simple {
+    .voice-play-btn {
         width: 26px;
         height: 26px;
         font-size: 11px;
@@ -3111,7 +4240,7 @@ body:has(.chat-page) .mobile-nav {
         font-size: 10px;
     }
 
-    .voice-duration-simple {
+    .voice-duration {
         font-size: 9px;
     }
 
@@ -3127,39 +4256,23 @@ body:has(.chat-page) .mobile-nav {
     }
 }
 
-/* Small screens styles */
+/* Unified small screen tweaks */
 @media (max-width: 600px) {
-    .chat-page {
-        height: calc(100vh - 56px);
+    .message-content {
+        max-width: 90%;
+        font-size: 14px;
     }
-
-    .chat-header {
-        top: 64px;
-        height: 56px;
-        padding: 10px 14px;
-    }
-
-    .chat-sidebar {
-        top: 120px;
-    }
-
-    .chat-main-content {
-        padding-top: 10px;
-        padding-bottom: 70px;
-    }
-
-    .chat-messages {
-        padding: 14px 10px;
-    }
-
-    .chat-input-area {
-        padding: 10px 12px;
-    }
-    
-    /* Fix input row on small screens */
     .input-row {
-        gap: 6px;
+        gap: 4px;
     }
+    .text {
+        font-size: 13.5px;
+    }
+    .text[dir="rtl"] {
+        font-size: 15px; /* Larger Arabic on mobile */
+        line-height: 1.7;
+    }
+}
     
     /* Smaller buttons on small screens */
     .send-btn {
@@ -3172,6 +4285,8 @@ body:has(.chat-page) .mobile-nav {
         width: 38px;
         min-width: 38px;
         padding: 6px;
+        position: relative;
+        z-index: 5;
     }
     
     /* Voice messages on small screens */
@@ -3205,15 +4320,15 @@ body:has(.chat-page) .mobile-nav {
         display: none; /* Hide speed control on very small screens */
     }
 
-    /* Simple voice messages on small screens */
-    .voice-message-simple {
+    /* Clean voice messages on small screens */
+    .voice-message {
         padding: 8px 10px;
         min-width: 170px;
         gap: 8px;
         border-radius: 18px;
     }
 
-    .voice-play-btn-simple {
+    .voice-play-btn {
         width: 28px;
         height: 28px;
         font-size: 11px;
@@ -3223,19 +4338,24 @@ body:has(.chat-page) .mobile-nav {
         font-size: 11px;
     }
 
-    .voice-duration-simple {
+    .voice-duration {
         font-size: 10px;
     }
 
     /* Mobile message sizing */
     .message {
+        width: 100%;
+        max-width: 100%;
+    }
+    .message-bubble {
         max-width: 88%;
     }
     
     /* Ensure messages with short text don't stretch */
     .message-content {
         max-width: 100%;
-        padding: 8px 10px;
+        padding: 8px 10px 18px 10px; /* Increased bottom padding for reactions */
+        padding-inline-end: 28px; /* Maintain space for chevron on mobile */
     }
     
     /* Sender name smaller on mobile */
@@ -3290,6 +4410,17 @@ body:has(.chat-page) .mobile-nav {
         font-size: 9px;
     }
     
+    /* Reaction bar mobile adjustments */
+    .message-reactions-bar {
+        bottom: -12px !important;
+        right: 4px !important;
+    }
+
+    .message.own .message-reactions-bar {
+        right: auto !important;
+        left: 4px !important;
+    }
+
     /* Delete button on mobile */
     .delete-btn {
         padding: 4px 8px;
@@ -3324,7 +4455,241 @@ body:has(.chat-page) .mobile-nav {
         max-height: 220px;
     }
 }
+
+/* Reply Preview & Bubbles */
+.reply-preview-container {
+    padding: 10px 14px;
+    background: var(--wa-panel);
+    border-bottom: 1px solid var(--wa-border);
+    animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.reply-preview-content {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    padding: 10px 14px;
+    position: relative;
+    gap: 14px;
+    transition: all 0.2s ease;
+}
+
+[data-theme="light"] .reply-preview-content {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.reply-preview-content:hover {
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.reply-preview-border {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: var(--wa-accent);
+    border-radius: 5px 0 0 5px;
+    box-shadow: 2px 0 8px rgba(0, 168, 132, 0.3);
+}
+
+.reply-preview-details {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.reply-preview-user {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--wa-accent);
+    letter-spacing: 0.2px;
+}
+
+.reply-preview-text {
+    font-size: 13px;
+    color: var(--wa-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+
+.reply-preview-close {
+    background: var(--wa-panel);
+    border: 1px solid var(--wa-border);
+    color: var(--wa-text-muted);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.reply-preview-close:hover {
+    color: var(--wa-red);
+    transform: rotate(90deg);
+    background: rgba(241, 92, 109, 0.1);
+}
+
+/* Replied Message Box (Synchronized with Global Chat) */
+.replied-message-box {
+    background: rgba(0, 0, 0, 0.05);
+    border-inline-start: 3px solid var(--wa-accent);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+[data-theme="dark"] .replied-message-box {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.message.own .replied-message-box {
+    background: rgba(0, 0, 0, 0.12);
+    border-inline-start-color: rgba(255, 255, 255, 0.6);
+}
+
+.replied-user {
+    color: var(--wa-accent);
+    font-weight: 700;
+    font-size: 11px;
+    display: block;
+    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+}
+
+.message.own .replied-user {
+    color: #ffffff;
+}
+
+.replied-content {
+    font-size: 12px;
+    color: var(--wa-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    opacity: 0.9;
+}
+
+/* Full-Width Row Highlight (Synchronized with Global Chat) */
+.message.highlight-msg {
+    animation: fullRowHighlight 2s ease !important;
+}
+
+@keyframes fullRowHighlight {
+    0% { background: #dcf8c6; }
+    30% { background: #dcf8c6; }
+    100% { background: transparent; }
+}
+
+[data-theme="dark"] .message.highlight-msg {
+    animation: fullRowHighlightDark 2s ease !important;
+}
+
+@keyframes fullRowHighlightDark {
+    0% { background: rgba(94, 96, 206, 0.25); }
+    30% { background: rgba(94, 96, 206, 0.25); }
+    100% { background: transparent; }
+}
+
+/* Floating Side Actions */
+.msg-side-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0px; /* Extremely tight grouping */
+    opacity: 0;
+    transition: all 0.2s ease;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    flex-shrink: 0;
+    z-index: 5;
+}
+
+.message:hover .msg-side-actions {
+    opacity: 1;
+}
+
+.message.own .msg-side-actions {
+    margin-inline-end: 6px;
+}
+
+.message:not(.own) .msg-side-actions {
+    margin-inline-start: 6px;
+}
+
+.side-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--wa-icon-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-size: 15px;
+}
+
+.side-action-btn:hover {
+    background: rgba(0, 168, 132, 0.1);
+    color: var(--wa-accent);
+    transform: scale(1.2);
+}
+
+[data-theme="light"] .side-action-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 900px) {
+    .msg-side-actions {
+        opacity: 0.8 !important;
+        margin-inline-start: 2px;
+    }
+    .message.own .msg-side-actions {
+        margin-inline-end: 2px;
+    }
+    .side-action-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 13px;
+    }
+}
+
+
+
+
 </style>
+
+
 
 <script>
 // Sidebar toggle for mobile
@@ -3373,7 +4738,7 @@ document.getElementById('userSearch')?.addEventListener('input', function() {
                     <img src="${escapeHtml(u.avatar_url)}">
                     <div class="result-info">
                         <div class="result-name">${escapeHtml(u.username)}</div>
-                        ${u.name && u.name !== u.username ? `<div class="result-fullname">${escapeHtml(u.name)}</div>` : ''}
+                        ${u.username ? `<div class="result-fullname">@${escapeHtml(u.username)}</div>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -3395,6 +4760,79 @@ let isSendingMessage = false;
 let lastSentMessageId = 0;
 
 // Process message queue sequentially
+let replyingTo = null;
+
+function initiateReply(messageId) {
+    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (!messageEl) return;
+
+    const senderName = messageEl.getAttribute('data-sender-name') || 
+                       (messageEl.classList.contains('own') ? window.chatTranslations.you : 'User');
+    
+    let content = '';
+    const textEl = messageEl.querySelector('.text');
+    if (textEl) {
+        content = textEl.textContent;
+    } else if (messageEl.querySelector('.message-media')) {
+        content = '[Media]';
+    } else if (messageEl.querySelector('.voice-player')) {
+        content = '[Voice Message]';
+    }
+
+    replyingTo = {
+        id: messageId,
+        user: senderName,
+        content: content
+    };
+
+    const preview = document.getElementById('replyPreview');
+    const previewUser = document.getElementById('replyPreviewUser');
+    const previewText = document.getElementById('replyPreviewText');
+
+    previewUser.textContent = senderName;
+    previewText.textContent = content;
+    preview.style.display = 'block';
+
+    const input = document.getElementById('messageInput');
+    input.focus();
+    
+    // Scroll preview into view if needed
+    preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelReply() {
+    replyingTo = null;
+    document.getElementById('replyPreview').style.display = 'none';
+}
+
+function scrollToMessage(event, messageId) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    if (!messageId) return;
+    
+    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (messageEl) {
+        // Small timeout to ensure click handling is complete and prevent "rescroll"
+        setTimeout(() => {
+            messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Remove and re-add for consecutive clicks
+            messageEl.classList.remove('highlight-msg');
+            void messageEl.offsetWidth; // Force reflow
+            messageEl.classList.add('highlight-msg');
+            
+            setTimeout(() => messageEl.classList.remove('highlight-msg'), 2000);
+        }, 50);
+    } else {
+        if (typeof showToast === 'function') {
+            showToast('{{ __("chat.message_not_found") }}', 'info');
+        }
+    }
+}
+
 function processMessageQueue() {
     if (isSendingMessage || messageSendQueue.length === 0) return;
 
@@ -3407,6 +4845,12 @@ function processMessageQueue() {
         return;
     }
 
+    const body = { content: messageData.content };
+    if (replyingTo) {
+        body.reply_to_id = replyingTo.id;
+        cancelReply(); // Clear after queuing/sending
+    }
+
     fetch(`{{ route('chat.store', $conversation) }}`, {
         method: 'POST',
         headers: {
@@ -3414,28 +4858,16 @@ function processMessageQueue() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json'
         },
-        body: JSON.stringify({ content: messageData.content })
+        body: JSON.stringify(body)
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            const message = {
-                id: data.message.id,
-                content: data.message.content,
-                created_at: data.message.created_at,
-                type: data.message.type,
-                media_path: data.message.media_path,
-                sender_id: {{ auth()->id() }},
-                sender: {
-                    username: '{{ auth()->user()->username }}',
-                    avatar_url: '{{ auth()->user()->avatar_url }}'
-                },
-                read_at: null
-            };
+            const message = data.message;
 
             addMessage(message);
-            if (window.RealTime && typeof window.RealTime.updateSidebarConversation === 'function') {
-                window.RealTime.updateSidebarConversation(message);
+            if (window.updateExistingConversationItem) {
+                window.updateExistingConversationItem(message);
             }
 
             // Sync with RealTime state to prevent polling from missing messages
@@ -3444,6 +4876,9 @@ function processMessageQueue() {
                 window.RealTime.updateLastMessageId(data.message.id);
             }
 
+            if (window.sendTypingStatus) window.sendTypingStatus(false);
+            isTyping = false;
+            if (typingTimeout) clearTimeout(typingTimeout);
             messageData.resolve(data);
         } else {
             messageData.reject(new Error(data.error || 'Failed to send message'));
@@ -3534,6 +4969,11 @@ function processMediaMessage(messageData) {
     if (messageData.content) {
         formData.append('content', messageData.content);
     }
+    
+    if (replyingTo) {
+        formData.append('reply_to_id', replyingTo.id);
+        cancelReply();
+    }
 
     // Append ALL selected files
     selectedFiles.forEach((file) => {
@@ -3551,24 +4991,12 @@ function processMediaMessage(messageData) {
     .then(r => r.json())
     .then(data => {
         if (data.success && data.message) {
-            const message = {
-                id: data.message.id,
-                content: data.message.content || '',
-                created_at: data.message.created_at,
-                type: data.message.type,
-                media_path: data.message.media_path,
-                sender_id: {{ auth()->id() }},
-                sender: {
-                    username: '{{ auth()->user()->username }}',
-                    avatar_url: '{{ auth()->user()->avatar_url }}'
-                },
-                read_at: null
-            };
+            const message = data.message;
 
             // Add the message with all media
             addMessage(message);
-            if (window.RealTime && typeof window.RealTime.updateSidebarConversation === 'function') {
-                window.RealTime.updateSidebarConversation(message);
+            if (window.updateExistingConversationItem) {
+                window.updateExistingConversationItem(message);
             }
 
             // Sync with RealTime state
@@ -3579,6 +5007,9 @@ function processMediaMessage(messageData) {
 
             messageData.input.value = '';
             clearMediaPreview();
+            if (window.sendTypingStatus) window.sendTypingStatus(false);
+            isTyping = false;
+            if (typingTimeout) clearTimeout(typingTimeout);
             messageData.resolve(data);
         } else {
             alert(data.error || window.chatTranslations.failed_to_send_media);
@@ -3601,51 +5032,98 @@ function processMediaMessage(messageData) {
     });
 }
 
+// Keep track of the last message date for dividers
+window.lastMessageDate = '{{ $lastDate ?? '' }}';
+
 // Add message to chat - make it globally accessible
 window.addMessage = function(msg) {
-    const container = document.getElementById('chatMessages');
-    if (!container) {
-        console.error('addMessage: chatMessages container not found');
-        return;
-    }
+    try {
+        const container = document.getElementById('chatMessages');
+        if (!container) {
+            console.error('addMessage: chatMessages container not found');
+            return;
+        }
+
+        // Capture scroll state before any DOM changes
+        const threshold = 150;
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
     
-    const noMsg = container.querySelector('.no-messages');
-    if (noMsg) noMsg.remove();
+        const noMsg = container.querySelector('.no-messages');
+        if (noMsg) noMsg.remove();
 
     const isOwn = msg.sender_id == {{ auth()->id() }};
+    
+    // Date Divider Logic - Use local date string to match server's date format
+    const fullDate = new Date(msg.created_at);
+    const dateStr = fullDate.getFullYear() + '-' + String(fullDate.getMonth() + 1).padStart(2, '0') + '-' + String(fullDate.getDate()).padStart(2, '0');
+    
+    // Check if divider for this date already exists in the DOM
+    const existingDivider = container.querySelector(`.chat-date-divider[data-date="${dateStr}"]`);
+    
+    if (!existingDivider) {
+        const divider = document.createElement('div');
+        divider.className = 'chat-date-divider';
+        divider.dataset.date = dateStr;
+        
+        let displayDate = dateStr;
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        
+        const yesterdayDate = new Date(now);
+        yesterdayDate.setDate(now.getDate() - 1);
+        const yesterday = yesterdayDate.getFullYear() + '-' + String(yesterdayDate.getMonth() + 1).padStart(2, '0') + '-' + String(yesterdayDate.getDate()).padStart(2, '0');
+        
+        if (dateStr === today) displayDate = window.chatTranslations.today || 'Today';
+        else if (dateStr === yesterday) displayDate = window.chatTranslations.yesterday || 'Yesterday';
+        else displayDate = fullDate.toLocaleDateString();
+        
+        divider.innerHTML = `<span>${displayDate}</span>`;
+        container.appendChild(divider);
+        window.lastMessageDate = dateStr;
+    }
+
     const div = document.createElement('div');
+    const senderName = isOwn ? (window.chatTranslations.you || 'You') : (msg.sender?.username || 'User');
     div.className = `message ${isOwn ? 'own' : 'other'}`;
     div.dataset.messageId = msg.id;
+    div.dataset.senderName = senderName;
 
-    // Format time to match Blade's H:i format (24-hour, e.g., "23:45")
+    // Format time to 12-hour format (e.g., "02:30 pm")
     const date = new Date(msg.created_at);
-    const hours = String(date.getHours()).padStart(2, '0');
+    let hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    const time = `${hours}:${minutes}`;
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const time = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
 
     // Build message HTML to match Blade template exactly
     let avatarHtml = '';
     let senderNameHtml = '';
     let contentHtml = '';
-    let timeHtml = '';
-
+    
     // Avatar for other users
-    if (!isOwn && msg.sender) {
+    if (!isOwn && msg.sender && window.isGroupChat) {
         const username = msg.sender.username || 'U';
         const avatar = `<img src="${escapeHtml(msg.sender.avatar_url)}" alt="${escapeHtml(username)}">`;
         avatarHtml = `<div class="message-avatar">${avatar}</div>`;
     }
 
     // Sender name for other users
-    if (!isOwn && msg.sender) {
-        senderNameHtml = `<div class="sender-name">${escapeHtml(msg.sender.username || msg.sender.name || 'User')}</div>`;
+    if (!isOwn && msg.sender && window.isGroupChat) {
+        senderNameHtml = `<div class="sender-name">${escapeHtml(msg.sender.username || 'User')}</div>`;
     }
 
     // Handle system messages
-    if (msg.type === 'system') {
+    if (msg.type === 'system' || msg.type === 'system_cleared') {
+        const isClear = msg.type === 'system_cleared' || msg.content === 'system_cleared';
+        const clearText = isClear 
+            ? (isOwn ? (window.chatTranslations.you_cleared_the_chat || 'You cleared the chat') : (window.chatTranslations.cleared_the_chat || 'Cleared the chat').replace(':user', msg.username || msg.sender?.username || 'User'))
+            : msg.content;
+        
         div.className = 'system-message';
         div.innerHTML = `
-            <span class="system-text">${escapeHtml(msg.content)}</span>
+            <span class="system-text" dir="auto">${escapeHtml(clearText)}</span>
             <span class="system-time">${time}</span>
         `;
         container.appendChild(div);
@@ -3659,6 +5137,7 @@ window.addMessage = function(msg) {
         try {
             const inviteData = typeof msg.media_path === 'string' ? JSON.parse(msg.media_path) : msg.media_path;
             div.className = `message ${isOwn ? 'own' : 'other'} group-invite`;
+            div.setAttribute('data-sender-name', senderName);
             div.innerHTML = `
                 ${!isOwn && msg.sender ? avatarHtml : ''}
                 <div class="message-bubble">
@@ -3667,12 +5146,20 @@ window.addMessage = function(msg) {
                         <div class="invite-icon"><i class="fas fa-users"></i></div>
                         <div class="invite-content">
                             <div class="invite-title">${escapeHtml(inviteData.group_name || window.chatTranslations.group)}</div>
-                            <div class="invite-text">${escapeHtml(msg.sender?.username || msg.sender?.name || 'Someone')} ${escapeHtml(window.chatTranslations.invited_you_to_join)}</div>
+                            <div class="invite-text">${escapeHtml(msg.sender?.username || 'Someone')} ${escapeHtml(window.chatTranslations.invited_you_to_join)}</div>
                         </div>
                         ${!isOwn && inviteData.invite_link ? `<button class="accept-btn" onclick="acceptGroupInvite('${escapeHtml(inviteData.invite_link)}')"><i class="fas fa-check"></i> ${escapeHtml(window.chatTranslations.join)}</button>` : ''}
                     </div>
                     <span class="message-time">${time}${isOwn ? '<i class="fas fa-check" title="' + window.chatTranslations.sent + '"></i>' : ''}</span>
                 </div>
+                    <div class="msg-side-actions">
+                        <button class="side-action-btn react" onclick="openReactionPicker(event, '${msg.id}')" title="${window.chatTranslations.react || 'React'}">
+                            <i class="far fa-smile"></i>
+                        </button>
+                        <button class="side-action-btn reply" onclick="initiateReply('${msg.id}')" title="${window.chatTranslations.reply || 'Reply'}">
+                            <i class="fas fa-reply"></i>
+                        </button>
+                    </div>
             `;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -3691,26 +5178,29 @@ window.addMessage = function(msg) {
                 const displayCount = Math.min(mediaItems.length, 4);
                 const remainingCount = mediaItems.length - displayCount;
 
+                contentHtml += `<div class="message-media-album">
+                    <script type="application/json" class="media-data">${msg.media_path}<\/script>`;
+
                 if (displayCount === 1) {
                     const media = mediaItems[0];
                     if (media.type === 'image') {
-                        contentHtml += `<div class="message-media-album"><div class="media-grid-single">
+                        contentHtml += `<div class="media-grid-single">
                             <div class="media-item">
                                 <img src="/storage/${escapeHtml(media.path)}" onclick="openMediaViewerFromAlbum(this, ${msg.id}, 0)">
                             </div>
-                        </div></div>`;
+                        </div>`;
                     } else if (media.type === 'video') {
-                        contentHtml += `<div class="message-media-album"><div class="media-grid-single">
+                        contentHtml += `<div class="media-grid-single">
                             <div class="media-item video">
                                 <video src="/storage/${escapeHtml(media.path)}"></video>
                                 <div class="media-overlay" onclick="openMediaViewerFromAlbum(this, ${msg.id}, 0)">
                                     <i class="fas fa-play"></i>
                                 </div>
                             </div>
-                        </div></div>`;
+                        </div>`;
                     }
                 } else if (displayCount === 2) {
-                    contentHtml += `<div class="message-media-album"><div class="media-grid-two">`;
+                    contentHtml += `<div class="media-grid-two">`;
                     mediaItems.slice(0, 2).forEach((media, index) => {
                         if (media.type === 'image') {
                             contentHtml += `<div class="media-item">
@@ -3725,9 +5215,9 @@ window.addMessage = function(msg) {
                             </div>`;
                         }
                     });
-                    contentHtml += `</div></div>`;
+                    contentHtml += `</div>`;
                 } else {
-                    contentHtml += `<div class="message-media-album"><div class="media-grid-${displayCount}">`;
+                    contentHtml += `<div class="media-grid-${displayCount}">`;
                     mediaItems.slice(0, displayCount).forEach((media, index) => {
                         if (media.type === 'image') {
                             contentHtml += `<div class="media-item">
@@ -3747,87 +5237,175 @@ window.addMessage = function(msg) {
                             </div>`;
                         }
                     });
-                    contentHtml += `</div></div>`;
+                    contentHtml += `</div>`;
                 }
+                contentHtml += `</div>`; // Close message-media-album
             }
         } catch (e) {
             console.error('Error parsing media_path:', e);
         }
     } else if (msg.type === 'image' && msg.media_path) {
-        contentHtml += `<div class="message-media"><img src="/storage/${escapeHtml(msg.media_path)}" alt="Image" onclick="openMediaViewer(this.src)"></div>`;
+        contentHtml += `<div class="message-media"><img src="/storage/${escapeHtml(msg.media_path)}" alt="Image" onclick="openMediaViewerFromAlbum(this, ${msg.id}, 0)"></div>`;
     } else if (msg.type === 'video' && msg.media_path) {
-        contentHtml += `<div class="message-media"><video src="/storage/${escapeHtml(msg.media_path)}" controls></video></div>`;
-    } else if (msg.type === 'voice' && msg.media_path) {
-        // Voice message - simple design
-        const duration = msg.duration || 0;
-        contentHtml += `<div class="voice-message-simple" data-audio-url="/storage/${escapeHtml(msg.media_path)}">
-            <button class="voice-play-btn-simple" onclick="toggleVoiceMessage(this)"><i class="fas fa-play"></i></button>
-            <div class="voice-info">
-                <span class="voice-label">Voice Message</span>
-                <span class="voice-duration-simple">${duration}s</span>
+        contentHtml += `<div class="message-media" onclick="openMediaViewerFromAlbum(this, ${msg.id}, 0)">
+            <video src="/storage/${escapeHtml(msg.media_path)}"></video>
+            <div class="media-overlay">
+                <i class="fas fa-play"></i>
             </div>
-            <button class="voice-speed-btn-simple" onclick="toggleVoiceSpeed(this)" title="${escapeHtml(window.chatTranslations.playback_speed)}">1x</button>
+        </div>`;
+    } else if (msg.type === 'voice' && msg.media_path) {
+        const duration = msg.duration || 0;
+        const totalMin = Math.floor(duration / 60);
+        const totalSec = String(duration % 60).padStart(2, '0');
+        
+        contentHtml += `<div class="voice-message" data-audio-url="/storage/${escapeHtml(msg.media_path)}" data-duration="${duration}">
+            <button class="voice-play-btn" onclick="toggleVoiceMessage(this)"><i class="fas fa-play"></i></button>
+            <div class="voice-info">
+                <div class="voice-progress-container" onclick="seekVoice(event, this)">
+                    <div class="voice-progress-bar"></div>
+                </div>
+                <div class="voice-meta">
+                    <span class="voice-label">${window.chatTranslations.voice_message || 'Voice Message'}</span>
+                    <span class="voice-duration">0:00 / ${totalMin}:${totalSec}</span>
+                </div>
+            </div>
+            <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)" title="${escapeHtml(window.chatTranslations.playback_speed)}">1x</button>
         </div>`;
     }
 
-    // Text content with story reply detection
+    // Text content with story reply and general reply detection
     if (msg.content && msg.content.trim()) {
-        const isStoryReply = msg.content && msg.content.startsWith('📸 Reply to your story:');
-        if (isStoryReply) {
-            const storyReplyContent = msg.content.replace('📸 Reply to your story:', '').trim();
-            contentHtml += `<div class="story-reply-message">
-                <div class="story-reply-header">
-                    <span class="story-reply-label">${escapeHtml(window.chatTranslations.story_reply)}</span>
-                </div>
-                <div class="story-reply-content">${escapeHtml(storyReplyContent)}</div>
-            </div>`;
+        const isReply = msg.content.startsWith('{"__nexus_reply__":true');
+        if (isReply) {
+            try {
+                const replyData = JSON.parse(msg.content);
+                contentHtml += `
+                    <div class="replied-message-box" onclick="scrollToMessage(event, '${replyData.reply_to.id}')">
+                        <span class="replied-user">${escapeHtml(replyData.reply_to.username || replyData.reply_to.sender_name || replyData.reply_to.user || 'User')}</span>
+                        <span class="replied-content">${escapeHtml(replyData.reply_to.content || '')}</span>
+                    </div>
+                    <span class="text" dir="auto">${escapeHtml(replyData.content)}</span>
+                `;
+            } catch (e) {
+                console.error('Error parsing reply JSON:', e);
+                contentHtml += `<span class="text">${escapeHtml(msg.content)}</span>`;
+            }
         } else {
-            contentHtml += `<span class="text">${escapeHtml(msg.content)}</span>`;
+            const isStoryReply = msg.content && msg.content.startsWith('📸 Reply to your story:');
+            if (isStoryReply) {
+                const storyReplyContent = msg.content.replace('📸 Reply to your story:', '').trim();
+                contentHtml += `<div class="story-reply-message">
+                    <div class="story-reply-header">
+                        <span class="story-reply-label">${escapeHtml(window.chatTranslations.story_reply)}</span>
+                    </div>
+                    <div class="story-reply-content">${escapeHtml(storyReplyContent)}</div>
+                </div>`;
+            } else {
+                contentHtml += `<span class="text" dir="auto">${escapeHtml(msg.content)}</span>`;
+            }
         }
     }
 
-    // Time with read receipts for own messages
+    // Time and Status
+    let statusIcon = '';
     if (isOwn) {
-        timeHtml = `<span class="message-time">${time}<i class="fas fa-check" title="${escapeHtml(window.chatTranslations.sent)}"></i></span>`;
-    } else {
-        timeHtml = `<span class="message-time">${time}</span>`;
+        statusIcon = msg.read_at ? 'fa-check-double read' : (msg.delivered_at ? 'fa-check-double sent' : 'fa-check');
+        const statusTitle = msg.read_at ? window.chatTranslations.read : (msg.delivered_at ? window.chatTranslations.delivered : window.chatTranslations.sent);
+        statusIcon = `<i class="fas ${statusIcon}" title="${escapeHtml(statusTitle)}"></i>`;
     }
+
+    const timeHtml = `
+        <span class="message-time">
+            ${time}
+            ${statusIcon || ''}
+        </span>
+    `;
+
+    const actionsHtml = (msg.type !== 'system' && msg.type !== 'system_cleared') ? `
+        <div class="msg-item-actions">
+            <button class="msg-action-trigger" onclick="toggleMsgMenu(event, '${msg.id}')">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="msg-dropdown" id="msgDropdown-${msg.id}">
+                <button class="menu-item" onclick="initiateReply('${msg.id}')">
+                    <i class="fas fa-reply"></i> ${window.chatTranslations.reply || 'Reply'}
+                </button>
+                ${isOwn ? `
+                <button class="menu-item danger" onclick="deleteMessage(${msg.id})">
+                    <i class="fas fa-trash-alt"></i> ${window.chatTranslations.delete_message || 'Delete'}
+                </button>
+                <button class="menu-item info" onclick="showMessageInfo('${msg.id}')">
+                    <i class="fas fa-info-circle"></i> ${window.chatTranslations.message_info || 'Message Info'}
+                </button>
+                ` : ''}
+            </div>
+        </div>
+    ` : '';
+
+    const reactionsBarHtml = `<div class="message-reactions-bar" data-message-id="${msg.id}" style="display:none;"></div>`;
 
     div.innerHTML = `
         ${avatarHtml}
-        <div class="message-bubble">
+        <div class="message-bubble ${msg.reactions && msg.reactions.length > 0 ? 'has-reactions' : ''}">
             ${senderNameHtml}
-            <div class="message-content">
+            <div class="message-content ${ (msg.media_path || msg.type === 'image' || msg.type === 'video') ? 'has-media' : '' } ${ (msg.content && msg.content.trim()) ? 'has-text' : '' }">
                 ${contentHtml}${timeHtml}
+                ${actionsHtml}
             </div>
-            ${isOwn ? `<button class="delete-btn" onclick="deleteMessage(${msg.id})"><i class="fas fa-trash"></i></button>` : ''}
+            ${reactionsBarHtml}
+        </div>
+
+        <div class="msg-side-actions">
+            <button class="side-action-btn react" onclick="openReactionPicker(event, '${msg.id}')" title="${window.chatTranslations.react || 'React'}">
+                <i class="far fa-smile"></i>
+            </button>
+            <button class="side-action-btn reply" onclick="initiateReply('${msg.id}')" title="${window.chatTranslations.reply || 'Reply'}">
+                <i class="fas fa-reply"></i>
+            </button>
         </div>
     `;
 
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    
+    const scrollBtn = document.getElementById('scrollToBottomBtn');
+
+    if (isOwn || isAtBottom) {
+        if (window.scrollToBottom) {
+            window.scrollToBottom(isOwn ? 'smooth' : 'auto');
+        } else {
+            container.scrollTop = container.scrollHeight;
+        }
+    } else {
+        // User is scrolled up and received a message from someone else
+        if (scrollBtn) {
+            scrollBtn.classList.add('visible', 'has-new-msg');
+            const badge = scrollBtn.querySelector('.new-msg-badge');
+            if (badge) {
+                const currentCount = parseInt(badge.textContent || '0');
+                badge.textContent = currentCount + 1;
+                badge.style.display = 'flex';
+            }
+        }
+    }
+
+    // Handle image/media loading to maintain scroll if we were at the bottom
+    const media = div.querySelectorAll('img, video');
+    media.forEach(m => {
+        m.addEventListener('load', () => {
+            if (container.scrollHeight - container.scrollTop - container.clientHeight < threshold) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    });
 
     // Apply RTL direction if message contains Arabic text
     applyRTLIfArabic(div);
 
-    // Store media list for this message if it has multiple media
-    if (msg.media_path && msg.media_path.startsWith('[')) {
-        try {
-            const mediaItems = JSON.parse(msg.media_path);
-            if (Array.isArray(mediaItems)) {
-                const mediaList = mediaItems.map((media, i) => ({
-                    src: `/storage/${media.path}`,
-                    type: media.type
-                }));
-                messageMediaLists.set(msg.id.toString(), mediaList);
-            }
-        } catch (e) {
-            console.error('Error storing media list:', e);
-        }
-    }
-
     // Trigger reflow to ensure animation plays
     void div.offsetWidth;
+    } catch (err) {
+        console.error('Error in addMessage:', err, msg);
+    }
 }
 
 // Media handling - support multiple files with carousel preview
@@ -3988,157 +5566,136 @@ function clearMediaPreview() {
 }
 
 // Media viewer with album navigation
-let currentMediaIndex = 0;
-let currentMediaList = [];
+// Enhanced Nexus Gallery Manager
+const NexusGallery = {
+    items: [],
+    currentIndex: 0,
+    isOpen: false,
 
-// Store media lists by message ID for quick access
-const messageMediaLists = new Map();
-let mediaListsInitialized = false;
+    init() {
+        this.viewer = document.getElementById('mediaViewer');
+        this.imgEl = document.getElementById('galleryImage');
+        this.vidEl = document.getElementById('galleryVideo');
+        this.counterEl = document.getElementById('galleryCounter');
+        
+        // Event Listeners
+        document.getElementById('galleryClose').addEventListener('click', () => this.close());
+        document.getElementById('galleryPrev').addEventListener('click', (e) => { e.stopPropagation(); this.navigate(-1); });
+        document.getElementById('galleryNext').addEventListener('click', (e) => { e.stopPropagation(); this.navigate(1); });
+        this.viewer.querySelector('.gallery-overlay').addEventListener('click', () => this.close());
+        
+        document.addEventListener('keydown', (e) => {
+            if (!this.isOpen) return;
+            if (e.key === 'Escape') this.close();
+            if (e.key === 'ArrowLeft') this.navigate(-1);
+            if (e.key === 'ArrowRight') this.navigate(1);
+        });
 
-// Lazy initialization of media lists (only when first clicked)
-function initializeMediaLists() {
-    if (mediaListsInitialized) return;
-    mediaListsInitialized = true;
 
-    document.querySelectorAll('.message-media-album').forEach((album) => {
-        const messageId = album.dataset.messageId;
+    },
 
-        if (!messageId) {
-            return;
-        }
+    cleanPath(path) {
+        if (!path) return '';
+        if (path.startsWith('http')) return path;
+        const sPath = path.startsWith('/') ? path : '/' + path;
+        return sPath.startsWith('/storage/') ? sPath : '/storage' + sPath;
+    },
 
-        // Get all media from the embedded script tag
-        const scriptTag = album.querySelector('script.media-data');
-        let mediaList = [];
+    build(targetMessageId) {
+        this.items = [];
+        const mediaMap = new Map();
 
-        if (scriptTag) {
-            try {
-                const allMedia = JSON.parse(scriptTag.textContent.trim());
-                mediaList = allMedia.map((media) => ({
-                    src: `/storage/${media.path}`,
-                    type: media.type
-                }));
-            } catch (e) {
-                console.error('❌ Failed to parse media JSON:', e);
-                console.error('Script content:', scriptTag.textContent);
-                return;
+        const msg = document.querySelector(`.message[data-message-id="${targetMessageId}"]`);
+        if (!msg) return mediaMap;
+
+        const album = msg.querySelector('.message-media-album');
+        if (album) {
+            const scriptTag = album.querySelector('script.media-data');
+            if (scriptTag) {
+                try {
+                    const items = JSON.parse(scriptTag.textContent.trim());
+                    items.forEach((item, index) => {
+                        const galleryIdx = this.items.length;
+                        this.items.push({ src: this.cleanPath(item.path), type: item.type });
+                        mediaMap.set(`${targetMessageId}_${index}`, galleryIdx);
+                    });
+                } catch (e) {
+                    console.error('Failed to parse album:', e);
+                }
+            }
+        } else {
+            const singleImg = msg.querySelector('.message-media img');
+            const singleVid = msg.querySelector('.message-media video');
+            if (singleImg || singleVid) {
+                this.items.push({
+                    src: singleImg ? singleImg.src : (singleVid ? singleVid.src : ''),
+                    type: singleImg ? 'image' : 'video'
+                });
+                mediaMap.set(`${targetMessageId}_0`, 0);
             }
         }
+        return mediaMap;
+    },
 
-        if (mediaList.length > 0) {
-            messageMediaLists.set(messageId.toString(), mediaList);
+    open(messageId, index = 0) {
+        const mediaMap = this.build(messageId);
+        const galleryIdx = mediaMap.get(`${messageId}_${index}`);
+        
+        if (galleryIdx === undefined) {
+            // Fallback for dynamic elements that might not be in DOM yet
+            this.currentIndex = 0;
+        } else {
+            this.currentIndex = galleryIdx;
         }
-    });
-}
 
-function openMediaViewerFromAlbum(element, messageId, index = 0) {
-    // Initialize media lists on first click (lazy loading)
-    initializeMediaLists();
-    
-    const mediaList = messageMediaLists.get(messageId.toString());
+        this.isOpen = true;
+        this.viewer.setAttribute('aria-hidden', 'false');
+        this.show();
+    },
 
-    if (mediaList && mediaList.length > 0) {
-        openMediaViewer(null, mediaList, index);
-    } else {
-        // Fallback for single image
-        if (element && element.tagName === 'IMG') {
-            openMediaViewer(element.src);
+    show() {
+        const item = this.items[this.currentIndex];
+        if (!item) return;
+
+        if (item.type === 'video') {
+            this.imgEl.style.display = 'none';
+            this.vidEl.style.display = 'block';
+            this.vidEl.src = item.src;
+            this.vidEl.play().catch(() => {});
+        } else {
+            this.vidEl.pause();
+            this.vidEl.style.display = 'none';
+            this.imgEl.style.display = 'block';
+            this.imgEl.src = item.src;
         }
+
+        this.counterEl.textContent = `${this.currentIndex + 1} / ${this.items.length}`;
+    },
+
+    navigate(dir) {
+        if (this.items.length <= 1) return;
+        this.currentIndex = (this.currentIndex + dir + this.items.length) % this.items.length;
+        this.show();
+    },
+
+    close() {
+        this.isOpen = false;
+        this.viewer.setAttribute('aria-hidden', 'true');
+        this.vidEl.pause();
+        this.vidEl.src = '';
+        this.imgEl.src = '';
     }
-}
+};
 
-function openMediaViewer(src, mediaList = null, index = 0) {
-    const viewer = document.getElementById('mediaViewer');
-    const imgEl = document.getElementById('viewerImage');
-    const vidEl = document.getElementById('viewerVideo');
-    const counterEl = document.getElementById('viewerCounter');
-    
-    
-    
-    if (mediaList && mediaList.length > 0) {
-        // Opening from album - store the list
-        currentMediaList = mediaList;
-        currentMediaIndex = index;
-    } else {
-        // Opening single image
-        currentMediaList = [{src: src, type: 'image'}];
-        currentMediaIndex = 0;
-    }
-    
-    showCurrentMedia();
-    viewer.classList.add('active');
-}
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => NexusGallery.init());
 
-function showCurrentMedia() {
-    if (!currentMediaList[currentMediaIndex]) return;
-    
-    const media = currentMediaList[currentMediaIndex];
-    const imgEl = document.getElementById('viewerImage');
-    const vidEl = document.getElementById('viewerVideo');
-    const counterEl = document.getElementById('viewerCounter');
-    
-    if (media.type === 'video') {
-        imgEl.style.display = 'none';
-        vidEl.style.display = 'block';
-        vidEl.src = media.src;
-        vidEl.play();
-    } else {
-        vidEl.style.display = 'none';
-        vidEl.pause();
-        imgEl.style.display = 'block';
-        imgEl.src = media.src;
-    }
-    
-    // Update counter
-    counterEl.textContent = `${currentMediaIndex + 1} / ${currentMediaList.length}`;
-}
+// Global function for Blade/Dynamic handlers
+window.openMediaViewerFromAlbum = function(el, messageId, index = 0) {
+    NexusGallery.open(messageId, index);
+};
 
-function navigateMedia(direction, event) {
-    if (event) event.stopPropagation();
-    
-    if (currentMediaList.length <= 1) return;
-    
-    currentMediaIndex += direction;
-    
-    // Wrap around
-    if (currentMediaIndex < 0) {
-        currentMediaIndex = currentMediaList.length - 1;
-    } else if (currentMediaIndex >= currentMediaList.length) {
-        currentMediaIndex = 0;
-    }
-    
-    showCurrentMedia();
-}
 
-function closeMediaViewerOnOverlay(event) {
-    // Only close if clicking the overlay (not the content)
-    if (event && event.target !== event.currentTarget) return;
-    closeMediaViewer();
-}
-
-function closeMediaViewer() {
-    const viewer = document.getElementById('mediaViewer');
-    const vidEl = document.getElementById('viewerVideo');
-
-    vidEl.pause();
-    viewer.classList.remove('active');
-    currentMediaList = [];
-    currentMediaIndex = 0;
-}
-
-// Keyboard navigation for media viewer
-document.addEventListener('keydown', (e) => {
-    const viewer = document.getElementById('mediaViewer');
-    if (!viewer.classList.contains('active')) return;
-    
-    if (e.key === 'ArrowLeft') {
-        navigateMedia(-1);
-    } else if (e.key === 'ArrowRight') {
-        navigateMedia(1);
-    } else if (e.key === 'Escape') {
-        closeMediaViewer();
-    }
-});
 
 // Clear chat
 function clearChat() {
@@ -4149,7 +5706,21 @@ function clearChat() {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Accept': 'application/json'
             }
-        }).then(() => location.reload());
+        }).then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Chat clear request successful');
+                // Immediate local feedback
+                if (window.handleChatCleared) {
+                    window.handleChatCleared({
+                        conversation_id: {{ $conversation->id }},
+                        username: '{{ auth()->user()->username }}',
+                        user_id: {{ auth()->id() }},
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+        });
     }
 }
 
@@ -4158,7 +5729,7 @@ function acceptGroupInvite(inviteLink) {
     if (!inviteLink) return;
     
     // Make POST request to accept invite
-    fetch('/groups/accept-invite/' + encodeURIComponent(inviteLink), {
+    fetch('/messaging-groups/accept-invite/' + encodeURIComponent(inviteLink), {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -4172,22 +5743,84 @@ function acceptGroupInvite(inviteLink) {
             if (data.redirect) {
                 window.location.href = data.redirect;
             } else {
-                // Fallback: reload to show updated status
-                window.location.reload();
+                // Update invite button state without reload
+                const inviteBtns = document.querySelectorAll('.join-group-btn');
+                inviteBtns.forEach(btn => {
+                    if (btn.getAttribute('onclick')?.includes(inviteLink)) {
+                        btn.innerHTML = `<i class="fas fa-check"></i> ${window.chatTranslations.joined || 'Joined'}`;
+                        btn.disabled = true;
+                        btn.classList.remove('primary');
+                    }
+                });
+                showToast(window.chatTranslations.joined_group || 'Joined group!', 'success');
             }
         } else {
             // Show error message
-            alert(data.message || 'Failed to join group');
+            alert(data.message || (window.chatTranslations.failed_to_join_group || 'Failed to join group'));
         }
     })
     .catch(error => {
         console.error('Error accepting invite:', error);
-        alert('Failed to join group');
+        alert(window.chatTranslations.failed_to_join_group || 'Failed to join group');
     });
 }
 
+// Message actions dropdown toggle
+window.toggleMsgMenu = function(event, id) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const dropdown = document.getElementById('msgDropdown-' + id);
+    if (!dropdown) return;
+
+    // Close all other message dropdowns
+    document.querySelectorAll('.msg-dropdown').forEach(d => {
+        if (d !== dropdown) d.classList.remove('show');
+    });
+    
+    dropdown.classList.toggle('show');
+
+    if (dropdown.classList.contains('show')) {
+        // Reset styles first
+        dropdown.style.left = '';
+        dropdown.style.right = '';
+        
+        const rect = dropdown.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const inputArea = document.querySelector('.chat-input-area');
+        const inputHeight = inputArea ? inputArea.offsetHeight + 20 : 100;
+        const headerHeight = 80;
+        
+        // Vertical positioning
+        if (rect.bottom > viewportHeight - inputHeight) {
+            dropdown.classList.add('drop-up');
+        } else if (rect.top < headerHeight) {
+            dropdown.classList.remove('drop-up');
+        }
+
+        // Horizontal overflow protection
+        const currentRect = dropdown.getBoundingClientRect();
+        if (currentRect.right > viewportWidth - 10) {
+            dropdown.style.right = '8px';
+            dropdown.style.left = 'auto';
+        } else if (currentRect.left < 10) {
+            dropdown.style.left = '8px';
+            dropdown.style.right = 'auto';
+        }
+    }
+};
+
+// Close message dropdowns on outside click
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.msg-item-actions')) {
+        document.querySelectorAll('.msg-dropdown').forEach(d => d.classList.remove('show'));
+    }
+});
+
 // Delete message - show modal
 let messageToDeleteId = null;
+window.currentlyInspectedMessageId = null;
 
 function deleteMessage(id) {
     messageToDeleteId = id;
@@ -4197,6 +5830,86 @@ function deleteMessage(id) {
 function closeDeleteModal() {
     document.getElementById('deleteMessageModal').style.display = 'none';
     messageToDeleteId = null;
+}
+
+function showMessageInfo(id) {
+    window.currentlyInspectedMessageId = id;
+    const modal = document.getElementById('messageInfoModal');
+    modal.style.display = 'flex';
+    
+    fetchMessageInfo(id);
+}
+
+function fetchMessageInfo(id) {
+    // Only fetch if this is still the inspected message
+    if (window.currentlyInspectedMessageId !== id) return;
+
+    // Show loading if first fetch
+    const readList = document.getElementById('messageInfoReadList');
+    if (!readList.querySelector('.info-user-item') && !readList.querySelector('.info-empty')) {
+        readList.innerHTML = '<div class="info-loading"><i class="fas fa-circle-notch fa-spin"></i></div>';
+        document.getElementById('messageInfoDeliveredList').innerHTML = '<div class="info-loading"><i class="fas fa-circle-notch fa-spin"></i></div>';
+        document.getElementById('messageInfoRemainingList').innerHTML = '<div class="info-loading"><i class="fas fa-circle-notch fa-spin"></i></div>';
+    }
+
+    fetch(`/chat/message/${id}/info`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.success && window.currentlyInspectedMessageId === id) {
+                renderMessageInfoUsers('messageInfoReadList', data.info.read, true);
+                renderMessageInfoUsers('messageInfoDeliveredList', data.info.delivered, true);
+                renderMessageInfoUsers('messageInfoRemainingList', data.info.remaining, false);
+            } else if (!data.success) {
+                console.error(data.error || 'Failed to load info');
+                if (!readList.querySelector('.info-user-item')) {
+                    closeMessageInfoModal();
+                }
+            }
+        })
+        .catch(err => {
+            console.error(err);
+        });
+}
+
+window.refreshMessageInfoIfOpen = function(messageId, conversationId) {
+    if (window.currentlyInspectedMessageId && (String(window.currentlyInspectedMessageId) === String(messageId) || !messageId)) {
+        // If messageId is null, it's a general conversation read event, we might need to refresh anyway
+        // or check if the inspected message belongs to the conversation
+        fetchMessageInfo(window.currentlyInspectedMessageId);
+    }
+};
+
+function closeMessageInfoModal() {
+    document.getElementById('messageInfoModal').style.display = 'none';
+    window.currentlyInspectedMessageId = null;
+}
+
+function renderMessageInfoUsers(containerId, users, showTime) {
+    const container = document.getElementById(containerId);
+    if (!users || users.length === 0) {
+        container.innerHTML = `<div class="info-empty">-</div>`;
+        return;
+    }
+    
+    let html = '';
+    users.forEach(u => {
+        let timeStr = '';
+        if (showTime && u.time) {
+            const date = new Date(u.time);
+            timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        html += `
+            <div class="info-user-item">
+                <img src="${u.avatar_url}" alt="${u.name}" class="info-user-avatar">
+                <div class="info-user-details">
+                    <span class="info-user-name">${escapeHtml(u.username)}</span>
+                    ${showTime ? `<span class="info-user-time">${timeStr}</span>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
 }
 
 function confirmDelete(type) {
@@ -4225,7 +5938,7 @@ function confirmDelete(type) {
 }
 
 // Handle message deletion UI update
-function handleDeleteMessage(messageId, deleteType, deletedFor) {
+window.handleDeleteMessage = function(messageId, deleteType, deletedFor) {
     const msgEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
     if (!msgEl) return;
 
@@ -4234,16 +5947,91 @@ function handleDeleteMessage(messageId, deleteType, deletedFor) {
         msgEl.classList.add('deleted');
         const content = msgEl.querySelector('.message-content');
         if (content) {
-            content.innerHTML = `<em class="deleted-text">${window.chatTranslations.message_deleted}</em>`;
+            content.classList.remove('has-media', 'has-text');
+            const timeEl = msgEl.querySelector('.message-time');
+            const timeHtml = timeEl ? timeEl.outerHTML : '';
+            
+            content.innerHTML = `
+                <div class="deleted-msg-wrapper">
+                    <i class="fas fa-ban"></i>
+                    <em class="deleted-text">${window.chatTranslations.message_deleted}</em>
+                </div>
+                ${timeHtml}
+            `;
         }
-        // Remove delete button
-        const deleteBtn = msgEl.querySelector('.delete-btn');
-        if (deleteBtn) deleteBtn.remove();
+        // Remove delete button / actions
+        const actions = msgEl.querySelector('.msg-item-actions');
+        if (actions) actions.remove();
+        
+        const sideActions = msgEl.querySelector('.msg-side-actions');
+        if (sideActions) sideActions.remove();
+
+        const reactions = msgEl.querySelector('.message-reactions-bar');
+        if (reactions) reactions.remove();
     } else {
         // Delete for me only - hide the message
         msgEl.style.display = 'none';
     }
-}
+};
+
+window.updateReadReceiptsUI = function(readMessageIds, readerId, data) {
+    if (!readMessageIds || !Array.isArray(readMessageIds)) return;
+
+    // If current user is the reader, remove the unread divider
+    if (readerId == window.currentUserId) {
+        const unreadDivider = document.querySelector('.unread-divider');
+        if (unreadDivider) {
+            unreadDivider.remove();
+        }
+    }
+
+    // New format supports per-message 'all_read' status
+    if (data && data.read_messages) {
+        data.read_messages.forEach(msgInfo => {
+            const msgEl = document.querySelector('.message[data-message-id="' + msgInfo.id + '"]');
+            if (msgEl) {
+                const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
+                if (checkIcon) {
+                    if (msgInfo.is_all_read) {
+                        checkIcon.className = 'fas fa-check-double read';
+                    } else {
+                        // If not read by all, it should at least be delivered to some (double check grey)
+                        checkIcon.className = 'fas fa-check-double sent';
+                    }
+                }
+            }
+        });
+    } else {
+        // Fallback for old format or 1-1 chats where read always means read by all
+        readMessageIds.forEach(id => {
+            const msgEl = document.querySelector('.message[data-message-id="' + id + '"]');
+            if (msgEl) {
+                const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
+                if (checkIcon) {
+                    checkIcon.className = 'fas fa-check-double read';
+                }
+            }
+        });
+    }
+};
+
+window.updateDeliveredReceiptsUI = function(messageId, data) {
+    if (!messageId) return;
+    const msgEl = document.querySelector('.message[data-message-id="' + messageId + '"]');
+    if (msgEl) {
+        const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
+        if (checkIcon && !checkIcon.classList.contains('read')) {
+            // Only show double grey check if all participants received it
+            // or if it's a 1-1 chat (which defaults to true in data)
+            if (data && data.is_all_delivered) {
+                checkIcon.className = 'fas fa-check-double sent';
+            } else {
+                // Stay as single check if not delivered to all
+                checkIcon.className = 'fas fa-check sent';
+            }
+        }
+    }
+};
 
 // Mark message as deleted in the UI (for realtime.js)
 function markMessageAsDeleted(id) {
@@ -4251,12 +6039,28 @@ function markMessageAsDeleted(id) {
     if (el) {
         const contentEl = el.querySelector('.message-content');
         if (contentEl) {
-            contentEl.innerHTML = `<em class="deleted-text">${window.chatTranslations.message_deleted}</em>`;
+            contentEl.classList.remove('has-media', 'has-text');
+            const timeEl = el.querySelector('.message-time');
+            const timeHtml = timeEl ? timeEl.outerHTML : '';
+            
+            contentEl.innerHTML = `
+                <div class="deleted-msg-wrapper">
+                    <i class="fas fa-ban"></i>
+                    <em class="deleted-text">${window.chatTranslations.message_deleted}</em>
+                </div>
+                ${timeHtml}
+            `;
             el.classList.add('deleted');
         }
-        // Remove delete button
-        const deleteBtn = el.querySelector('.delete-btn');
-        if (deleteBtn) deleteBtn.remove();
+        // Remove interactive elements
+        const actions = el.querySelector('.msg-item-actions');
+        if (actions) actions.remove();
+        
+        const sideActions = el.querySelector('.msg-side-actions');
+        if (sideActions) sideActions.remove();
+
+        const reactions = el.querySelector('.message-reactions-bar');
+        if (reactions) reactions.remove();
     }
 }
 
@@ -4270,102 +6074,147 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentChatUserId = {{ $conversation->other_user->id }};
     @endif
 
-    // Scroll to bottom after a short delay to ensure all content is rendered
+    // Force scroll to bottom immediately and again after layout settles
+    if (window.history.scrollRestoration) {
+        window.history.scrollRestoration = 'manual';
+    }
+
     const container = document.getElementById('chatMessages');
     if (container) {
-        // Wait for images to load
+        window.scrollToBottom = (behavior = 'auto') => {
+            if (behavior === 'smooth') {
+                container.scrollTo({ top: container.scrollHeight + 1000, behavior: 'smooth' });
+            } else {
+                container.scrollTop = container.scrollHeight + 1000;
+            }
+            
+            // Re-check after a short delay for late layout shifts (like media loading or font rendering)
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight + 1000;
+                if (container.style.visibility === 'hidden') {
+                    container.style.visibility = 'visible';
+                }
+            }, 150);
+        };
+
+        // Scroll immediately
+        window.scrollToBottom('auto');
+
+        // Scroll after a frame
+        requestAnimationFrame(() => window.scrollToBottom('auto'));
+
+        // Scroll after all images are loaded
         const images = container.querySelectorAll('img');
         if (images.length > 0) {
             let loaded = 0;
             images.forEach(img => {
-                if (img.complete) {
-                    loaded++;
-                } else {
+                if (img.complete) loaded++;
+                else {
                     img.addEventListener('load', () => {
                         loaded++;
-                        if (loaded === images.length) {
-                            container.scrollTop = container.scrollHeight;
-                        }
+                        if (loaded === images.length) window.scrollToBottom();
+                    });
+                    img.addEventListener('error', () => {
+                        loaded++;
+                        if (loaded === images.length) window.scrollToBottom();
                     });
                 }
             });
-            // If all images already loaded
-            if (loaded === images.length) {
-                container.scrollTop = container.scrollHeight;
-            }
-        } else {
-            // No images, scroll immediately
-            container.scrollTop = container.scrollHeight;
+            if (loaded === images.length) window.scrollToBottom();
+        }
+
+        // Final safety scroll - wait for load to prevent "Forced Layout" warning
+        window.addEventListener('load', () => {
+            requestAnimationFrame(() => {
+                setTimeout(() => window.scrollToBottom('auto'), 100);
+            });
+        });
+
+        // Handle viewport changes (keyboard on mobile)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+                if (isAtBottom) {
+                    window.scrollToBottom('auto');
+                }
+            });
         }
     }
 
-    // Mark messages as read only when chat is actively viewed (delegated to RealTime)
-    if (window.RealTime && typeof window.RealTime.markMessagesAsRead === 'function') {
-        window.RealTime.markMessagesAsRead();
-    }
-
-    // Mark messages as read when window gains focus
-    window.addEventListener('focus', () => {
-        if (window.RealTime && typeof window.RealTime.markMessagesAsRead === 'function') {
-            window.RealTime.markMessagesAsRead();
-        }
-    });
-
-    // Update online status when leaving the page
-    window.addEventListener('beforeunload', () => {
-        const formData = new FormData();
-        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+    window.markMessagesAsRead = function() {
+        if (!window.activeConversationSlug) return;
         
-        navigator.sendBeacon('/user/online-status/offline', formData);
+        // Mark messages as read (server now also handles notifications)
+        fetch(`/chat/${window.activeConversationSlug}/read`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            }
+        }).then(response => {
+            if (response.status === 404) {
+                // Conversation was likely deleted, ignore silently
+                return;
+            }
+        }).catch(err => {
+            // Silence "NetworkError" which happens during page navigation/tunnel blips
+            if (err.name !== 'TypeError' || !err.message.includes('fetch')) {
+                console.error('Mark messages as read failed:', err);
+            }
+        });
+    };
+
+    // Initial mark as read
+    window.markMessagesAsRead();
+
+    // Mark as read when window gains focus
+    window.addEventListener('focus', () => {
+        window.markMessagesAsRead();
     });
+    setInterval(() => { if (document.hasFocus()) window.markMessagesAsRead(); }, 30000);
+
+    // Online status is now handled automatically via WebSocket disconnect events
+    // in the socket-server, so no legacy beacon/polling is required here.
 
     
 });
 
-// Delivery confirmations and read-marking delegated to RealTime.js
-
 // Translation strings for JavaScript
-window.chatTranslations = {
-    you: '{{ __('chat.you') }}',
-    online: '{{ __('chat.online') }}',
-    offline: '{{ __('chat.offline') }}',
-    typing: '{{ __('chat.typing') }}',
+window.chatTranslations = Object.assign(window.chatTranslations || {}, {
     and: '{{ __('chat.and') }}',
     are_typing: '{{ __('chat.are_typing') }}',
     users_typing: '{{ __('chat.users_typing') }}',
-    sent_an_image: '{{ __('chat.sent_an_image') }}',
-    sent_a_video: '{{ __('chat.sent_a_video') }}',
-    sent_an_audio: '{{ __('chat.sent_an_audio') }}',
-    sent_a_document: '{{ __('chat.sent_a_document') }}',
-    sent_a_gif: '{{ __('chat.sent_a_gif') }}',
-    sent_a_sticker: '{{ __('chat.sent_a_sticker') }}',
-    replied_to_story: '{{ __('chat.replied_to_story') }}',
+    is_typing: '{{ __('chat.is_typing') }}',
     story_reply: '{{ __('chat.story_reply') }}',
-    message_deleted: '{{ __('chat.message_deleted') }}',
     failed_to_send_media: '{{ __('chat.failed_to_send_media') }}',
     error_sending_media: '{{ __('chat.error_sending_media') }}',
     group: '{{ __('chat.group') }}',
     invited_you_to_join: '{{ __('chat.invited_you_to_join') }}',
     join: '{{ __('chat.join') }}',
     sent: '{{ __('chat.sent') }}',
-};
+    delivered: '{{ __('chat.delivered') }}',
+    read: '{{ __('chat.read') }}',
+    message_info: '{{ __('chat.message_info') }}',
+    read_by: '{{ __('chat.read_by') }}',
+    delivered_to: '{{ __('chat.delivered_to') }}',
+    remaining: '{{ __('chat.remaining') }}',
+    cleared_the_chat: '{{ __('chat.cleared_the_chat', ['user' => ':user']) }}',
+    you_cleared_the_chat: '{{ __('chat.you_cleared_the_chat') }}',
+    last_seen: '{{ __('messages.last_seen') }}',
+    today: '{{ __('messages.today') }}',
+    yesterday: '{{ __('messages.yesterday') }}',
+    at: '{{ __('messages.at') }}',
+    online: '{{ __('chat.online') }}',
+    playback_speed: '{{ __('messages.playback_speed') }}',
+    joined: '{{ __('messages.joined') }}',
+    joined_group: '{{ __('messages.joined_group') }}',
+    failed_to_join_group: '{{ __('messages.failed_to_join_group') }}',
+    offline: '{{ __('chat.offline') }}',
+    react: '{{ __('chat.react') }}',
+    reactions: '{{ __('chat.reactions') }}',
+});
 
-// Get media preview text
-function getMediaPreviewText(type, isOwn) {
-    const prefix = isOwn ? window.chatTranslations.you + ': ' : '';
-    switch(type) {
-        case 'image': return prefix + window.chatTranslations.sent_an_image;
-        case 'video': return prefix + window.chatTranslations.sent_a_video;
-        case 'audio': return prefix + window.chatTranslations.sent_an_audio;
-        case 'document': return prefix + window.chatTranslations.sent_a_document;
-        case 'gif': return prefix + window.chatTranslations.sent_a_gif;
-        case 'sticker': return prefix + window.chatTranslations.sent_a_sticker;
-        case 'story_reply': return prefix + window.chatTranslations.replied_to_story;
-        default: return '';
-    }
-}
-
-// Sidebar conversation updates are handled by realtime.js
+// Sidebar conversation updates are now handled by the sidebar partial scripts
 
 // Typing indicator - sending only (receiving handled by realtime.js for both DM and group)
 let typingTimeout;
@@ -4390,22 +6239,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function sendTypingStatus(isTyping) {
-    fetch(`/chat/{{ $conversation->slug }}/typing`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_typing: isTyping })
-    })
-    .catch(error => console.error('Send typing error:', error));
+    if (window.NexusSocket) {
+        window.NexusSocket.sendTyping({{ $conversation->id }}, isTyping);
+    }
 }
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        closeMediaViewer();
-        hideUserSearch();
+        if (NexusGallery.isOpen) NexusGallery.close();
+        if (typeof hideUserSearch === 'function') hideUserSearch();
     }
 });
 
@@ -4419,14 +6261,153 @@ function applyRTLIfArabic(element) {
             el.setAttribute('dir', 'rtl');
             el.style.direction = 'rtl';
             el.style.textAlign = 'right';
+            el.style.display = 'block';
+            el.style.width = '100%';
         }
     });
 }
 
-// Set active conversation ID for notification filtering
-window.activeConversationId = {{ $conversation->id }};
+// Join real-time conversation room when socket is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const joinRoom = () => {
+        if (window.NexusSocket && window.NexusSocket.status === 'CONNECTED') {
+            window.NexusSocket.joinConversation({{ $conversation->id }});
 
-// Note: All polling (messages, typing, online status, etc.) is handled by resources/js/legacy/realtime.js
+        } else {
+            // Retry if not yet connected
+            setTimeout(joinRoom, 500);
+        }
+    };
+    // Scroll to Bottom Button Logic
+    const scrollBtn = document.getElementById('scrollToBottomBtn');
+    const container = document.getElementById('chatMessages');
+    if (scrollBtn && container) {
+        // Click to scroll
+        scrollBtn.addEventListener('click', () => {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+            scrollBtn.classList.remove('visible', 'has-new-msg');
+        });
+
+        // Show/hide button based on scroll position
+        container.addEventListener('scroll', () => {
+            const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+            if (isAtBottom) {
+                scrollBtn.classList.remove('visible', 'has-new-msg');
+                const badge = scrollBtn.querySelector('.new-msg-badge');
+                if (badge) {
+                    badge.textContent = '';
+                    badge.style.display = 'none';
+                }
+            } else if (container.scrollHeight > container.clientHeight + 100) {
+                scrollBtn.classList.add('visible');
+            }
+        }, { passive: true });
+    }
+
+    // Handle real-time chat cleared event
+    window.handleChatCleared = (data) => {
+        // Only clear if it's the current conversation
+        if (data.conversation_id && String(data.conversation_id) !== String({{ $conversation->id }})) {
+            return;
+        }
+        window.lastMessageDate = '';
+        const container = document.getElementById('chatMessages');
+        if (container) {
+            // Clear all current messages
+            container.innerHTML = '';
+            
+            // Add TODAY divider
+            const now = new Date();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            
+            const divider = document.createElement('div');
+            divider.className = 'chat-date-divider';
+            divider.dataset.date = todayStr;
+            divider.innerHTML = `<span>${window.chatTranslations.today || 'Today'}</span>`;
+            container.appendChild(divider);
+            window.lastMessageDate = todayStr;
+            
+            // Add the system message about clearing
+            if (window.addMessage) {
+                window.addMessage({
+                    id: data.message_id,
+                    conversation_id: data.conversation_id,
+                    sender_id: data.user_id,
+                    content: 'system_cleared',
+                    type: 'system_cleared',
+                    created_at: data.created_at || new Date().toISOString(),
+                    username: data.username
+                });
+            } else {
+                const isOwn = data.user_id == {{ auth()->id() }};
+                const clearText = isOwn 
+                    ? (window.chatTranslations.you_cleared_the_chat || 'You cleared the chat')
+                    : (window.chatTranslations.cleared_the_chat || 'Cleared the chat').replace(':user', data.username || 'User');
+                const systemDiv = document.createElement('div');
+                systemDiv.className = 'system-message';
+                systemDiv.innerHTML = `
+                    <span class="system-text">${escapeHtml(clearText)}</span>
+                    <span class="system-time">${data.time || ''}</span>
+                `;
+                container.appendChild(systemDiv);
+            }
+            
+            // Update Sidebar Preview
+            const sidebarItem = document.querySelector(`.conversation-item[data-conversation-id="${data.conversation_id}"]`);
+            if (sidebarItem) {
+                const previewTextEl = sidebarItem.querySelector('.preview-text');
+                if (previewTextEl) {
+                    const isOwn = data.user_id == {{ auth()->id() }};
+                    const clearMsg = isOwn 
+                        ? (window.chatTranslations.you_cleared_the_chat || 'You cleared the chat')
+                        : (window.chatTranslations.cleared_the_chat || 'Cleared the chat').replace(':user', data.username || 'User');
+                    previewTextEl.textContent = clearMsg;
+                    
+                    // Remove unread state
+                    sidebarItem.classList.remove('unread');
+                    const pill = sidebarItem.querySelector('.unread-pill');
+                    if (pill) pill.remove();
+                    const previewContainer = sidebarItem.querySelector('.conv-preview');
+                    if (previewContainer) previewContainer.classList.remove('unread-text');
+                }
+                
+                // Remove checkmarks
+                const checkIcon = sidebarItem.querySelector('.preview-content-wrapper i');
+                if (checkIcon) checkIcon.remove();
+
+                // Move to top
+                const sidebar = document.getElementById('sidebarConvList');
+                if (sidebar) sidebar.prepend(sidebarItem);
+            }
+
+            // Reset scroll
+            requestAnimationFrame(() => {
+                container.scrollTop = 0;
+            });
+        }
+    };
+
+    const registerSocketListeners = () => {
+        if (window.NexusSocket) {
+            window.NexusSocket.on('chat:cleared', window.handleChatCleared);
+        } else {
+            setTimeout(registerSocketListeners, 100);
+        }
+    };
+
+    registerSocketListeners();
+    joinRoom();
+});
+
+// Leave room on unload
+window.addEventListener('beforeunload', () => {
+    if (window.NexusSocket) {
+        window.NexusSocket.leaveConversation({{ $conversation->id }});
+    }
+});
 
 // ============================================
 // Voice Message Recording and Playback
@@ -4492,18 +6473,12 @@ async function initRecordingWaveform() {
 // Toggle voice recording overlay
 function toggleVoiceRecording() {
     const overlay = document.getElementById('voiceRecordingOverlay');
+    console.log('toggleVoiceRecording called, current display:', overlay.style.display);
     
-    // Check permissions before opening overlay
     if (overlay.style.display !== 'flex') {
-        checkMicrophonePermission().then(granted => {
-            if (granted) {
-                overlay.style.display = 'flex';
-                initRecordingWaveform();
-                resetRecordingState();
-            }
-        }).catch(err => {
-            console.error('Permission check failed:', err);
-        });
+        overlay.style.display = 'flex';
+        initRecordingWaveform();
+        resetRecordingState();
     } else {
         overlay.style.display = 'none';
         cancelVoiceRecording();
@@ -4919,6 +6894,11 @@ async function sendVoiceMessage() {
     formData.append('voice_message', voiceRecordingState.audioBlob, filename);
     formData.append('duration', elapsed > 0 ? elapsed : 1);
     formData.append('waveform_peaks', JSON.stringify(generateWaveformPeaks()));
+    
+    // Add reply support
+    if (replyingTo && replyingTo.id) {
+        formData.append('reply_to_id', replyingTo.id);
+    }
 
     try {
         const response = await fetch(`{{ route('chat.store', $conversation) }}`, {
@@ -4935,10 +6915,6 @@ async function sendVoiceMessage() {
         if (data.success) {
             if (data.message) {
                 appendVoiceMessage(data.message);
-                const messagesContainer = document.getElementById('chatMessages');
-                if (messagesContainer) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
             }
             cancelVoiceRecording();
         } else {
@@ -5007,48 +6983,97 @@ function generateWaveformPeaks() {
 function appendVoiceMessage(message) {
     const messagesContainer = document.getElementById('chatMessages');
     const isOwn = message.sender_id === {{ auth()->id() }};
-    const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(message.created_at);
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const time = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+    const senderName = isOwn ? (window.chatTranslations.you || 'You') : (message.sender?.username || 'User');
     const audioUrl = '/storage/' + message.media_path;
 
+    const duration = message.duration || 0;
+    const totalMin = Math.floor(duration / 60);
+    const totalSec = String(duration % 60).padStart(2, '0');
+
     const messageHtml = `
-        <div class="message ${isOwn ? 'own' : 'other'}" data-message-id="${message.id}">
+        <div class="message ${isOwn ? 'own' : 'other'}" data-message-id="${message.id}" data-sender-name="${escapeHtml(senderName)}">
             ${!isOwn ? `<div class="message-avatar"><img src="${escapeHtml(message.sender.avatar_url)}" alt="${escapeHtml(message.sender.username)}"></div>` : ''}
             <div class="message-bubble">
-                ${!isOwn ? `<div class="sender-name">${escapeHtml(message.sender.username)}</div>` : ''}
+                ${(!isOwn && window.isGroupChat) ? `<div class="sender-name">${escapeHtml(message.sender.username)}</div>` : ''}
                 <div class="message-content">
-                    <div class="voice-message-simple" data-audio-url="${audioUrl}">
-                        <button class="voice-play-btn-simple" onclick="toggleVoiceMessage(this)">
+                    <div class="voice-message" data-audio-url="${audioUrl}" data-duration="${duration}">
+                        <button class="voice-play-btn" onclick="toggleVoiceMessage(this)">
                             <i class="fas fa-play"></i>
                         </button>
                         <div class="voice-info">
-                            <span class="voice-label">Voice Message</span>
-                            <span class="voice-duration-simple">${message.duration || 0}s</span>
+                            <div class="voice-progress-container" onclick="seekVoice(event, this)">
+                                <div class="voice-progress-bar"></div>
+                            </div>
+                            <div class="voice-meta">
+                                <span class="voice-label">${window.chatTranslations.voice_message || 'Voice Message'}</span>
+                                <span class="voice-duration">0:00 / ${totalMin}:${totalSec}</span>
+                            </div>
                         </div>
-                        <button class="voice-speed-btn-simple" onclick="toggleVoiceSpeed(this)">1x</button>
+                        <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)">1x</button>
                     </div>
                     <span class="message-time">
                         ${time}
-                        ${isOwn ? '<i class="fas fa-check" title="{{ __('chat.sent') }}"></i>' : ''}
+                        ${isOwn ? '<i class="fas fa-check" title="' + (window.chatTranslations.sent || 'Sent') + '"></i>' : ''}
                     </span>
+                    <div class="msg-item-actions">
+                        <button class="msg-action-trigger" onclick="toggleMsgMenu(event, '${message.id}')">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="msg-dropdown" id="msgDropdown-${message.id}">
+                            <button class="menu-item" onclick="initiateReply('${message.id}')">
+                                <i class="fas fa-reply"></i> ${window.chatTranslations.reply || 'Reply'}
+                            </button>
+                            ${isOwn ? `
+                            <button class="menu-item danger" onclick="deleteMessage(${message.id})">
+                                <i class="fas fa-trash-alt"></i> ${window.chatTranslations.delete_message || 'Delete'}
+                            </button>` : ''}
+                        </div>
+                    </div>
                 </div>
-                ${isOwn ? `<button class="delete-btn" onclick="deleteMessage(${message.id})" title="{{ __('chat.delete_message') }}"><i class="fas fa-trash"></i></button>` : ''}
+                <div class="message-reactions-bar" data-message-id="${message.id}" style="display:none;"></div>
             </div>
+            <button class="quick-react-btn" onclick="openReactionPicker(event, '${message.id}')" title="${window.chatTranslations.react || 'React'}">
+                <i class="far fa-smile"></i>
+            </button>
         </div>
     `;
 
     messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
+
+    // Smart Scroll Logic for Voice Messages
+    const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 150;
+    const scrollBtn = document.getElementById('scrollToBottomBtn');
+    
+    if (isAtBottom || isOwn) {
+        if (window.scrollToBottom) window.scrollToBottom(isOwn ? 'smooth' : 'auto');
+        else messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } else if (scrollBtn) {
+        scrollBtn.classList.add('visible', 'has-new-msg');
+    }
 }
 
-// Simple Voice Message Playback
+// Clean Voice Message Playback
 let currentAudio = null;
 let currentBtn = null;
+let animationFrame = null;
 
 async function toggleVoiceMessage(btn) {
-    const voiceMessage = btn.closest('.voice-message-simple');
+    const voiceMessage = btn.closest('.voice-message');
     if (!voiceMessage) return;
 
-    const audioUrl = voiceMessage.dataset.audioUrl || voiceMessage.closest('.message').dataset.audioUrl;
+    const audioUrl = voiceMessage.dataset.audioUrl;
     if (!audioUrl) return;
+
+    const progressBar = voiceMessage.querySelector('.voice-progress-bar');
+    const timeDisplay = voiceMessage.querySelector('.voice-duration');
+    const totalDuration = parseFloat(voiceMessage.dataset.duration) || 0;
 
     // If clicking the same message
     if (currentBtn === btn) {
@@ -5062,11 +7087,23 @@ async function toggleVoiceMessage(btn) {
         return;
     }
 
-    // Stop previous audio
+    // Stop previous audio and reset its UI
     if (currentAudio) {
         currentAudio.pause();
         if (currentBtn) {
             currentBtn.innerHTML = '<i class="fas fa-play"></i>';
+            const oldContainer = currentBtn.closest('.voice-message');
+            if (oldContainer) {
+                const oldBar = oldContainer.querySelector('.voice-progress-bar');
+                const oldTime = oldContainer.querySelector('.voice-duration');
+                const oldDur = parseFloat(oldContainer.dataset.duration) || 0;
+                if (oldBar) oldBar.style.width = '0%';
+                if (oldTime) {
+                    const m = Math.floor(oldDur / 60);
+                    const s = String(Math.floor(oldDur % 60)).padStart(2, '0');
+                    oldTime.textContent = `0:00 / ${m}:${s}`;
+                }
+            }
         }
     }
 
@@ -5074,7 +7111,24 @@ async function toggleVoiceMessage(btn) {
     currentAudio = new Audio(audioUrl);
     currentBtn = btn;
 
+    const speedBtn = voiceMessage.querySelector('.voice-speed-btn');
+    if (speedBtn) currentAudio.playbackRate = parseFloat(speedBtn.textContent) || 1;
+
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    currentAudio.ontimeupdate = () => {
+        if (!currentAudio) return;
+        const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        
+        if (timeDisplay) {
+            const curMin = Math.floor(currentAudio.currentTime / 60);
+            const curSec = String(Math.floor(currentAudio.currentTime % 60)).padStart(2, '0');
+            const totMin = Math.floor(currentAudio.duration / 60) || Math.floor(totalDuration / 60);
+            const totSec = String(Math.floor(currentAudio.duration % 60) || Math.floor(totalDuration % 60)).padStart(2, '0');
+            timeDisplay.textContent = `${curMin}:${curSec} / ${totMin}:${totSec}`;
+        }
+    };
 
     currentAudio.onplay = () => {
         btn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -5086,6 +7140,12 @@ async function toggleVoiceMessage(btn) {
 
     currentAudio.onended = () => {
         btn.innerHTML = '<i class="fas fa-play"></i>';
+        if (progressBar) progressBar.style.width = '0%';
+        if (timeDisplay) {
+            const m = Math.floor(totalDuration / 60);
+            const s = String(Math.floor(totalDuration % 60)).padStart(2, '0');
+            timeDisplay.textContent = `0:00 / ${m}:${s}`;
+        }
         currentAudio = null;
         currentBtn = null;
     };
@@ -5103,6 +7163,17 @@ async function toggleVoiceMessage(btn) {
         currentAudio = null;
         currentBtn = null;
     }
+}
+
+function seekVoice(event, container) {
+    if (!currentAudio || currentBtn.closest('.voice-message') !== container.closest('.voice-message')) return;
+    
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const width = rect.width;
+    const percentage = x / width;
+    
+    currentAudio.currentTime = percentage * currentAudio.duration;
 }
 
 // Draw waveform with progress
@@ -5196,15 +7267,279 @@ function toggleVoiceSpeed(btn) {
     btn.textContent = nextSpeed;
     console.log('Playback speed changed to:', nextSpeed);
 
-    if (currentVoiceWaveform) {
-        currentVoiceWaveform.setPlaybackRate(parseFloat(nextSpeed));
+    if (currentAudio) {
+        currentAudio.playbackRate = parseFloat(nextSpeed);
     }
 }
 
-// Initialize existing voice messages on page load
-document.addEventListener('DOMContentLoaded', async () => {
-    // Voice messages will be initialized when clicked
-    console.log('Voice message player initialized');
-});
+window.currentUserId = {{ auth()->id() }};
+
+/* ═══════════════════════════════════════════════
+   MESSAGE REACTIONS ENGINE
+   ═══════════════════════════════════════════════ */
+
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+
+/**
+ * Open the floating reaction picker near a message bubble
+ */
+window.openReactionPicker = function(event, messageId) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Close any open dropdowns / existing picker
+    document.querySelectorAll('.msg-dropdown').forEach(d => d.classList.remove('show'));
+    closeReactionPicker();
+
+    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (!messageEl) return;
+
+    const bubble = messageEl.querySelector('.message-bubble');
+    const rect = bubble.getBoundingClientRect();
+    
+    // Find my current reaction for this message
+    const bar = document.querySelector(`.message-reactions-bar[data-message-id="${messageId}"]`);
+    const myCurrentEmoji = bar ? bar.getAttribute('data-my-reaction') : null;
+
+    // Build picker HTML with indicator for current reaction
+    const pickerHtml = `
+        <div class="emoji-list">
+            ${REACTION_EMOJIS.map(emoji => {
+                const isActive = myCurrentEmoji === emoji;
+                return `<span onclick="toggleMessageReaction('${messageId}', '${emoji}')" 
+                                class="${isActive ? 'active-pick' : ''}" 
+                                title="${emoji}">${emoji}</span>`;
+            }).join('')}
+        </div>
+    `;
+
+    // Create overlay to close on outside click
+    const overlay = document.createElement('div');
+    overlay.className = 'reaction-picker-overlay';
+    overlay.onclick = closeReactionPicker;
+    document.body.appendChild(overlay);
+
+    // Create picker element
+    const picker = document.createElement('div');
+    picker.className = 'msg-reaction-picker';
+    picker.id = 'activeReactionPicker';
+    picker.innerHTML = pickerHtml;
+    document.body.appendChild(picker);
+
+    // Position calculation
+    const padding = 15;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Get picker size after it's in the DOM
+    // Use offsetWidth/offsetHeight as they ignore CSS transforms (scale)
+    const pWidth = picker.offsetWidth;
+    const pHeight = picker.offsetHeight;
+    
+    // Try to position centered above the button that was clicked
+    const btn = event.currentTarget;
+    const btnRect = btn.getBoundingClientRect();
+    
+    let top = btnRect.top - pHeight - 12;
+    let left = btnRect.left - (pWidth / 2) + (btnRect.width / 2);
+
+    // Viewport boundaries check to prevent going off-screen
+    if (left < 15) left = 15;
+    if (left + pWidth > viewportWidth - 15) {
+        left = viewportWidth - pWidth - 15;
+    }
+    
+    // If not enough space above, position below the button
+    if (top < padding) {
+        top = btnRect.bottom + 12;
+    }
+
+    
+    // Vertical clamping
+    if (top + pHeight > viewportHeight - padding) {
+        top = viewportHeight - pHeight - padding;
+    }
+    if (top < padding) top = padding;
+
+    // Small screen centering if too wide
+    if (viewportWidth < 400 && pWidth > viewportWidth - 30) {
+        left = (viewportWidth - pWidth) / 2;
+    }
+
+
+    picker.style.top = top + 'px';
+    picker.style.left = left + 'px';
+    
+    // Add active class for animation
+    setTimeout(() => picker.classList.add('active'), 10);
+};
+
+function closeReactionPicker() {
+    const picker = document.getElementById('activeReactionPicker');
+    if (picker) picker.remove();
+    const overlay = document.querySelector('.reaction-picker-overlay');
+    if (overlay) overlay.remove();
+}
+
+/**
+ * Toggle/Switch/Remove a reaction
+ */
+window.toggleMessageReaction = function(messageId, emoji) {
+    closeReactionPicker();
+
+    fetch(`/chat/message/${messageId}/react`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({ reaction_type: emoji }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            renderReactionsBar(messageId, data.reactions);
+        }
+    })
+    .catch(err => console.error('Reaction error:', err));
+};
+
+/**
+ * Render reactions as a single grouped pill
+ */
+function renderReactionsBar(messageId, reactions) {
+    const bar = document.querySelector(`.message-reactions-bar[data-message-id="${messageId}"]`);
+    if (!bar) return;
+
+    if (!reactions || reactions.length === 0) {
+        bar.innerHTML = '';
+        bar.style.display = 'none';
+        bar.removeAttribute('data-my-reaction');
+        const bubble = bar.closest('.message-bubble');
+        if (bubble) bubble.classList.remove('has-reactions');
+        return;
+
+    }
+
+    const currentUserId = window.currentUserId;
+    let totalCount = 0;
+    let hasMine = false;
+    let myEmoji = null;
+    let uniqueEmojis = [];
+
+    reactions.forEach(r => {
+        totalCount += r.count;
+        uniqueEmojis.push(r.reaction_type);
+        if (r.users.some(u => u.id === currentUserId)) {
+            hasMine = true;
+            myEmoji = r.reaction_type;
+        }
+    });
+
+    // Store my reaction on the bar for the picker to find
+    if (myEmoji) bar.setAttribute('data-my-reaction', myEmoji);
+    else bar.removeAttribute('data-my-reaction');
+
+    bar.innerHTML = `
+        <div class="reaction-group-pill ${hasMine ? 'has-mine' : ''}" 
+             onclick="showMessageReactors('${messageId}')">
+            <div class="reaction-emoji-stack">
+                ${uniqueEmojis.map(e => {
+                    return `<span class="stack-emoji">${e}</span>`;
+                }).join('')}
+            </div>
+            <span class="reaction-total-count">${totalCount}</span>
+        </div>
+    `;
+
+    bar.style.display = 'flex';
+    
+    // Add has-reactions class to bubble for proper spacing
+    const bubble = bar.closest('.message-bubble');
+    if (bubble) {
+        bubble.classList.add('has-reactions');
+    }
+}
+
+
+/**
+ * Reactors Modal Logic
+ */
+window.showMessageReactors = function(messageId) {
+    const modal = document.getElementById('reactorsModalOverlay');
+    const list = document.getElementById('reactorsList');
+    
+    if (!modal || !list) {
+        console.error('Reactors modal elements not found in DOM');
+        return;
+    }
+
+    list.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    modal.style.display = 'flex';
+
+    console.log('Fetching reactors for message:', messageId);
+
+    fetch(`/chat/message/${messageId}/reactions`)
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        if (!data.success || !data.reactions || !Array.isArray(data.reactions) || data.reactions.length === 0) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0;">No reactions found.</div>';
+            return;
+        }
+
+        let html = '';
+        data.reactions.forEach((group) => {
+            if (!group.users || !Array.isArray(group.users)) return;
+            
+            group.users.forEach((user) => {
+                const isMe = String(user.id) === String(window.currentUserId);
+                const avatar = user.avatar_url || '/images/default-avatar.svg';
+                const usernameLabel = isMe ? `<span style="color: var(--wa-accent);">(${window.chatTranslations?.you || 'You'})</span> ${user.username || 'User'}` : (user.username || 'User');
+                const emoji = group.reaction_type || '❓';
+                
+                const clickAttr = isMe ? `onclick="toggleMessageReaction('${messageId}', '${emoji}'); closeReactorsModal();"` : '';
+                const removeLabel = isMe ? `<div style="font-size: 11px; color: var(--wa-red); opacity: 0.8; margin-top: 2px;">${window.chatTranslations?.click_to_remove || 'Click to remove'}</div>` : '';
+
+                html += `
+                    <div class="global-reactor-item" ${clickAttr} style="${isMe ? 'cursor: pointer;' : 'cursor: default;'}">
+                        <div class="global-reactor-avatar">
+                            <img src="${avatar}" alt="${user.username}" onerror="this.src='/images/default-avatar.svg'">
+                        </div>
+                        <div class="global-reactor-info">
+                            <div class="global-reactor-name">${usernameLabel}</div>
+                            ${removeLabel}
+                        </div>
+                        <div class="global-reactor-emoji">
+                            ${emoji}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        if (!html) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0;">No reactors could be processed.</div>';
+        } else {
+            list.innerHTML = html;
+        }
+    })
+    .catch(err => {
+        console.error('Fetch reactors failed:', err);
+        list.innerHTML = `<div style="padding: 20px; text-align: center; color: #ff3b30;">Error loading reactors.</div>`;
+    });
+};
+
+/**
+ * Handle real-time reaction updates from WebSocket
+ */
+window.updateReactionsFromSocket = function(data) {
+    if (!data || !data.message_id) return;
+    renderReactionsBar(data.message_id, data.reactions);
+};
+
 </script>
 @endsection

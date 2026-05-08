@@ -3,10 +3,7 @@
 (function() {
     'use strict';
 
-    (function() {
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-    })();
+
 
     window.togglePw = function(inputId, iconId) {
         const input = document.getElementById(inputId);
@@ -87,14 +84,5 @@
         }
     })();
 
-    window.toggleTheme = function() {
-        const html = document.documentElement;
-        const icon = document.getElementById('theme-icon');
-        if (!icon) return;
-        const currentTheme = html.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', newTheme);
-        icon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
-        localStorage.setItem('theme', newTheme);
-    };
+
 })();

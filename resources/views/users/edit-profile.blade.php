@@ -250,6 +250,19 @@
             </div>
         </div>
 
+        {{-- Security --}}
+        <div class="edit-card">
+            <h3><i class="fas fa-shield-alt"></i> {{ __('users.security_settings') }}</h3>
+            <div class="form-group">
+                <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+                    {{ __('users.change_password_desc') }}
+                </p>
+                <a href="{{ route('password.change') }}" class="btn" style="background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; display: inline-flex; align-items: center; gap: 8px; border-radius: var(--radius); font-weight: 600; transition: all var(--transition);">
+                    <i class="fas fa-key" style="color: var(--primary);"></i> {{ __('messages.change_password') }}
+                </a>
+            </div>
+        </div>
+
         {{-- Privacy --}}
         <div class="edit-card">
             <h3><i class="fas fa-lock"></i> {{ __('users.privacy_settings') }}</h3>
@@ -303,12 +316,22 @@ function deleteAvatar() {
 
     fetch('{{ route("profile.delete-avatar") }}', {
         method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        headers: { 
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        }
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            const preview = document.getElementById('avatar-preview');
+            if (preview) {
+                preview.src = '{{ auth()->user()->default_avatar }}';
+            }
+            // Hide delete button
+            const deleteBtn = document.querySelector('button[onclick="deleteAvatar()"]');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            showToast(data.message || 'Avatar deleted', 'success');
         } else {
             alert(data.message || {!! json_encode(__('users.failed_delete_avatar')) !!});
         }
@@ -320,12 +343,23 @@ function deleteCover() {
 
     fetch('{{ route("profile.delete-cover") }}', {
         method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+        headers: { 
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        }
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            const preview = document.getElementById('cover-preview');
+            if (preview) {
+                preview.src = '';
+                preview.parentElement.innerHTML = '<div class="placeholder"><i class="fas fa-image"></i></div>';
+            }
+            // Hide delete button
+            const deleteBtn = document.querySelector('button[onclick="deleteCover()"]');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            showToast(data.message || 'Cover deleted', 'success');
         } else {
             alert(data.message || {!! json_encode(__('users.failed_delete_cover')) !!});
         }

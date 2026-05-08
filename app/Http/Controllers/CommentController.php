@@ -15,10 +15,21 @@ class CommentController extends Controller
             'content' => 'required|string|max:280',
             'post_id' => 'required|exists:posts,id',
             'parent_id' => 'nullable|exists:comments,id',
+            'is_anonymous' => 'nullable|boolean',
         ]);
 
         $currentUser = auth()->user();
         $post = Post::findOrFail($request->post_id);
+
+        // Check if comments are disabled for this post
+        if ($post->is_comments_disabled) {
+            return back()->withErrors(['post_id' => 'Comments are disabled for this post.']);
+        }
+
+        // Check if group is paused
+        if ($post->social_group_id && $post->socialGroup->is_paused) {
+            return back()->withErrors(['post_id' => 'Group is currently paused.']);
+        }
         
         // CRITICAL FIX: Check if commenter is blocked by post owner
         if ($post->user->isBlocking($currentUser)) {
@@ -67,46 +78,114 @@ class CommentController extends Controller
             }
         }
 
-        $comment = Comment::create([
+        $isAnonymous = $request->boolean('is_anonymous');
+
+        $commentData = [
             'user_id' => auth()->id(),
             'post_id' => $request->post_id,
             'parent_id' => $request->parent_id,
             'content' => $request->content,
-        ]);
+            'is_anonymous' => $isAnonymous,
+        ];
+
+        $comment = Comment::create($commentData);
 
         // Process mentions in the comment content
         app(\App\Services\MentionService::class)->processMentions($comment, $comment->content, auth()->id());
 
-        // Create notification for post owner (if not commenting on own post)
-        if ($comment->post->user_id !== auth()->id()) {
-            \App\Models\Notification::create([
-                'user_id' => $comment->post->user_id,
-                'type' => 'comment',
-                'data' => [
+        // 1. Notify the person being replied to (if it's a reply)
+        if ($comment->parent_id) {
+            $parentComment = $comment->parent;
+            if ($parentComment && $parentComment->user_id !== auth()->id()) {
+                NotificationController::createNotification(
+                    $parentComment->user_id,
+                    'comment_reply',
+                    [
+                        'commenter_name' => auth()->user()->username ?? auth()->user()->name ?? 'Someone',
+                        'commenter_username' => auth()->user()->username ?? 'Unknown',
+                        'commenter_id' => auth()->id(),
+                        'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
+                        'post_slug' => $comment->post->slug ?? $comment->post->id,
+                        'parent_comment_id' => $comment->parent_id
+                    ],
+                    $comment
+                );
+            }
+        }
+
+        // 2. Notify post owner (if not the commenter and not already notified as parent author)
+        $postOwnerId = $comment->post->user_id;
+        $parentAuthorId = $comment->parent_id ? ($comment->parent->user_id ?? null) : null;
+        
+        if ($postOwnerId !== auth()->id() && $postOwnerId !== $parentAuthorId) {
+            NotificationController::createNotification(
+                $postOwnerId,
+                'comment',
+                [
                     'commenter_name' => auth()->user()->username ?? auth()->user()->name ?? 'Someone',
                     'commenter_username' => auth()->user()->username ?? 'Unknown',
                     'commenter_id' => auth()->id(),
                     'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
-                    'post_content' => substr($comment->post->content ?? 'Image post', 0, 30)
+                    'post_content' => substr($comment->post->content ?? 'Image post', 0, 30),
+                    'post_slug' => $comment->post->slug ?? $comment->post->id
                 ],
-                'related_type' => \App\Models\Comment::class,
-                'related_id' => $comment->id
-            ]);
+                $comment
+            );
         }
+
+        // Prepare comment data for response and broadcast
+        $groupId = $post->social_group_id;
+        $commentData = Comment::with(['user.profile', 'post', 'member' => function($query) use ($groupId) {
+            if ($groupId) {
+                $query->where('social_group_members.social_group_id', $groupId);
+            }
+        }])->find($comment->id);
+        
+        // Append virtual attributes
+        $commentData->append('author_role');
+        
+        // Ensure accessor-based attributes like avatar_url are included in JSON
+        if ($commentData->user) {
+            $commentData->user->append('avatar_url');
+        }
+        $commentData->content = app(\App\Services\MentionService::class)->convertMentionsToLinks($comment->content);
+
+        // Merge virtual attributes explicitly to ensure they are in the JSON
+        $commentArray = $commentData->toArray();
+        $commentArray['author_role'] = $commentData->author_role;
+        $commentArray['role_badge_html'] = $commentData->role_badge_html;
+        if ($commentData->user) {
+            $commentArray['user']['avatar_url'] = $commentData->user->avatar_url;
+        }
+
+        // BROADCAST: Send updated count and the new comment data for real-time appearance
+        $socketPayload = [
+            'post_id' => $post->id,
+            'count' => $post->comments()->count(),
+        ];
+
+        // Prepare anonymized comment data for public broadcast
+        $broadcastComment = $commentArray;
+        if ($isAnonymous) {
+            $broadcastComment['user'] = [
+                'id' => null,
+                'username' => __('messages.anonymous_participant'),
+                'name' => __('messages.anonymous_participant'),
+                'avatar_url' => null, // Frontend handles anonymous avatar
+            ];
+            $broadcastComment['user_id'] = null;
+            $broadcastComment['author_role'] = null;
+            $broadcastComment['role_badge_html'] = '';
+        }
+        $socketPayload['comment'] = $broadcastComment;
+
+        app(\App\Services\SocketEmitService::class)->emit('global', 'post:commented', $socketPayload);
 
         // Check if it's an AJAX request
         if ($request->expectsJson()) {
-            $commentData = $comment->load(['user.profile']);
-            // Ensure accessor-based attributes like avatar_url are included in JSON
-            if ($commentData->user) {
-                $commentData->user->append('avatar_url');
-            }
-            $commentData->content = app(\App\Services\MentionService::class)->convertMentionsToLinks($comment->content);
-
             return response()->json([
                 'success' => true,
-                'comment' => $commentData,
-                'message' => __('messages.comment_posted')
+                'comment' => $commentArray,
             ]);
         }
 
@@ -150,6 +229,14 @@ class CommentController extends Controller
         $commentId = $comment->id;
         $comment->delete();
 
+        // BROADCAST: Notify all users to remove this comment and update count
+        $post = \App\Models\Post::find($postId);
+        app(\App\Services\SocketEmitService::class)->emit('global', 'comment:deleted', [
+            'comment_id' => $commentId,
+            'post_id' => $postId,
+            'count' => $post ? $post->comments()->count() : 0
+        ]);
+
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
             return response()->json([
@@ -182,9 +269,48 @@ class CommentController extends Controller
                 $like->delete();
                 $comment->refresh();
             } else {
-                $newLike = CommentLike::create(['user_id' => $user->id, 'comment_id' => $comment->id]);
+                $isAnonymous = false;
+                $post = $comment->post;
+                if ($post && $post->social_group_id) {
+                    $member = \App\Models\SocialGroupMember::where('social_group_id', $post->social_group_id)
+                        ->where('user_id', $user->id)
+                        ->first();
+                    if ($member && $member->is_anonymous_default) {
+                        $isAnonymous = true;
+                    }
+                }
+
+                $newLike = CommentLike::create([
+                    'user_id' => $user->id, 
+                    'comment_id' => $comment->id,
+                    'is_anonymous' => $isAnonymous
+                ]);
                 $comment->refresh();
+
+                // Create notification for comment owner (if not liking own comment)
+                if ($comment->user_id !== $user->id) {
+                    NotificationController::createNotification(
+                        $comment->user_id,
+                        'comment_like',
+                        [
+                            'liker_name' => $user->username ?? $user->name ?? 'Someone',
+                            'liker_username' => $user->username ?? 'Unknown',
+                            'liker_id' => $user->id,
+                            'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
+                            'post_slug' => $comment->post->slug ?? '',
+                            'comment_id' => $comment->id,
+                            'is_reply' => $comment->parent_id !== null
+                        ],
+                        $newLike // Pass the like model for anti-leak logic
+                    );
+                }
             }
+
+            // BROADCAST: Update comment likes count in real-time
+            app(\App\Services\SocketEmitService::class)->emit('global', 'comment:liked', [
+                'comment_id' => $comment->id,
+                'likes_count' => $comment->likes()->count()
+            ]);
 
             // Check if it's an AJAX request
             if (request()->expectsJson()) {

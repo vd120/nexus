@@ -447,49 +447,102 @@
 /* Responsive */
 @media (max-width: 768px) {
     .report-detail-page {
-        padding: 1rem;
+        padding: 1rem 0.75rem;
     }
 
     .page-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .status-badge {
+        width: 100%;
+        justify-content: center;
+        padding: 0.5rem;
     }
 
     .info-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .post-header {
+        flex-direction: row;
+        align-items: center;
     }
 
     .post-media {
         grid-template-columns: 1fr;
     }
 
+    .post-media img,
+    .post-media video {
+        height: auto;
+        max-height: 300px;
+    }
+
+    .status-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .reviewer-info {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .action-taken {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
     .detail-actions {
         flex-direction: column;
+        gap: 0.75rem;
     }
 
     .detail-actions .btn {
         width: 100%;
         justify-content: center;
+        padding: 1rem;
     }
 }
 
-/* Remove hover effects from buttons on report detail page */
-.report-detail-page .btn:hover,
-.report-detail-page .back-btn:hover {
-    background: inherit !important;
-    color: inherit !important;
-    transform: none !important;
-    box-shadow: none !important;
+/* Premium Styles */
+.detail-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    margin-bottom: 1.5rem;
 }
 
-/* Slug display styling */
-.slug-text {
-    font-family: monospace;
-    background: var(--bg-secondary);
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--radius);
-    font-size: 0.85rem;
-    color: var(--primary);
-    word-break: break-all;
+.content-text, .post-content, .post-stats, .admin-note, .pending-info {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    border: none;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+/* RTL Support */
+[dir="rtl"] .back-btn i {
+    transform: rotate(180deg);
 }

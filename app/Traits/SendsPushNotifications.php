@@ -24,8 +24,16 @@ trait SendsPushNotifications
             return;
         }
 
-        // Get notification data based on type
+        // Get notification data based on type in the recipient's language
+        $originalLocale = app()->getLocale();
+        if ($user->language) {
+            app()->setLocale($user->language);
+        }
+
         [$title, $body, $url] = $this->getNotificationData($notification);
+
+        // Restore original locale
+        app()->setLocale($originalLocale);
 
         // Send push notification
         $pushService->sendToUser($user, $title, $body, $url, [
@@ -50,6 +58,16 @@ trait SendsPushNotifications
             'comment' => [
                 __('notifications.commented_on_your_post', ['user' => $data['commenter_name'] ?? 'Someone']),
                 $data['comment_preview'] ?? __('notifications.commented_on_your_post', ['user' => $data['commenter_name'] ?? 'Someone']),
+                route('posts.show', ['post' => $data['post_slug'] ?? '#']),
+            ],
+            'comment_reply' => [
+                __('notifications.replied_to_your_comment', ['user' => $data['commenter_name'] ?? 'Someone']),
+                $data['comment_preview'] ?? __('notifications.replied_to_your_comment', ['user' => $data['commenter_name'] ?? 'Someone']),
+                route('posts.show', ['post' => $data['post_slug'] ?? '#']),
+            ],
+            'comment_like' => [
+                ($data['is_reply'] ?? false) ? __('notifications.liked_your_reply', ['user' => $data['liker_name'] ?? 'Someone']) : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
+                ($data['is_reply'] ?? false) ? __('notifications.liked_your_reply', ['user' => $data['liker_name'] ?? 'Someone']) : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
                 route('posts.show', ['post' => $data['post_slug'] ?? '#']),
             ],
             'follow' => [
@@ -81,8 +99,25 @@ trait SendsPushNotifications
     protected function getNotificationType(string $type): string
     {
         return match($type) {
-            'like' => 'likes',
-            'comment' => 'comments',
+            'like', 'post_reaction', 'comment_like' => 'likes',
+            'comment', 'comment_reply' => 'comments',
+            'follow' => 'follows',
+            'mention' => 'mentions',
+            'message' => 'messages',
+            default => 'other',
+        };
+    }
+}
+   }
+
+    /**
+     * Get notification type for settings.
+     */
+    protected function getNotificationType(string $type): string
+    {
+        return match($type) {
+            'like', 'comment_like' => 'likes',
+            'comment', 'comment_reply' => 'comments',
             'follow' => 'follows',
             'mention' => 'mentions',
             'message' => 'messages',

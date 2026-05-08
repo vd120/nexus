@@ -118,13 +118,13 @@
                     </div>
                     <div class="info-item">
                         <label>{{ __('emails.login_time') }} : </label>
-                        <value>{{ $activity->logged_at->format('Y-m-d h:i A') }}</value>
+                        <value>{{ $activity->logged_at->format('Y-m-d h:i a') }}</value>
                     </div>
                     
                     @if($activity->timezone)
                     <div class="info-item full-width">
                         <label>{{ __('emails.timezone') }} : </label>
-                        <value>{{ $activity->timezone }} @if($activity->logged_at)({{ $activity->logged_at->timezone(str_replace('_', '/', $activity->timezone))->format('h:i A') }})@endif</value>
+                        <value>{{ $activity->timezone }} @if($activity->logged_at)({{ $activity->logged_at->timezone(str_replace('_', '/', $activity->timezone))->format('h:i a') }})@endif</value>
                     </div>
                     @endif
                 </div>

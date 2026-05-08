@@ -3,38 +3,62 @@
 (function() {
     'use strict';
 
-    // Toast notification
-    window.showToast = function(message, type = 'info', duration = 3000) {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
-
-        const toast = document.createElement('div');
-        toast.className = 'toast ' + type;
-        const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-        toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
-
-        container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add('removing');
-            setTimeout(() => toast.remove(), 250);
-        }, duration);
-    };
-
+    // Theme toggle
     // Theme toggle
     window.toggleTheme = function() {
         const html = document.documentElement;
-        const icon = document.getElementById('theme-icon');
-        if (!icon) return;
-        const currentTheme = html.getAttribute('data-theme');
+        const currentTheme = html.getAttribute('data-theme') || 'dark';
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
         html.setAttribute('data-theme', newTheme);
-        icon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
         localStorage.setItem('theme', newTheme);
+        
+        // Update all theme switchers (pill design)
+        document.querySelectorAll('.theme-option-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === newTheme);
+        });
+        
+        // Legacy icon support (if still used)
+        const icon = document.getElementById('theme-icon-main');
+        if (icon) {
+            icon.className = newTheme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+        }
     };
 
     // Get CSRF token
     window.getCsrfToken = function() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
     };
+
+    // Update real-time connection status dot
+    window.updateConnectionStatus = function(status) {
+        const dot = document.getElementById('connection-status-dot');
+        if (!dot) return;
+
+        dot.classList.remove('online', 'pending');
+        
+        if (status === 'online') {
+            dot.classList.add('online');
+            dot.title = 'Connected to real-time server';
+        } else {
+            dot.classList.add('pending');
+            dot.title = 'Connecting to real-time server...';
+        }
+    };
+
+    // Initialize Switchers (Pills) on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const currentLocale = document.documentElement.lang || 'en';
+
+        // Sync Theme Switchers
+        document.querySelectorAll('.theme-option-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === currentTheme);
+        });
+
+        // Sync Language Switchers
+        document.querySelectorAll('.lang-option-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-loc-btn') === currentLocale);
+        });
+    });
 })();

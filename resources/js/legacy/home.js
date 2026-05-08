@@ -1,24 +1,34 @@
 /* Home Page (Landing Page) JavaScript */
 
-(function() {
+(function () {
     'use strict';
 
     // Apply saved theme immediately (before page loads)
-    (function() {
+    (function () {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
     })();
 
     // Video Background Optimization - Pause when not visible
-    (function() {
+    (function () {
         const heroVideo = document.querySelector('.hero-bg-video video');
         if (!heroVideo) return;
+
+        const safePlay = () => {
+            const playPromise = heroVideo.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    // Auto-play was prevented or interrupted
+                    console.debug("Video play interrupted or prevented:", error);
+                });
+            }
+        };
 
         // Pause video when not in viewport
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    heroVideo.play();
+                    safePlay();
                 } else {
                     heroVideo.pause();
                 }
@@ -32,29 +42,21 @@
             if (document.hidden) {
                 heroVideo.pause();
             } else {
-                heroVideo.play();
+                safePlay();
             }
         });
     })();
 
     // Cache DOM queries and theme toggle (runs on load)
-    window.addEventListener('load', function() {
+    window.addEventListener('load', function () {
         const navLinks = document.getElementById('navLinks');
         const themeToggle = document.getElementById('themeToggle');
-        const sunIcon = themeToggle?.querySelector('.sun');
-        const moonIcon = themeToggle?.querySelector('.moon');
 
         // Theme toggle functionality
         function updateThemeIcons(theme) {
-            if (theme === 'light') {
-                if (sunIcon) sunIcon.style.display = 'block';
-                if (moonIcon) moonIcon.style.display = 'none';
-                if (themeToggle) themeToggle.style.borderColor = 'rgba(0,0,0,0.2)';
-            } else {
-                if (sunIcon) sunIcon.style.display = 'none';
-                if (moonIcon) moonIcon.style.display = 'block';
-                if (themeToggle) themeToggle.style.borderColor = 'rgba(255,255,255,0.2)';
-            }
+            document.querySelectorAll('.theme-option-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === theme);
+            });
             if (themeToggle) themeToggle.style.color = 'var(--text-primary)';
         }
 
@@ -63,7 +65,7 @@
 
         // Theme toggle click handler
         if (themeToggle) {
-            themeToggle.addEventListener('click', function() {
+            themeToggle.addEventListener('click', function () {
                 const currentTheme = document.documentElement.getAttribute('data-theme');
                 const newTheme = currentTheme === 'light' ? 'dark' : 'light';
 
@@ -73,34 +75,20 @@
             });
         }
 
-        // Header scroll animation
-        const nav = document.querySelector('nav');
-        let lastScroll = 0;
 
-        window.addEventListener('scroll', () => {
-            const currentScroll = window.pageYOffset;
-
-            if (currentScroll > 50) {
-                nav.classList.add('scrolled');
-            } else {
-                nav.classList.remove('scrolled');
-            }
-
-            lastScroll = currentScroll;
-        }, { passive: true });
 
         // Mobile menu - attach event listener
         const menuToggle = document.getElementById('menuToggle');
 
         if (menuToggle && navLinks) {
-            menuToggle.addEventListener('click', function(e) {
+            menuToggle.addEventListener('click', function (e) {
                 e.stopPropagation();
                 navLinks.classList.toggle('active');
                 menuToggle.classList.toggle('active');
             });
 
             // Close menu when clicking outside
-            document.addEventListener('click', function(e) {
+            document.addEventListener('click', function (e) {
                 if (!navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
                     navLinks.classList.remove('active');
                     menuToggle.classList.remove('active');
@@ -111,28 +99,72 @@
         // Close menu when clicking a link
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', (e) => {
-                e.preventDefault();
-                navLinks.classList.remove('active');
-                menuToggle.classList.remove('active');
+                const href = link.getAttribute('href');
+                if (href.startsWith('#')) {
+                    e.preventDefault();
+                    navLinks.classList.remove('active');
+                    menuToggle.classList.remove('active');
 
-                const targetId = link.getAttribute('href');
-                const targetSection = document.querySelector(targetId);
-
-                if (targetSection) {
-                    const navHeight = 80;
-                    const targetPosition = targetSection.offsetTop - navHeight;
-                    window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+                    const targetSection = document.querySelector(href);
+                    if (targetSection) {
+                        const navHeight = 80;
+                        const targetPosition = targetSection.offsetTop - navHeight;
+                        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+                    }
                 }
             });
         });
     });
 
     // GSAP Animations
-    window.initGSAP = function() {
+    window.initGSAP = function () {
         if (typeof gsap === 'undefined') return;
-        
+
         gsap.registerPlugin(ScrollTrigger);
         ScrollTrigger.refresh();
+
+        // Hero Sequence - Video first, then Header, then Nexus Word, then Subtitle
+        const navElement = document.querySelector('nav');
+        const heroTitle = document.querySelector('.hero-nexus-title');
+        const heroSubtitle = document.querySelector('.hero-content h2');
+
+        if (heroTitle && heroSubtitle && navElement) {
+            // Reset and remove CSS animations to control order via GSAP
+            gsap.set([navElement, heroTitle, heroSubtitle], {
+                animation: 'none',
+                opacity: 0,
+                visibility: 'visible'
+            });
+
+            // The main entrance timeline
+            const mainTl = gsap.timeline({ delay: 1.5 }); // Starts as intro fades
+
+            mainTl
+                // 1. Header appears first
+                .to(navElement, {
+                    opacity: 1,
+                    y: 0,
+                    startAt: { y: -20 },
+                    duration: 0.8,
+                    ease: 'power3.out'
+                })
+                // 2. Nexus word appears next
+                .to(heroTitle, {
+                    opacity: 1,
+                    y: 0,
+                    startAt: { y: 30 },
+                    duration: 1.0,
+                    ease: 'power3.out'
+                }, "-=0.2") // Start slightly BEFORE header finishes
+                // 3. Subtitle appears last - FASTER
+                .to(heroSubtitle, {
+                    opacity: 1,
+                    y: 0,
+                    startAt: { y: 20 },
+                    duration: 0.6,
+                    ease: 'power2.out'
+                }, "-=0.4"); // Start significantly sooner during Nexus title animation
+        }
 
         // Section 1: "Built for Real Connections" - Fade
         const fadeSection = document.querySelector('#section-fade .fade-content');
@@ -144,23 +176,23 @@
                     once: true
                 }
             })
-            .to('#section-fade .fade-content h2', {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                duration: 1,
-                ease: 'power3.out'
-            }, 0)
-            .to('#section-fade .fade-content p', {
-                opacity: 1,
-                y: 0,
-                duration: 0.8,
-                ease: 'power3.out'
-            }, 0.4);
+                .to('#section-fade .fade-content h2', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 1,
+                    ease: 'power3.out'
+                }, 0)
+                .to('#section-fade .fade-content p', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    ease: 'power3.out'
+                }, 0.4);
         }
 
         // Section 2: Word Carousel - Auto fade sequence
-        const words = ['#word1','#word2','#word3','#word4'];
+        const words = ['#word1', '#word2', '#word3', '#word4'];
 
         if (words.every(sel => document.querySelector(sel))) {
             gsap.set(words, { opacity: 0, y: 30 });
@@ -200,27 +232,27 @@
                     once: true
                 }
             })
-            .to(sectionLabel, {
-                opacity: 1,
-                y: 0,
-                duration: 0.6,
-                ease: 'power3.out'
-            }, 0)
-            .to(sectionTitle, {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                duration: 0.8,
-                ease: 'power3.out'
-            }, 0.2)
-            .to(cards, {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                duration: 0.7,
-                stagger: 0.1,
-                ease: 'power3.out'
-            }, 0.4);
+                .to(sectionLabel, {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.6,
+                    ease: 'power3.out'
+                }, 0)
+                .to(sectionTitle, {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.8,
+                    ease: 'power3.out'
+                }, 0.2)
+                .to(cards, {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.7,
+                    stagger: 0.1,
+                    ease: 'power3.out'
+                }, 0.4);
         }
 
         // Section 3: Staggered List
@@ -238,21 +270,21 @@
                     once: true
                 }
             })
-            .to(listTitle, {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 0.7,
-                ease: 'power3.out'
-            }, 0)
-            .to(listItems, {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                duration: 0.6,
-                stagger: 0.12,
-                ease: 'power3.out'
-            }, 0.3);
+                .to(listTitle, {
+                    opacity: 1,
+                    scale: 1,
+                    y: 0,
+                    duration: 0.7,
+                    ease: 'power3.out'
+                }, 0)
+                .to(listItems, {
+                    opacity: 1,
+                    scale: 1,
+                    y: 0,
+                    duration: 0.6,
+                    stagger: 0.12,
+                    ease: 'power3.out'
+                }, 0.3);
         }
 
         // Section 4: Blur Reveal
@@ -272,19 +304,22 @@
                     once: true
                 }
             })
-            .to(blurText, {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                duration: 0.9,
-                ease: 'power3.out'
-            }, 0)
-            .to(blurDesc, {
-                opacity: 1,
-                y: 0,
-                duration: 0.7,
-                ease: 'power3.out'
-            }, 0.3);
+                .to(blurText, {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.9,
+                    ease: 'power3.out'
+                }, 0);
+
+            if (blurDesc) {
+                gsap.to(blurDesc, {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.7,
+                    ease: 'power3.out'
+                }, 0.3);
+            }
         }
 
         // Section 5: Typewriter
@@ -309,7 +344,7 @@
         const growingTitle = document.querySelector('#section-growing .growing-title');
         const statRows = document.querySelectorAll('#section-growing .stat-row');
         if (growingTitle && statRows.length > 0) {
-            gsap.set('#section-growing .growing-title', { opacity: 0, y: 40, scale: 0.95, filter: 'blur(10px)' });
+            gsap.set('#section-growing .growing-title', { opacity: 0, y: 40, scale: 0.95 });
             gsap.set('#section-growing .stat-row', { opacity: 0, y: 30, scale: 0.9 });
 
             gsap.timeline({
@@ -319,22 +354,21 @@
                     once: true
                 }
             })
-            .to('#section-growing .growing-title', {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                filter: 'blur(0px)',
-                duration: 0.9,
-                ease: 'power3.out'
-            }, 0)
-            .to('#section-growing .stat-row', {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                stagger: 0.12,
-                duration: 0.5,
-                ease: 'power3.out'
-            }, 0.3);
+                .to('#section-growing .growing-title', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.9,
+                    ease: 'power3.out'
+                }, 0)
+                .to('#section-growing .stat-row', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    stagger: 0.12,
+                    duration: 0.5,
+                    ease: 'power3.out'
+                }, 0.3);
         }
 
         // CTA Section
@@ -349,30 +383,30 @@
                     once: true
                 }
             })
-            .to('.cta-title', {
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                duration: 1,
-                ease: 'power3.out'
-            }, 0)
-            .to('.cta-desc', {
-                opacity: 1,
-                y: 0,
-                duration: 0.8,
-                ease: 'power3.out'
-            }, 0.3)
-            .to('.cta-buttons', {
-                opacity: 1,
-                y: 0,
-                duration: 0.7,
-                ease: 'power3.out'
-            }, 0.5);
+                .to('.cta-title', {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 1,
+                    ease: 'power3.out'
+                }, 0)
+                .to('.cta-desc', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    ease: 'power3.out'
+                }, 0.3)
+                .to('.cta-buttons', {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.7,
+                    ease: 'power3.out'
+                }, 0.5);
         }
     };
 
     // Scroll arrow click handler
-    window.scrollToSection = function() {
+    window.scrollToSection = function () {
         const firstSection = document.getElementById('section-fade');
         if (firstSection) {
             const navHeight = 80;
@@ -382,7 +416,7 @@
     };
 
     // Initialize GSAP when DOM is ready
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         if (typeof gsap !== 'undefined') {
             window.initGSAP();
         }

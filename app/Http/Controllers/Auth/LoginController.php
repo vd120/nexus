@@ -25,16 +25,32 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
-            $request->session()->regenerate();
             $user = Auth::user();
+
+            // Emit account:status to all existing sessions BEFORE starting the new one
+            app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'account:status', [
+                'status' => 'concurrent_session',
+                'message' => __('messages.another_session_started'),
+                'redirect_url' => route('login.view')
+            ]);
+
+            $request->session()->regenerate();
 
             // Log login activity
             try {
                 $activity = $this->activityService->logActivity('login', $user->id);
                 
-                // Dispatch email job if login is suspicious
-                if ($activity->is_suspicious && $user->hasVerifiedEmail()) {
+                // If login is suspicious, force verification even if already verified
+                if ($activity->is_suspicious) {
+                    // Send security email
                     SendLoginEmailJob::dispatch($user);
+                    
+                    // Generate code and set session flag for the middleware
+                    $user->generateVerificationCode();
+                    session(['auth.suspicious' => true]);
+                    
+                    return redirect()->route('verification.notice')
+                        ->with('message', __('messages.suspicious_login'));
                 }
             } catch (\Exception $e) {
                 \Log::error('Failed to log login activity: ' . $e->getMessage());

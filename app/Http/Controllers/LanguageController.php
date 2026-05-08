@@ -28,12 +28,15 @@ class LanguageController extends Controller
      * @param string $locale
      * @return RedirectResponse
      */
-    public function switch(Request $request, string $locale): RedirectResponse
+    public function switch(Request $request, string $locale)
     {
         // Validate the locale
         if (!$this->isValidLocale($locale)) {
             Log::warning("Invalid locale attempted: {$locale}");
-            abort(400, "Unsupported language: {$locale}");
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Unsupported language'], 400);
+            }
+            abort(400, __('messages.unsupported_language', ['locale' => $locale]));
         }
         
         // Store locale in session
@@ -48,6 +51,15 @@ class LanguageController extends Controller
         // If user is authenticated, save to database
         if (auth()->check()) {
             auth()->user()->update(['language' => $locale]);
+        }
+
+        // Return JSON if AJAX
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'locale' => $locale,
+                'direction' => self::getSupportedLocales()[$locale]['direction'] ?? 'ltr'
+            ])->withCookie($cookie);
         }
         
         // Get return URL from query parameter or use previous URL

@@ -29,6 +29,15 @@ class ReportController extends Controller
             'content' => 'nullable|string|max:1000',
         ]);
 
+        // Prevent self-reporting
+        if ($post->user_id === Auth::id()) {
+            $errorMsg = __('messages.cannot_report_self') ?? 'You cannot report your own post.';
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'error' => $errorMsg], 422);
+            }
+            return redirect()->back()->with('error', $errorMsg);
+        }
+
         // Check if user already reported this post
         $existingReport = PostReport::where('post_id', $post->id)
             ->where('user_id', Auth::id())
@@ -45,13 +54,16 @@ class ReportController extends Controller
             return redirect()->back()->with('error', __('messages.already_reported'));
         }
 
-        PostReport::create([
+        $report = PostReport::create([
             'post_id' => $post->id,
             'user_id' => Auth::id(),
             'reason' => $request->reason,
             'content' => $request->content,
             'status' => PostReport::STATUS_PENDING,
         ]);
+
+        // Real-time Notification for Admins
+        $this->notifyAdminsOfNewReport($report);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -221,11 +233,12 @@ class ReportController extends Controller
                 'admin_action' => $request->action,
             ]);
 
-            // Take action on the post
+            // Check if post was already trashed before we take action
             $post = $report->post;
+            $wasAlreadyTrashed = $post && $post->trashed();
             $action = $request->action;
 
-            if ($action === 'delete') {
+            if ($action === 'delete' && $post) {
                 // Delete associated media files
                 foreach ($post->media as $media) {
                     if ($media->media_path && \Storage::disk('public')->exists($media->media_path)) {
@@ -239,6 +252,13 @@ class ReportController extends Controller
 
             // Send notification to reporter
             $this->notifyReporter($report->reporter, $report, true, $action);
+
+            // Notify post owner if post still exists or was just soft-deleted
+            if ($post) {
+                if (!$wasAlreadyTrashed || $action === 'warning') {
+                    $this->notifyPostOwner($post->user, $report, $action);
+                }
+            }
 
             DB::commit();
 
@@ -335,6 +355,7 @@ class ReportController extends Controller
 
             if ($status === PostReport::STATUS_ACCEPTED && $action && $report->post) {
                 $post = $report->post;
+                $wasAlreadyTrashed = $post->trashed();
 
                 if ($action === 'delete') {
                     foreach ($post->media as $media) {
@@ -348,6 +369,13 @@ class ReportController extends Controller
                 }
 
                 $this->notifyReporter($report->reporter, $report, true, $action);
+
+                // Notify post owner if post still exists or was just soft-deleted
+                if ($post) {
+                    if (!$wasAlreadyTrashed || $action === 'warning') {
+                        $this->notifyPostOwner($post->user, $report, $action);
+                    }
+                }
             } elseif ($status === PostReport::STATUS_REJECTED) {
                 $this->notifyReporter($report->reporter, $report, false);
             }
@@ -357,6 +385,27 @@ class ReportController extends Controller
             DB::rollBack();
             \Log::error('Error processing report: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Notify all admins about a new report
+     */
+    private function notifyAdminsOfNewReport(PostReport $report)
+    {
+        $reporter = $report->reporter;
+        $post = $report->post;
+
+        // Only emit real-time socket event for online admins
+        // Persistent notifications are removed as per user request
+        app(\App\Services\SocketEmitService::class)->emit('admin', 'admin:report:new', [
+            'report_id' => $report->id,
+            'report_slug' => $report->slug,
+            'reason' => $report->reason,
+            'reporter_username' => $reporter->username,
+            'post_id' => $post->id,
+            'created_at' => $report->created_at->toISOString(),
+            'pending_count' => PostReport::where('status', PostReport::STATUS_PENDING)->count()
+        ]);
     }
 
     /**
@@ -401,5 +450,31 @@ class ReportController extends Controller
                 $report
             );
         }
+    }
+    /**
+     * Send notification to the post owner about moderation action
+     */
+    private function notifyPostOwner(User $owner, PostReport $report, string $action)
+    {
+        $messageKey = match ($action) {
+            'delete' => 'messages.post_deleted_by_admin',
+            'hide' => 'messages.post_hidden_by_admin',
+            'warning' => 'messages.warning_issued_by_admin',
+            default => 'messages.action_taken_on_post'
+        };
+
+        NotificationController::createNotification(
+            $owner->id,
+            'report_action_owner',
+            [
+                'title' => __('messages.moderation_action_taken'),
+                'message' => __($messageKey, ['reason' => (__('admin.reasons.' . $report->reason) ?? $report->reason)]),
+                'report_id' => $report->id,
+                'action' => $action,
+                'reason' => $report->reason,
+                'admin_note' => $report->admin_note,
+            ],
+            $report
+        );
     }
 }

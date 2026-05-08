@@ -5,7 +5,12 @@
 @section('content')
 <div class="activity-container">
     <div class="activity-header">
-        <h1><i class="fas fa-history"></i> {{ __('activity.activity_logs') }}</h1>
+        <div class="activity-header-title">
+            <a href="{{ route('profile') }}" class="back-link" title="{{ __('messages.back') }}">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1><i class="fas fa-history"></i> {{ __('activity.activity_logs') }}</h1>
+        </div>
         <p class="activity-description">{{ __('activity.recent_activity') }}</p>
     </div>
 
@@ -119,7 +124,7 @@
                             {{ __('activity.last_active') }}: {{ $session['last_active'] }}
                         </span>
                         @if(!$session['is_current'])
-                        <form method="POST" action="{{ route('activity.terminate-session', $session['activity_log_id']) }}?t={{ time() }}" class="terminate-session-form" onsubmit="return confirm('{{ __('activity.terminate_session_confirm') }}')">
+                        <form method="POST" action="{{ route('activity.terminate-session', $session['id']) }}?t={{ time() }}" class="terminate-session-form" onsubmit="return confirm('{{ __('activity.terminate_session_confirm') }}')">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-sm btn-terminate" title="{{ __('activity.terminate_session') }}">
@@ -205,7 +210,7 @@
                     <div class="activity-header-row">
                         <span class="activity-action">{{ $activity->action_name }}</span>
                         <span class="activity-time" title="{{ $activity->logged_at->format('Y-m-d H:i:s') }}">
-                            <i class="fas fa-clock"></i> {{ $activity->logged_at->timezone(config('app.timezone'))->format('M d, Y h:i A') }}
+                            <i class="fas fa-clock"></i> {{ $activity->logged_at->timezone(config('app.timezone'))->format('M d, Y h:i a') }}
                         </span>
                     </div>
                     <div class="activity-details">
@@ -270,7 +275,7 @@
                             <span class="detail-value">
                                 {{ $activity->timezone }}
                                 @if($activity->logged_at)
-                                    (<span style="color: var(--primary);">{{ $activity->logged_at->timezone(str_replace('_', '/', $activity->timezone))->format('h:i A') }}</span>)
+                                    (<span style="color: var(--primary);">{{ $activity->logged_at->timezone(str_replace('_', '/', $activity->timezone))->format('h:i a') }}</span>)
                                 @endif
                             </span>
                             <i class="fas fa-clock"></i>
@@ -323,7 +328,7 @@
                         <div class="timeline-header">
                             <span class="timeline-action">{{ $activity->action_name }}</span>
                             <span class="timeline-time">
-                                <i class="fas fa-clock"></i> {{ $activity->logged_at->timezone(config('app.timezone'))->format('M d, Y h:i A') }}
+                                <i class="fas fa-clock"></i> {{ $activity->logged_at->timezone(config('app.timezone'))->format('M d, Y h:i a') }}
                             </span>
                         </div>
                         <div class="timeline-details">

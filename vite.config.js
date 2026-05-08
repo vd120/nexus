@@ -11,10 +11,10 @@ export default defineConfig(({ mode }) => {
             laravel({
                 input: [
                     'resources/js/app.js',
+                    'resources/js/socket-manager.js',
                     'resources/js/legacy/ui-utils.js',
                     'resources/js/legacy/posts.js',
                     'resources/js/legacy/home.js',
-                    'resources/js/legacy/realtime.js',
                     'resources/js/legacy/comments.js',
                     'resources/js/legacy/auth-login.js',
                     'resources/js/legacy/auth-register.js',
@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
                     'resources/js/legacy/groups-show.js',
                     'resources/js/legacy/groups-edit.js',
                     'resources/js/legacy/ai-chat.js',
+                    'resources/js/legacy/global-chat.js',
                 ],
                 refresh: true,
             }),

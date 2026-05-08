@@ -23,6 +23,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'username',
         'email',
+        'email_verified_at',
         'language',
         'password',
         'is_admin',
@@ -288,6 +289,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Notification::class);
     }
 
+    public function mutedConversations()
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_mutes', 'user_id', 'conversation_id')->withTimestamps();
+    }
+
     public function reportedPosts()
     {
         return $this->hasMany(PostReport::class, 'user_id');
@@ -474,6 +480,31 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Generate a signed token for Socket.IO authentication
+     */
+    public function createSocketToken(): string
+    {
+        $secret = config('services.socket.secret');
+
+        // Remove "base64:" prefix if present (Laravel style)
+        if (str_starts_with($secret, 'base64:')) {
+            $secret = base64_decode(substr($secret, 7));
+        }
+
+        $payload = [
+            'user_id' => $this->id,
+            'username' => $this->username,
+            'is_admin' => (bool)$this->is_admin,
+            'iat' => time(),
+            'exp' => time() + (60 * 60 * 24), // 24 hours
+        ];
+
+        $jsonPayload = json_encode($payload);
+        $signature = hash_hmac('sha256', $jsonPayload, $secret);
+
+        return base64_encode($jsonPayload) . '.' . $signature;
+    }
+    /**
      * Update the last active timestamp
      */
     public function updateLastActive(): void
@@ -491,5 +522,20 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $this->last_active->diffInDays() >= $days;
+    }
+
+    public function socialGroupMemberships()
+    {
+        return $this->hasMany(SocialGroupMember::class);
+    }
+
+    /**
+     * Get the social groups the user is a member of.
+     */
+    public function socialGroups()
+    {
+        return $this->belongsToMany(SocialGroup::class, 'social_group_members')
+                    ->withPivot(['role', 'status', 'notification_preference', 'is_anonymous_default', 'anonymous_username', 'muted_until'])
+                    ->withTimestamps();
     }
 }

@@ -432,3 +432,29 @@
     .cancel-reply:hover { background: transparent; color: var(--text-muted); }
     .show-more-replies button:hover, .hide-replies:hover, .show-replies-btn:hover { background: transparent; text-decoration: none; }
 }
+
+/* Comment Highlight Effect (from Notifications) */
+@keyframes highlight-fade {
+    0% { 
+        background-color: rgba(94, 96, 206, 0.2); 
+        box-shadow: 0 0 20px rgba(94, 96, 206, 0.15);
+        border-left: 3px solid var(--primary);
+    }
+    70% {
+        background-color: rgba(94, 96, 206, 0.1);
+    }
+    100% { 
+        background-color: transparent; 
+        box-shadow: none;
+        border-left: 0px solid transparent;
+    }
+}
+
+.highlight-comment {
+    animation: highlight-fade 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    border-radius: 12px;
+    padding: 14px 12px !important;
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    scroll-margin-top: 100px; /* Space for sticky headers */
+}

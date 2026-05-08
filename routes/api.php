@@ -1,120 +1,148 @@
 <?php
 
-use App\Http\Controllers\Api\CommentController;
-use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\PostController;
-use App\Http\Controllers\Api\UserController;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
+\Log::info('API routes file loaded');
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PushNotificationController;
 
-// Username availability check (public endpoint)
-Route::get('/check-username', function (\Illuminate\Http\Request $request) {
-    $username = $request->query('username', '');
-    
-    // Validate username format
-    if (empty($username) || !preg_match('/^[a-zA-Z0-9_-]+$/', $username)) {
-        return response()->json(['available' => false, 'message' => 'Invalid username format']);
+use App\Http\Controllers\SocialGroupController;
+use App\Http\Controllers\SocialGroupAdminController;
+use App\Http\Controllers\SocialGroupInviteController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    // Social Group Routes
+    Route::prefix('groups')->group(function () {
+        Route::get('/', [SocialGroupController::class, 'index']);
+        Route::post('/', [SocialGroupController::class, 'store']);
+        Route::get('/{slug}', [SocialGroupController::class, 'show']);
+        Route::post('/{slug}/join', [SocialGroupController::class, 'join']);
+        Route::post('/{slug}/leave', [SocialGroupController::class, 'leave']);
+        Route::patch('/{slug}/preferences', [SocialGroupController::class, 'updateUserPreferences']);
+
+        // Admin Routes
+        Route::prefix('{slug}/admin')->group(function () {
+            Route::patch('/settings', [SocialGroupAdminController::class, 'updateSettings']);
+            Route::post('/members/{userId}/approve', [SocialGroupAdminController::class, 'approveMember']);
+            Route::post('/members/{userId}/reject', [SocialGroupAdminController::class, 'rejectMember']);
+            Route::post('/members/{userId}/mute', [SocialGroupAdminController::class, 'muteMember']);
+            Route::get('/reports', [SocialGroupAdminController::class, 'reports']);
+            
+            // Meta Management (Rules, Topics, Badges)
+            Route::apiResource('rules', SocialGroupAdminController::class . '@rules'); // Custom implementation likely
+            Route::apiResource('topics', SocialGroupAdminController::class . '@topics');
+            Route::apiResource('badges', SocialGroupAdminController::class . '@badges');
+        });
+
+        // Invites
+        Route::post('/{slug}/invite/{userId}', [SocialGroupInviteController::class, 'invite']);
+        Route::post('/invites/{inviteId}/accept', [SocialGroupInviteController::class, 'acceptInvite']);
+        Route::post('/invites/{inviteId}/decline', [SocialGroupInviteController::class, 'declineInvite']);
+    });
+});
+
+// Internal Socket.IO Status Updates
+Route::post('/internal/user/status', function (Request $request) {
+    $secret = config('services.socket.secret');
+    if (str_starts_with($secret, 'base64:')) {
+        $secret = base64_decode(substr($secret, 7));
     }
 
-    // Get current user ID from session if authenticated
-    $currentUserId = auth()->id();
+    $signature = $request->header('X-Hub-Signature-256');
+    $payload = $request->getContent();
+    $expectedSignature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
 
-    // Check if username exists (exclude current user if editing profile)
-    $query = \App\Models\User::where('username', $username);
-
-    if ($currentUserId) {
-        $query->where('id', '!=', $currentUserId);
+    if (!$signature || $signature !== $expectedSignature) {
+        \Log::error('Socket internal auth failed', [
+            'received' => $signature,
+            'expected' => $expectedSignature,
+            'payload' => $payload
+        ]);
+        return response()->json(['error' => 'Unauthorized'], 401);
     }
 
-    $exists = $query->exists();
+    $userId = $request->input('user_id');
+    $status = $request->input('status'); // 'online' or 'offline'
+    $action = $request->input('action'); // 'clear_all_online'
 
-    return response()->json([
-        'available' => !$exists,
-        'username' => $username
-    ]);
-});
-
-// Legacy endpoint with route parameter (for backward compatibility)
-Route::get('/check-username/{username}', function ($username) {
-    // Validate username format
-    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $username)) {
-        return response()->json(['available' => false, 'message' => 'Invalid username format']);
+    if ($action === 'clear_all_online') {
+        \App\Models\User::where('is_online', true)->update(['is_online' => false]);
+        return response()->json(['success' => true, 'message' => 'All users marked offline']);
     }
 
-    // Get current user ID from session if authenticated
-    $currentUserId = auth()->id();
+    $user = \App\Models\User::find($userId);
+    if ($user) {
+        $updateData = [
+            'is_online' => $status === 'online',
+            'last_active' => now(),
+        ];
+        
+        $user->update($updateData);
+        
+        // Get followers
+        $followerIds = $user->followers()->pluck('follower_id')->toArray();
+        
+        // Get conversation partners
+        $directPartners = \App\Models\Conversation::where('user1_id', $user->id)
+            ->pluck('user2_id')->toArray();
+        $directPartners2 = \App\Models\Conversation::where('user2_id', $user->id)
+            ->pluck('user1_id')->toArray();
+            
+        // Merge and make unique
+        $notifyUserIds = array_unique(array_merge($followerIds, $directPartners, $directPartners2));
+        
+        // Remove current user ID if somehow included
+        $notifyUserIds = array_diff($notifyUserIds, [$user->id]);
 
-    // Check if username exists (exclude current user if editing profile)
-    $query = \App\Models\User::where('username', $username);
-
-    if ($currentUserId) {
-        $query->where('id', '!=', $currentUserId);
+        return response()->json([
+            'success' => true,
+            'notify_user_ids' => array_values($notifyUserIds),
+            'last_active' => $user->last_active->toIso8601String(),
+            'user_details' => [
+                'username' => $user->username,
+                'avatar_url' => $user->avatar_url,
+            ]
+        ]);
     }
 
-    $exists = $query->exists();
-
-    return response()->json([
-        'available' => !$exists,
-        'username' => $username
-    ]);
+    return response()->json(['error' => 'User not found'], 404);
 });
 
-// Hashtag suggestions API (public, no auth required)
-Route::get('/hashtags/suggestions', [App\Http\Controllers\Api\HashtagApiController::class, 'suggestions']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+    Route::delete('/notifications', [NotificationController::class, 'clearAll']);
 
-// User mention suggestions (web authenticated endpoint)
-Route::middleware(['web'])->group(function () {
-    Route::get('/users/following/suggestions', [App\Http\Controllers\Api\UserMentionApiController::class, 'following']);
-    Route::get('/search-users', [UserController::class, 'search']);
+    // Push Notification Routes
+    Route::prefix('push')->group(function () {
+        Route::post('/subscribe', [PushNotificationController::class, 'store']);
+        Route::get('/settings', [PushNotificationController::class, 'getSettings']);
+        Route::patch('/settings', [PushNotificationController::class, 'updateSettings']);
+        Route::delete('/unsubscribe', [PushNotificationController::class, 'destroy']);
+        Route::post('/test', [PushNotificationController::class, 'test']);
+    });
 });
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::apiResource('posts', PostController::class, [
-        'parameters' => ['posts' => 'post:slug'],
-        'names' => ['index' => 'api.posts.index', 'show' => 'api.posts.show', 'store' => 'api.posts.store', 'update' => 'api.posts.update', 'destroy' => 'api.posts.destroy', 'create' => 'api.posts.create', 'edit' => 'api.posts.edit']
-    ]);
-    Route::post('/posts/{post}/like', [PostController::class, 'like'])->name('api.posts.like')->where('post', '[a-zA-Z0-9]{24}');
-    Route::apiResource('comments', CommentController::class, [
-        'names' => ['store' => 'api.comments.store', 'destroy' => 'api.comments.destroy', 'update' => 'api.comments.update'],
-        'except' => ['index', 'show']
-    ]);
-    Route::post('/comments/{comment}/like', [CommentController::class, 'like'])->name('api.comments.like');
-    Route::get('/users/{user}', [UserController::class, 'show'])->where('user', '[a-zA-Z0-9_\- ]+');
-    Route::post('/users/{user}/follow', [UserController::class, 'follow'])->where('user', '[a-zA-Z0-9_\- ]+');
-    Route::get('/explore', [UserController::class, 'explore']);
-    Route::post('/password/change', [App\Http\Controllers\Api\PasswordController::class, 'change'])->name('api.password.change');
+// Public Push Routes
+Route::get('/push/vapid-key', [PushNotificationController::class, 'getVapidKey']);
 
-});
-
-// Web-authenticated API routes for notifications (session-based auth)
-Route::middleware(['web'])->group(function () {
-    Route::get('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'index']);
-    Route::get('/notifications/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
-    Route::post('/notifications/{notification}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
-    Route::post('/notifications/mark-all-read', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
-    Route::delete('/notifications/{notification}', [App\Http\Controllers\Api\NotificationController::class, 'destroy']);
-    Route::delete('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'deleteAll']);
-    Route::get('/notifications/realtime-updates', [App\Http\Controllers\Api\NotificationController::class, 'getRealtimeUpdates']);
-
-    // Life Events API routes
-    Route::get('/events', [App\Http\Controllers\Api\EventController::class, 'index'])->name('api.events.index');
-    Route::get('/events/upcoming', [App\Http\Controllers\Api\EventController::class, 'upcoming'])->name('api.events.upcoming');
-    Route::get('/users/{user}/events', [App\Http\Controllers\Api\EventController::class, 'userEvents'])->name('api.events.user')->where('user', '[0-9]+');
-    Route::get('/users/{user}/memory-book', [App\Http\Controllers\Api\EventController::class, 'memoryBook'])->name('api.events.memory-book')->where('user', '[0-9]+');
-    Route::post('/events', [App\Http\Controllers\Api\EventController::class, 'store'])->name('api.events.store');
-    Route::put('/events/{event}', [App\Http\Controllers\Api\EventController::class, 'update'])->name('api.events.update');
-    Route::delete('/events/{event}', [App\Http\Controllers\Api\EventController::class, 'destroy'])->name('api.events.destroy');
-    Route::post('/events/{event}/react', [App\Http\Controllers\Api\EventController::class, 'react'])->name('api.events.react');
-    Route::delete('/events/{event}/react', [App\Http\Controllers\Api\EventController::class, 'removeReaction'])->name('api.events.remove-reaction');
-
-    // Push Notification routes
-    Route::get('/push/vapid-key', [App\Http\Controllers\PushNotificationController::class, 'getVapidKey']);
-    Route::post('/push/subscribe', [App\Http\Controllers\PushNotificationController::class, 'store']);
-    Route::put('/push/settings', [App\Http\Controllers\PushNotificationController::class, 'updateSettings']);
-    Route::get('/push/settings', [App\Http\Controllers\PushNotificationController::class, 'getSettings']);
-    Route::delete('/push/unsubscribe', [App\Http\Controllers\PushNotificationController::class, 'destroy']);
-    Route::post('/push/test', [App\Http\Controllers\PushNotificationController::class, 'test']);
-});
+// Username availability check
+Route::get('/check-username', [UserController::class, 'checkUsername']);

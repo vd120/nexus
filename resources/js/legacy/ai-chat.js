@@ -5,10 +5,12 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         const chatContainer = document.getElementById('chatContainer');
-        const chatInput = document.getElementById('chatInput');
+        const chatInput = document.getElementById('chatInputNative');
         const sendBtn = document.getElementById('sendBtn');
         const stopBtn = document.getElementById('stopBtn');
         const welcomeMessage = document.getElementById('welcomeMessage');
+        const userAvatar = chatContainer.getAttribute('data-user-avatar');
+        const userName = chatContainer.getAttribute('data-user-name');
 
         let isTyping = false;
         let typingTimeout;
@@ -16,15 +18,13 @@
 
         if (chatInput) {
             chatInput.addEventListener('input', function() {
-                this.value = this.value.replace(/[^1-9]/g, '');
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
                 if (sendBtn) sendBtn.disabled = !this.value.trim();
             });
 
-            chatInput.addEventListener('keypress', function(e) {
-                if (!/^[1-9]$/.test(e.key)) {
-                    e.preventDefault();
-                }
-                if (e.key === 'Enter') {
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                 }
@@ -39,9 +39,9 @@
             stopBtn.addEventListener('click', stopGenerating);
         }
 
-        window.sendQuickMessage = function(number) {
+        window.sendQuickMessage = function(text) {
             if (chatInput) {
-                chatInput.value = number;
+                chatInput.value = text;
                 if (sendBtn) sendBtn.disabled = false;
                 sendMessage();
             }
@@ -57,7 +57,10 @@
             }
 
             addMessage(message, 'user');
-            if (chatInput) chatInput.value = '';
+            if (chatInput) {
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+            }
             if (sendBtn) sendBtn.disabled = true;
 
             const typingIndicator = showTyping();
@@ -94,13 +97,15 @@
             const time = new Date().toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
-                hour12: false
-            });
+                hour12: true
+            }).toLowerCase();
 
-            const avatar = type === 'ai' ? '<i class="fas fa-robot"></i>' : '<i class="fas fa-user"></i>';
+            const avatarHtml = type === 'user' ? 
+                `<img src="${userAvatar}" alt="${userName}" class="avatar-img">` : 
+                '<i class="fas fa-robot"></i>';
             const content = type === 'ai' ? formatResponse(text) : escapeHtml(text);
 
-            div.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
+            div.innerHTML = '<div class="message-avatar">' + avatarHtml + '</div>' +
                 '<div class="message-bubble ' + (type === 'user' ? 'user-bubble' : '') + '">' +
                 '<p>' + content + '</p>' +
                 '<div class="message-time">' + time + '</div></div>';
@@ -116,8 +121,8 @@
             const time = new Date().toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
-                hour12: false
-            });
+                hour12: true
+            }).toLowerCase();
 
             div.innerHTML = '<div class="message-avatar"><i class="fas fa-robot"></i></div>' +
                 '<div class="message-bubble">' +
@@ -129,7 +134,7 @@
 
             setTimeout(() => {
                 startTypewriterEffect(div, fullText);
-            }, 400);
+            }, 100);
         }
 
         function startTypewriterEffect(messageDiv, fullText) {
@@ -149,6 +154,7 @@
             let charIndex = 0;
             isTyping = true;
 
+            if (chatInput) chatInput.disabled = true;
             if (stopBtn) stopBtn.style.display = 'flex';
 
             stopBtn.onclick = function() {
@@ -157,6 +163,10 @@
                 if (stopBtn) stopBtn.style.display = 'none';
                 cursor.remove();
                 contentP.innerHTML = formatResponse(fullText);
+                if (chatInput) {
+                    chatInput.disabled = false;
+                    chatInput.focus();
+                }
                 setTimeout(scrollToBottom, 50);
             };
 
@@ -187,9 +197,6 @@
                         }
                     } else {
                         chunk = remaining[0];
-                        if (chunk === ' ') chunk = '&nbsp;';
-                        else if (chunk === '<') chunk = '&lt;';
-                        else if (chunk === '>') chunk = '&gt;';
                         charsToSkip = 1;
                     }
 
@@ -208,6 +215,11 @@
                     if (stopBtn) stopBtn.style.display = 'none';
                     cursor.remove();
                     contentP.innerHTML = formatResponse(fullText);
+                    if (chatInput) {
+                        chatInput.disabled = false;
+                        chatInput.focus();
+                    }
+                    isTyping = false;
                 }
             }
 
@@ -233,10 +245,9 @@
 
         function showTyping() {
             const div = document.createElement('div');
-            div.className = 'message ai';
-            div.id = 'typingIndicator';
+            div.className = 'message ai typing-indicator-msg';
             div.innerHTML = '<div class="message-avatar"><i class="fas fa-robot"></i></div>' +
-                '<div class="message-bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+                '<div class="message-bubble"><div class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div>';
             if (chatContainer) chatContainer.appendChild(div);
             scrollToBottom();
             return div;

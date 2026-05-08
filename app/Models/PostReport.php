@@ -67,7 +67,7 @@ class PostReport extends Model
 
     public function post(): BelongsTo
     {
-        return $this->belongsTo(Post::class);
+        return $this->belongsTo(Post::class)->withTrashed();
     }
 
     public function reporter(): BelongsTo

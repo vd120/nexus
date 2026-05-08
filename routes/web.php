@@ -11,6 +11,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LanguageController;
+use App\Http\Controllers\GlobalChatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
@@ -120,7 +121,7 @@ Route::post('/email/verification-notification', function (Request $request) {
     }
 
     // Check if user is already verified
-    if ($user && $user->hasVerifiedEmail()) {
+    if ($user && $user->hasVerifiedEmail() && !session('auth.suspicious')) {
         // User is already verified, check if they need to set password
         if ($user->password === null) {
             if ($request->expectsJson()) {
@@ -135,7 +136,7 @@ Route::post('/email/verification-notification', function (Request $request) {
         return back()->with('error', 'Your account is already verified!');
     }
 
-    if ($user && !$user->hasVerifiedEmail()) {
+    if ($user && (!$user->hasVerifiedEmail() || session('auth.suspicious'))) {
         // Generate and send new verification code
         $verificationCode = $user->generateVerificationCode();
 
@@ -188,6 +189,9 @@ Route::post('/email/verify-code', function (Request $request) {
     if ($user->verifyCode($request->code)) {
         // Clear pending verification session
         session()->forget('pending_verification_user_id');
+        
+        // Clear suspicious login flag if it exists
+        session()->forget('auth.suspicious');
 
         // Ensure user is logged in
         if (!auth()->check()) {
@@ -219,9 +223,9 @@ Route::get('/', function () {
     // Log for debugging
     \Log::info('Home route access - User ID: ' . $user->id . ', email: ' . $user->email . ', email_verified_at: ' . ($user->email_verified_at ?? 'null') . ', is_admin: ' . ($user->is_admin ? 'true' : 'false'));
 
-    // If authenticated and not verified, show verification notice
-    if (!$user->hasVerifiedEmail()) {
-        \Log::info('Redirecting unverified user to verification page');
+    // If authenticated and not verified (or suspicious login), show verification notice
+    if (!$user->hasVerifiedEmail() || session('auth.suspicious')) {
+        \Log::info('Redirecting user to verification page (unverified or suspicious)');
         return redirect()->route('verification.notice');
     }
 
@@ -235,11 +239,6 @@ Route::get('/', function () {
     return app(\App\Http\Controllers\PostController::class)->index(request());
 })->name('home');
 
-// User account status check (for security monitoring)
-Route::middleware(['auth', 'suspended'])->group(function () {
-    Route::get('/user/check-account-status', [App\Http\Controllers\UserController::class, 'checkAccountStatus'])->name('user.check-account-status');
-});
-
 // Test route for debugging
 Route::get('/user/test-route', function() {
     return response()->json(['status' => 'ok', 'message' => 'Route works']);
@@ -252,6 +251,9 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         'only' => ['index', 'show', 'store', 'update', 'destroy', 'create', 'edit']
     ])->middleware('throttle:posts');
     Route::post('/posts/{post}/like', [PostController::class, 'like'])->name('posts.like')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
+    Route::post('/posts/{post}/react', [PostController::class, 'react'])->name('posts.react')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
+    Route::delete('/posts/{post}/react', [PostController::class, 'removeReaction'])->name('posts.remove-reaction')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
+    Route::get('/posts/{post}/reactions', [PostController::class, 'getReactions'])->name('posts.reactions')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/posts/{post}/save', [PostController::class, 'save'])->name('posts.save')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
     Route::get('/posts/{post}/likers', [PostController::class, 'getLikers'])->name('posts.likers')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/comments', [CommentController::class, 'store'])->name('comments.store')->middleware('throttle:comments');
@@ -295,6 +297,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::post('/users/{user}/posts/{post}/pin', [UserController::class, 'pinPost'])->name('users.posts.pin')->where('post', '[0-9]+');
     Route::post('/users/{user}/posts/{post}/unpin', [UserController::class, 'unpinPost'])->name('users.posts.unpin')->where('post', '[0-9]+');
     Route::post('/users/{user}/pinned-posts/reorder', [UserController::class, 'reorderPinnedPosts'])->name('users.pinned-posts.reorder');
+    Route::get('/api/users/following/suggestions', [UserController::class, 'followingSuggestions'])->name('api.users.following.suggestions');
     
     // Set password for Google OAuth users
     Route::get('/set-password', [App\Http\Controllers\Auth\PasswordController::class, 'showSetPassword'])->name('password.set-password');
@@ -307,53 +310,124 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::get('/ai', [AiController::class, 'index'])->name('ai.index');
     Route::post('/ai/chat', [AiController::class, 'chat'])->name('ai.chat');
 
-    // Notifications route
-    Route::get('/notifications', function() {
-        return view('notifications.index');
-    })->name('notifications.index');
+    // Notifications routes
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+        Route::post('/mark-all-as-read', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+        Route::post('/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllAsRead']); // Alias
+        Route::post('/mark-as-read/{id}', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('mark-read');
+        Route::post('/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('read-api-compat'); // Compatibility
+        Route::post('/mark-conversation-read/{conversationId}', [App\Http\Controllers\NotificationController::class, 'markConversationNotificationsAsRead'])->name('mark-conversation-read');
+        Route::delete('/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('destroy');
+        Route::delete('/', [App\Http\Controllers\NotificationController::class, 'clearAll'])->name('clear-all');
+    });
 
     // Chat routes
-    Route::get('/chat', [App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
+    Route::post('/chat/confirm-delivery', [App\Http\Controllers\ChatController::class, 'confirmDelivery'])->name('chat.message-delivered');
+    Route::post('/chat/mark-delivered-all', [App\Http\Controllers\ChatController::class, 'markAllAsDelivered'])->name('chat.mark-delivered-all');
+    // Global Chat
+    Route::get('/global-chat', [GlobalChatController::class, 'index'])->name('global-chat.index');
+    Route::post('/global-chat/send', [GlobalChatController::class, 'sendMessage'])->name('global-chat.send');
+    Route::post('/global-chat/react/{message}', [GlobalChatController::class, 'react'])->name('global-chat.react');
+    Route::get('/global-chat/message/{message}/reactions', [GlobalChatController::class, 'getReactions'])->name('global-chat.message.reactions');
+    Route::delete('/global-chat/message/{message}', [GlobalChatController::class, 'destroy'])->name('global-chat.message.destroy');
 
-    Route::get('/chat/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('chat.conversations');
-    Route::get('/chat/conversations/updated', [App\Http\Controllers\ChatController::class, 'getUpdatedConversations'])->name('chat.conversations.updated');
+    Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
     Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
+    Route::get('/api/search-users', [App\Http\Controllers\UserController::class, 'apiSearch'])->name('api.search-users');
     Route::get('/api/user/{user}/username', [App\Http\Controllers\UserController::class, 'getUsername'])->name('api.user.username');
-    Route::post('/user/online-status', [App\Http\Controllers\UserController::class, 'updateOnlineStatus'])->name('user.online-status');
-    Route::post('/user/online-status/offline', [App\Http\Controllers\UserController::class, 'setOfflineStatus'])->name('user.offline-status');
     Route::get('/user/{user}/online-status', [App\Http\Controllers\UserController::class, 'getOnlineStatus'])->name('user.get-online-status');
-    Route::post('/user/online-status/batch', [App\Http\Controllers\UserController::class, 'getMultipleOnlineStatus'])->name('user.batch-online-status');
-    Route::get('/followed-users/online', [App\Http\Controllers\UserController::class, 'getFollowedUsersOnline'])->name('followed-users.online');
-    Route::get('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'show'])->name('chat.show');
-    Route::post('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'store'])->name('chat.store');
-    Route::delete('/chat/message/{message}', [App\Http\Controllers\ChatController::class, 'destroy'])->name('chat.destroy');
-    Route::delete('/chat/{conversation}/clear', [App\Http\Controllers\ChatController::class, 'clearChat'])->name('chat.clear');
+
+    // 1. Specific Chat Actions (Must come before catch-all slug)
+    Route::get('/chat/groups/create', [App\Http\Controllers\GroupController::class, 'create'])->name('groups.create');
+    Route::post('/chat/groups/store', [App\Http\Controllers\GroupController::class, 'store'])->name('groups.store');
     Route::get('/chat/start/{userId}', [App\Http\Controllers\ChatController::class, 'startConversation'])->name('chat.start');
+    Route::get('/chat/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('chat.conversations');
+    
+    // 2. Specific Message/Info Routes
+    Route::get('/chat/message/{message}/info', [App\Http\Controllers\ChatController::class, 'getMessageInfo'])->name('chat.message.info');
+    Route::get('/chat/message/{message}/reactions', [App\Http\Controllers\ChatController::class, 'getMessageReactions'])->name('chat.message.reactions');
+    Route::post('/chat/message/{message}/react', [App\Http\Controllers\ChatController::class, 'toggleReaction'])->name('chat.message.react');
+    Route::delete('/chat/message/{message}', [App\Http\Controllers\ChatController::class, 'destroy'])->name('chat.destroy');
+
+    // 3. Group Join (Safe Prefix)
+    Route::get('/chat/join/{invite_link}', [App\Http\Controllers\GroupController::class, 'join'])->name('groups.join');
+
+    // 4. Conversation-Specific Settings (Must come before catch-all slug)
+    Route::get('/chat/{slug}/edit', [App\Http\Controllers\GroupController::class, 'show'])->name('groups.show');
+    Route::patch('/chat/{group}/update', [App\Http\Controllers\GroupController::class, 'update'])->name('groups.update');
+    Route::post('/chat/{group}/members/add', [App\Http\Controllers\GroupController::class, 'addMember'])->name('groups.members.add');
+    Route::delete('/chat/{group}/members/{userId}/remove', [App\Http\Controllers\GroupController::class, 'removeMember'])->name('groups.members.remove');
+    Route::patch('/chat/{group}/members/{userId}/role', [App\Http\Controllers\GroupController::class, 'changeRole'])->name('groups.members.role');
     Route::get('/chat/{conversation}/messages', [App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
     Route::post('/chat/{conversation}/read', [App\Http\Controllers\ChatController::class, 'markAsRead'])->name('chat.mark-read');
-    Route::post('/chat/{conversation}/status', [App\Http\Controllers\ChatController::class, 'getMessageStatuses'])->name('chat.status');
-    Route::post('/chat/message/delivered', [App\Http\Controllers\ChatController::class, 'confirmDelivery'])->name('chat.message-delivered');
     Route::post('/chat/{conversation}/typing', [App\Http\Controllers\ChatController::class, 'sendTypingIndicator'])->name('chat.typing');
-    Route::get('/chat/{conversation}/typing', [App\Http\Controllers\ChatController::class, 'getTypingStatus'])->name('chat.typing-status');
+    Route::post('/chat/{conversation}/mute', [App\Http\Controllers\ChatController::class, 'toggleMute'])->name('chat.mute');
+    Route::delete('/chat/{conversation}/clear', [App\Http\Controllers\ChatController::class, 'clearChat'])->name('chat.clear');
+    Route::post('/chat/{group}/leave', [App\Http\Controllers\GroupController::class, 'leave'])->name('groups.leave');
+    Route::delete('/chat/{group}/delete', [App\Http\Controllers\GroupController::class, 'destroy'])->name('groups.destroy');
 
-    // Group chat routes with slug-based URLs
-    Route::get('/groups', [App\Http\Controllers\GroupController::class, 'index'])->name('groups.index');
-    Route::get('/groups/create', [App\Http\Controllers\GroupController::class, 'create'])->name('groups.create');
-    Route::post('/groups', [App\Http\Controllers\GroupController::class, 'store'])->name('groups.store');
-    Route::get('/groups/{slug}', [App\Http\Controllers\GroupController::class, 'show'])->name('groups.show');
-    Route::get('/groups/{slug}/edit', [App\Http\Controllers\GroupController::class, 'edit'])->name('groups.edit');
-    Route::put('/groups/{slug}', [App\Http\Controllers\GroupController::class, 'update'])->name('groups.update');
-    Route::delete('/groups/{slug}', [App\Http\Controllers\GroupController::class, 'destroy'])->name('groups.destroy');
-    Route::post('/groups/{slug}/members', [App\Http\Controllers\GroupController::class, 'addMembers'])->name('groups.add-members');
-    Route::delete('/groups/{slug}/members/{userId}', [App\Http\Controllers\GroupController::class, 'removeMember'])->name('groups.remove-member');
-    Route::post('/groups/{slug}/members/{userId}/admin', [App\Http\Controllers\GroupController::class, 'makeAdmin'])->name('groups.make-admin');
-    Route::delete('/groups/{slug}/members/{userId}/admin', [App\Http\Controllers\GroupController::class, 'removeAdmin'])->name('groups.remove-admin');
-    Route::post('/groups/{slug}/regenerate-invite', [App\Http\Controllers\GroupController::class, 'regenerateInvite'])->name('groups.regenerate-invite');
-    Route::post('/groups/{slug}/quick-invite', [App\Http\Controllers\GroupController::class, 'quickInvite'])->name('groups.quick-invite');
-    Route::post('/groups/accept-invite/{inviteLink}', [App\Http\Controllers\GroupController::class, 'acceptInvite'])->name('groups.accept-invite');
-    
-    // Join group via invite link
-    Route::get('/join/{inviteLink}', [App\Http\Controllers\GroupController::class, 'joinViaInvite'])->name('groups.join');
+    // 5. Generic Conversation Catch-all (Must be last)
+    Route::get('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'show'])->name('chat.show');
+    Route::post('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'store'])->name('chat.store');
+    Route::delete('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'deleteConversation'])->name('chat.delete-conversation');
+
+    // Social Groups (Communities) - Modern Facebook Style
+    Route::prefix('communities')->name('communities.')->group(function () {
+        Route::get('/', [App\Http\Controllers\SocialGroupController::class, 'index'])->name('index');
+        Route::post('/', [App\Http\Controllers\SocialGroupController::class, 'store'])->name('store');
+        
+        Route::prefix('/{slug}')->group(function () {
+            // Public Pages
+            Route::get('/', [App\Http\Controllers\SocialGroupController::class, 'show'])->name('show');
+            Route::get('/about', [App\Http\Controllers\SocialGroupController::class, 'about'])->name('about');
+            Route::get('/members', [App\Http\Controllers\SocialGroupController::class, 'members'])->name('members');
+            
+            // Actions
+            Route::post('/join', [App\Http\Controllers\SocialGroupController::class, 'join'])->name('join');
+            Route::post('/leave', [App\Http\Controllers\SocialGroupController::class, 'leave'])->name('leave');
+            Route::get('/settings', [App\Http\Controllers\SocialGroupController::class, 'settings'])->name('settings');
+            Route::patch('/preferences', [App\Http\Controllers\SocialGroupController::class, 'updateUserPreferences'])->name('preferences');
+            Route::post('/invite/{userId}', [App\Http\Controllers\SocialGroupInviteController::class, 'invite'])->name('invite');
+
+            // Admin/Management - Dedicated Pages
+            Route::prefix('/admin')->name('admin.')->group(function () {
+                Route::get('/', [App\Http\Controllers\SocialGroupAdminController::class, 'index'])->name('index');
+                Route::get('/settings', [App\Http\Controllers\SocialGroupAdminController::class, 'settings'])->name('settings');
+                Route::patch('/settings', [App\Http\Controllers\SocialGroupAdminController::class, 'updateSettings'])->name('settings.update');
+                Route::delete('/delete', [App\Http\Controllers\SocialGroupAdminController::class, 'destroy'])->name('delete');
+                
+                Route::get('/members', [App\Http\Controllers\SocialGroupAdminController::class, 'membersList'])->name('members');
+                
+                // Moderation Queues
+                Route::get('/moderation/posts', [App\Http\Controllers\SocialGroupAdminController::class, 'pendingPosts'])->name('moderation.posts');
+                Route::get('/moderation/members', [App\Http\Controllers\SocialGroupAdminController::class, 'pendingMembers'])->name('moderation.members');
+                
+                Route::post('/members/{userId}/approve', [App\Http\Controllers\SocialGroupAdminController::class, 'approveMember'])->name('members.approve');
+                Route::post('/members/{userId}/reject', [App\Http\Controllers\SocialGroupAdminController::class, 'rejectMember'])->name('members.reject');
+                Route::post('/members/{userId}/mute', [App\Http\Controllers\SocialGroupAdminController::class, 'muteMember'])->name('members.mute');
+                Route::post('/members/{userId}/remove', [App\Http\Controllers\SocialGroupAdminController::class, 'removeMember'])->name('members.remove');
+                Route::post('/members/{userId}/role', [App\Http\Controllers\SocialGroupAdminController::class, 'updateMemberRole'])->name('members.role.update');
+                
+                Route::post('/posts/{postId}/approve', [App\Http\Controllers\SocialGroupAdminController::class, 'approvePost'])->name('posts.approve');
+                Route::post('/posts/{postId}/reject', [App\Http\Controllers\SocialGroupAdminController::class, 'rejectPost'])->name('posts.reject');
+                
+                // Meta Management
+                Route::get('/rules', [App\Http\Controllers\SocialGroupAdminController::class, 'rules'])->name('rules');
+                Route::post('/rules', [App\Http\Controllers\SocialGroupAdminController::class, 'addRule'])->name('rules.add');
+                Route::delete('/rules/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteRule'])->name('rules.delete');
+                
+                Route::get('/topics', [App\Http\Controllers\SocialGroupAdminController::class, 'topics'])->name('topics');
+                Route::post('/topics', [App\Http\Controllers\SocialGroupAdminController::class, 'addTopic'])->name('topics.add');
+                Route::delete('/topics/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteTopic'])->name('topics.delete');
+                
+                Route::get('/badges', [App\Http\Controllers\SocialGroupAdminController::class, 'badges'])->name('badges');
+                Route::post('/badges', [App\Http\Controllers\SocialGroupAdminController::class, 'addBadge'])->name('badges.add');
+                Route::delete('/badges/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteBadge'])->name('badges.delete');
+                Route::post('/members/{userId}/badges/toggle', [App\Http\Controllers\SocialGroupAdminController::class, 'toggleBadge'])->name('badges.toggle');
+            });
+        });
+    });
 
 
 
@@ -388,6 +462,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
 
     // Hashtag routes
     Route::get('/hashtags', [App\Http\Controllers\HashtagController::class, 'index'])->name('hashtags.index');
+    Route::get('/api/hashtags/suggestions', [App\Http\Controllers\HashtagController::class, 'suggestions'])->name('api.hashtags.suggestions');
     Route::get('/hashtags/{slug}', [App\Http\Controllers\HashtagController::class, 'show'])->name('hashtags.show')->where('slug', '(?!api)[a-zA-Z0-9_-]+');
 
     // User reports management (authenticated users can view their reports)
@@ -405,18 +480,6 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         Route::delete('/activity/sessions/all', [App\Http\Controllers\ActivityController::class, 'terminateAllSessions'])->name('activity.terminate-all-sessions');
         Route::delete('/activity/sessions/{id}', [App\Http\Controllers\ActivityController::class, 'terminateSession'])->name('activity.terminate-session');
 
-        // Life Events routes
-        Route::get('/life-events', [App\Http\Controllers\EventController::class, 'index'])->name('events.index');
-        Route::get('/life-events/create', [App\Http\Controllers\EventController::class, 'create'])->name('events.create');
-        Route::get('/life-events/upcoming', [App\Http\Controllers\EventController::class, 'upcoming'])->name('events.upcoming');
-        Route::post('/life-events', [App\Http\Controllers\EventController::class, 'store'])->name('events.store');
-        Route::get('/life-events/{event}', [App\Http\Controllers\EventController::class, 'show'])->name('events.show');
-        Route::get('/life-events/{event}/edit', [App\Http\Controllers\EventController::class, 'edit'])->name('events.edit');
-        Route::put('/life-events/{event}', [App\Http\Controllers\EventController::class, 'update'])->name('events.update');
-        Route::delete('/life-events/{event}', [App\Http\Controllers\EventController::class, 'destroy'])->name('events.destroy');
-        Route::post('/life-events/{event}/react', [App\Http\Controllers\EventController::class, 'react'])->name('events.react');
-        Route::delete('/life-events/{event}/react', [App\Http\Controllers\EventController::class, 'removeReaction'])->name('events.remove-reaction');
-        Route::get('/memory-book/{user}', [App\Http\Controllers\EventController::class, 'memoryBook'])->name('events.memory-book');
-        Route::get('/life-events/upcoming', [App\Http\Controllers\EventController::class, 'upcoming'])->name('events.upcoming');
+
     });
 });

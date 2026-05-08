@@ -39,6 +39,8 @@ class Message extends Model
         'deleted_for' => 'array',
         'deleted_by_sender' => 'boolean',
         'waveform_peaks' => 'array',
+        'read_at' => 'datetime',
+        'delivered_at' => 'datetime',
     ];
 
     // No appends needed - duration and waveform_peaks are DB columns
@@ -76,5 +78,132 @@ class Message extends Model
             ->update([
                 'read_at' => now(),
             ]);
+    }
+
+    /**
+     * Check if the message is read by a specific user
+     */
+    public function isReadByUser($userId): bool
+    {
+        if ($this->sender_id == $userId) return true;
+        
+        if ($this->conversation->is_group) {
+            return $this->receipts->where('user_id', $userId)->whereNotNull('read_at')->isNotEmpty();
+        }
+        
+        return $this->read_at !== null;
+    }
+
+    public function receipts()
+    {
+        return $this->hasMany(MessageReceipt::class);
+    }
+
+    /**
+     * Update the global read_at for the message if all recipients have read it
+     */
+    public function updateReadStatusIfAllRead()
+    {
+        $conversation = $this->conversation;
+        if (!$conversation) return;
+
+        $recipientIds = $conversation->getRecipients($this->sender_id);
+        $recipientsCount = count($recipientIds);
+        
+        if ($recipientsCount === 0) return;
+
+        $readCount = $this->receipts()->whereNotNull('read_at')->count();
+
+        if ($readCount >= $recipientsCount) {
+            $this->update(['read_at' => now()]);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Update the global delivered_at for the message if all recipients have received it
+     */
+    public function updateDeliveryStatusIfAllDelivered()
+    {
+        $conversation = $this->conversation;
+        if (!$conversation) return;
+
+        $recipientIds = $conversation->getRecipients($this->sender_id);
+        $recipientsCount = count($recipientIds);
+        
+        if ($recipientsCount === 0) return;
+
+        $deliveredCount = $this->receipts()->whereNotNull('delivered_at')->count();
+
+        if ($deliveredCount >= $recipientsCount) {
+            $this->update(['delivered_at' => now()]);
+            return true;
+        }
+        
+        return false;
+    }
+
+    public function reactions()
+    {
+        return $this->hasMany(MessageReaction::class);
+    }
+
+    public function reactedBy(User $user)
+    {
+        return $this->reactions()->where('user_id', $user->id)->first();
+    }
+
+    public function getGroupedReactions()
+    {
+        $reactions = $this->reactions;
+
+        if ($reactions->isEmpty()) {
+            return collect();
+        }
+
+        return $reactions->groupBy('reaction_type')->map(function ($group) {
+            return [
+                'reaction_type' => $group->first()->reaction_type,
+                'count' => $group->count(),
+                'users' => $group->map(function($r) {
+                    return [
+                        'id' => $r->user_id,
+                        'username' => $r->user->username ?? 'User',
+                        'avatar_url' => $r->user->avatar_url ?? null,
+                    ];
+                })->values()->toArray(),
+            ];
+        })->values();
+    }
+
+    /**
+     * Format message for socket broadcasting
+     */
+    public function toPayload()
+    {
+        $this->loadMissing('sender.profile');
+        if ($this->sender) $this->sender->append('avatar_url');
+
+        return [
+            'id' => $this->id,
+            'content' => $this->content,
+            'type' => $this->type,
+            'media_path' => $this->media_path,
+            'sender_id' => $this->sender_id,
+            'sender' => [
+                'id' => $this->sender->id ?? null,
+                'username' => $this->sender->username ?? null,
+                'avatar_url' => $this->sender->avatar_url ?? null,
+            ],
+            'created_at' => $this->created_at ? $this->created_at->toISOString() : null,
+            'delivered_at' => $this->delivered_at ? $this->delivered_at->toISOString() : null,
+            'read_at' => $this->read_at ? $this->read_at->toISOString() : null,
+            'conversation_id' => $this->conversation_id,
+            'conversation_slug' => $this->conversation->slug ?? null,
+            'duration' => $this->duration ?? null,
+            'waveform_peaks' => $this->waveform_peaks ?? null,
+        ];
     }
 }

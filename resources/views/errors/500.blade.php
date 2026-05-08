@@ -4,7 +4,7 @@
     @php $locale = request()->cookie('locale', app()->getLocale()); @endphp
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $locale === 'ar' ? '500 - مشكلة في السيرفر' : '500 - Server Error')</title>
+    <title>@yield('title', __('errors.server_error_title'))</title>
     <style>
         * {
             margin: 0;
@@ -63,12 +63,14 @@
             p { font-size: 0.875rem; }
             .error-icon { font-size: 4rem; }
         }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
     <div class="error-icon">⚠️</div>
-    <h1>@yield('title', $locale === 'ar' ? '500 - مشكلة في السيرفر' : '500 - Server Error')</h1>
-    <p>@yield('message', $locale === 'ar' ? 'في مشكلة حصلت. لو سمحت حاول بعدين.' : 'Something went wrong. Please try again later.')</p>
-    <button onclick="history.back()">@yield('button', $locale === 'ar' ? 'رجوع' : 'Go Back')</button>
+    <h1>@yield('title', __('errors.server_error_title'))</h1>
+    <p>@yield('message', __('errors.server_error_message'))</p>
+    <button onclick="history.back()">@yield('button', __('errors.go_back'))</button>
 </body>
 </html>

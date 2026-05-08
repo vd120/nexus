@@ -8,7 +8,9 @@ return [
     'new_follower' => ':user بدأ بمتابعتك',
     'liked_your_post' => ':user عجبهُ منشورك',
     'liked_your_comment' => ':user عجبهُ تعليقك',
+    'liked_your_reply' => ':user عجبهُ ردك',
     'commented_on_your_post' => ':user علق على منشورك',
+    'replied_to_your_comment' => ':user رد على تعليقك',
     'mentioned_you' => ':user ذكرك',
     'mentioned_you_in_post' => ':user ذكرك في منشور',
     'mentioned_you_in_comment' => ':user ذكرك في تعليق',
@@ -20,6 +22,8 @@ return [
     'new_group_member' => ':user انضم لـ :group',
     'story_reaction' => ':user تفاعل مع قصتك',
     'story_view' => ':user شاف قصتك',
+    'reacted_to_your_post' => ':user تفاعل مع منشورك بـ :reaction',
+    'reacted_to_your_message' => ':user تفاعل بـ :reaction على ":content"',
 
     // Notification Actions
     'view_post' => 'شوف المنشور',
@@ -71,7 +75,7 @@ return [
     'likes' => 'الإعجابات',
     'when_likes_post' => 'لما حد يعمل إعجاب لمنشورك',
     'comments' => 'التعليقات',
-    'when_comments_post' => 'لما حد يعلق على منشورك',
+    'when_comments_post' => 'لما حد يعلق على منشورك أو يرد على تعليقك',
     'new_followers' => 'متابعين جدد',
     'when_follows_you' => 'لما حد يتابعك',
     'messages' => 'الرسائل',
@@ -90,12 +94,6 @@ return [
     'report_accepted_message' => 'تم قبول بلاغك واتخاذ إجراء.',
     'report_rejected' => 'لم يتم قبول البلاغ',
     'report_rejected_message' => 'تم مراجعة بلاغك ولكن لم يتم قبوله.',
-
-    // Life Events Notifications
-    'birthday_today' => '🎂 عيد ميلاد :user اليوم!',
-    'birthday_tomorrow' => '🎂 عيد ميلاد :user بكرة!',
-    'birthday_reminder' => 'تذكير بعيد الميلاد: عيد ميلاد :user قريب!',
-    'anniversary_today' => '🎉 :user بيحتفل بمرور :years سنة على :event!',
-    'anniversary_reminder' => 'ذكرى :event لـ :user بعد :years سنة قريبة!',
-    'event_reaction' => ':user تفاعل مع حدث الحياة بتاعك بـ :reaction',
+    'dnd' => 'عدم الإزعاج',
+    'connecting' => 'جاري الاتصال بالسيرفر...',
 ];

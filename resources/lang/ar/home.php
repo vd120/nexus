@@ -47,4 +47,9 @@ return [
     'sign_in' => 'تسجيل الدخول',
     'built_for_authentic_connections' => 'مصمم للتواصل الحقيقي.',
     'contact_support' => 'تواصل مع الدعم',
+    'features_nav' => 'المميزات',
+    'join_nav' => 'انضم',
+    'stat_users_count' => '+50 ألف',
+    'stat_posts_count' => '+120 ألف',
+    'stat_stories_count' => '+85 ألف',
 ];

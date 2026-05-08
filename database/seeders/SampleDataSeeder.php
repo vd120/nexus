@@ -13,6 +13,8 @@ use App\Models\SavedPost;
 use App\Models\Story;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\SocialGroup;
+use App\Models\SocialGroupMember;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Database\Seeder;
@@ -60,9 +62,13 @@ class SampleDataSeeder extends Seeder
         $this->createStories($users);
         $this->command->info('✓ Created stories');
 
-        // Create groups
+        // Create groups (Chat Groups)
         $this->createGroups($users);
-        $this->command->info('✓ Created groups');
+        $this->command->info('✓ Created chat groups');
+
+        // Create communities (Social Groups)
+        $this->createCommunities($users);
+        $this->command->info('✓ Created social communities');
 
         // Create conversations and messages
         $this->createConversations($users);
@@ -349,10 +355,8 @@ class SampleDataSeeder extends Seeder
     private function createGroups(array $users): void
     {
         $groups = [
-            ['name' => 'Photography Enthusiasts', 'description' => 'Share your best photos and tips! 📸'],
-            ['name' => 'Tech Talk', 'description' => 'Discuss the latest in technology 💻'],
-            ['name' => 'Fitness Community', 'description' => 'Stay motivated and healthy together 💪'],
-            ['name' => 'Food Lovers', 'description' => 'Share recipes and food experiences 🍕'],
+            ['name' => 'Nexus Devs', 'description' => 'Official developer group for Nexus'],
+            ['name' => 'General Chat', 'description' => 'Chat about anything and everything'],
         ];
 
         foreach ($groups as $groupData) {
@@ -362,11 +366,13 @@ class SampleDataSeeder extends Seeder
                     'description' => $groupData['description'],
                     'creator_id' => fake()->randomElement($users)->id,
                     'is_private' => false,
+                    'slug' => Str::slug($groupData['name']) . '-' . Str::random(5),
+                    'invite_link' => Str::random(32),
                 ]
             );
 
             // Add random members
-            $memberCount = fake()->numberBetween(2, min(5, count($users)));
+            $memberCount = fake()->numberBetween(3, count($users));
             shuffle($users);
             $members = array_slice($users, 0, $memberCount);
 
@@ -376,6 +382,43 @@ class SampleDataSeeder extends Seeder
                     'user_id' => $member->id,
                 ], [
                     'role' => $member->id === $group->creator_id ? 'admin' : 'member',
+                ]);
+            }
+        }
+    }
+
+    private function createCommunities(array $users): void
+    {
+        $communities = [
+            ['name' => 'Photography Enthusiasts', 'description' => 'Share your best photos and tips! 📸'],
+            ['name' => 'Tech Talk', 'description' => 'Discuss the latest in technology 💻'],
+            ['name' => 'Fitness Community', 'description' => 'Stay motivated and healthy together 💪'],
+            ['name' => 'Food Lovers', 'description' => 'Share recipes and food experiences 🍕'],
+        ];
+
+        foreach ($communities as $communityData) {
+            $group = SocialGroup::firstOrCreate(
+                ['name' => $communityData['name']],
+                [
+                    'description' => $communityData['description'],
+                    'slug' => Str::slug($communityData['name']),
+                    'creator_id' => fake()->randomElement($users)->id,
+                    'privacy_level' => 'public',
+                ]
+            );
+
+            // Add random members
+            $memberCount = fake()->numberBetween(2, min(5, count($users)));
+            shuffle($users);
+            $members = array_slice($users, 0, $memberCount);
+
+            foreach ($members as $member) {
+                SocialGroupMember::firstOrCreate([
+                    'social_group_id' => $group->id,
+                    'user_id' => $member->id,
+                ], [
+                    'role' => $member->id === $group->creator_id ? 'admin' : 'member',
+                    'status' => 'approved',
                 ]);
             }
         }

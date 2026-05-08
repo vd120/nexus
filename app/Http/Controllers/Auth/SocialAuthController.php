@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendLoginEmailJob;
 use App\Services\ActivityService;
 use Laravel\Socialite\Facades\Socialite;
 use App\Models\User;
@@ -118,7 +119,12 @@ class SocialAuthController extends Controller
 
                 // Log login activity (uses Cloudflare headers - instant)
                 try {
-                    $this->activityService->logActivity('login', $user->id);
+                    $activity = $this->activityService->logActivity('login', $user->id);
+                    
+                    // Dispatch email job if login is suspicious
+                    if ($activity->is_suspicious && $user->hasVerifiedEmail()) {
+                        SendLoginEmailJob::dispatch($user);
+                    }
                 } catch (\Exception $e) {
                     \Log::error('Failed to log Google OAuth login activity: ' . $e->getMessage());
                 }
@@ -159,7 +165,22 @@ class SocialAuthController extends Controller
 
             // Log login activity (uses Cloudflare headers - instant)
             try {
-                $this->activityService->logActivity('login', $user->id);
+                $activity = $this->activityService->logActivity('login', $user->id);
+                
+                // If login is suspicious, force verification even if already verified
+                if ($activity->is_suspicious) {
+                    // Send security email
+                    SendLoginEmailJob::dispatch($user);
+                    
+                    // Generate code and set session flag for the middleware
+                    $user->generateVerificationCode();
+                    session(['auth.suspicious' => true]);
+                    
+                    \Log::info('Suspicious Google OAuth login detected for user: ' . $user->email);
+                    
+                    return redirect()->route('verification.notice')
+                        ->with('message', __('messages.suspicious_login'));
+                }
             } catch (\Exception $e) {
                 \Log::error('Failed to log Google OAuth login activity: ' . $e->getMessage());
             }

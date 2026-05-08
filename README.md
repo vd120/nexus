@@ -168,13 +168,13 @@ Nexus is a full-featured social networking platform that enables users to connec
 
 - **Direct Messages**: One-on-one conversations with any user
 - **Group Chat**: Multi-user conversations linked to groups
-- **Real-time Updates**: Polling-based (1-second interval) message delivery
-- **Typing Indicators**: Real-time "user is typing" status (5-second cache)
-- **Read Receipts**: Track when messages are read
-- **Delivery Confirmation**: Message delivery status tracking
+- **Real-time Messages**: Instant message delivery using Socket.IO (WebSockets)
+- **Typing Indicators**: Real-time "user is typing" indicators
+- **Read Receipts**: Real-time read status updates
+- **Delivery Confirmation**: Message delivery tracking
 - **Message Types**: Text, images, videos, voice messages, system messages
-- **Message Deletion**: Delete for self or everyone
-- **Conversation List**: Real-time updated conversation sidebar
+- **Message Deletion**: Synchronized deletion across all devices
+- **Conversation List**: Real-time sorted sidebar based on latest activity
 
 ### Groups
 
@@ -193,13 +193,13 @@ Nexus is a full-featured social networking platform that enables users to connec
 - **Private Accounts**: Require approval for followers
 - **User Profiles**: Customizable profiles with avatar, cover, bio
 - **Profile QR Code**: Share profiles via QR codes
-- **Online Status**: Real-time online/offline indicators (10-second polling)
+- **Online Status**: Real-time online/offline indicators via WebSocket connection status
 - **Last Active**: Track user last activity timestamp
 - **Explore Page**: Discover new users
 
 ### Notifications
 
-- **Real-time Updates**: 2-second polling for new notifications
+- **Real-time Notifications**: Instant notification delivery via Socket.IO events
 - **Notification Types**: Likes, comments, follows, mentions, messages, system
 - **Unread Badge**: Real-time unread count indicator
 - **Mark as Read**: Individual or bulk mark as read
@@ -917,27 +917,37 @@ nexus/
 12. Send Response to Client
 ```
 
-### Real-Time Architecture (Polling-Based)
+### Real-Time Architecture (Socket.IO)
 
-Nexus uses polling-based real-time updates instead of WebSockets:
+Nexus uses **Socket.IO** for true real-time updates:
 
-**Polling Intervals:**
-- Chat Messages: 1 second (Implementation: `realtime.js`)
-- Notifications: 2 seconds (Implementation: `realtime.js`)
-- Online Status: 10 seconds (Implementation: `ui-utils.js`)
-- Typing Indicators: 1 second with 5s cache (Implementation: `RealtimeService.php`)
-- Conversation Updates: 1 second (Implementation: `realtime.js`)
+- **Persistent Connections**: Uses WebSockets for instant, bi-directional communication.
+- **Low Latency**: Message delivery and notifications typically <150ms.
+- **Efficient**: Significantly reduced server load by eliminating polling loops.
+- **Standalone Server**: Dedicated Node.js server handles real-time traffic.
+
+**Client API (NexusSocket):**
+```javascript
+// Register a listener
+NexusSocket.on('chat:message', (data) => {
+    console.log('New message received:', data);
+});
+
+// Join a specific context (room)
+NexusSocket.joinConversation(5);
+
+// Emit an event to the server
+NexusSocket.sendTyping(5, true);
+```
 
 **Advantages:**
-- No WebSocket server required
-- Works with all hosting providers
-- Firewall-friendly (standard HTTP/HTTPS)
-- Easy to scale (no sticky sessions)
+- True real-time responsiveness
+- Reduced server CPU and bandwidth
+- Better battery life for mobile users
 
 **Trade-offs:**
-- 2-10 second latency (configurable)
-- More HTTP requests than WebSockets
-- Higher battery consumption on mobile
+- Requires a Node.js process running alongside Laravel
+- Requires WebSocket support in hosting environment
 
 ---
 

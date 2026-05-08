@@ -11,7 +11,9 @@
     </script>
 @endif
 
+@push('styles')
 <link rel="stylesheet" href="{{ asset('css/stories-create.css') }}">
+@endpush
 
 <div class="create-story-page">
     <div class="page-header">
@@ -23,7 +25,7 @@
     </div>
 
     {{-- Story Type Selector --}}
-    <div class="story-type-selector" style="display: flex; gap: 12px; margin-bottom: 20px;">
+    <div class="story-type-selector">
         <button type="button" class="story-type-btn active" data-type="media" onclick="switchStoryType('media')">
             <i class="fas fa-camera"></i>
             <span>{{ __('messages.photo_video_story') }}</span>

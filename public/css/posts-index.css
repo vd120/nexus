@@ -50,61 +50,71 @@
     line-height: 1.4;
 }
 
-/* Create Post - Clean Professional Design */
+/* Create Post - Clean Modern Style */
 .create-post {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    margin-bottom: 24px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #dbdbdb);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
 }
+
 .create-post-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 0;
 }
+
 .create-post-avatar {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
+    flex-shrink: 0;
 }
-.create-post-avatar-placeholder {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    font-size: 16px;
-}
+
 .create-post-author {
     font-weight: 600;
     font-size: 14px;
     color: var(--text);
+    display: block;
+    line-height: 1.3;
 }
+
 .create-post textarea {
     width: 100%;
-    min-height: 80px;
-    padding: 12px 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg);
+    min-height: 70px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--surface-hover);
     color: var(--text);
     font-size: 15px;
-    resize: vertical;
-    transition: border-color 0.2s ease;
+    resize: none;
+    font-family: inherit;
+    transition: all 0.15s ease;
+    margin-top: 12px;
 }
+
 .create-post textarea:focus {
     outline: none;
-    border-color: var(--primary);
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--primary-glow);
 }
+
+[data-theme="light"] .create-post textarea:focus {
+    background: var(--surface);
+}
+
 .create-post textarea::placeholder {
     color: var(--text-muted);
+    font-size: 15px;
 }
 
 /* RTL support for textarea */
@@ -117,76 +127,115 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: none;
     gap: 12px;
 }
+
 .post-actions-left {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
 }
+
 .post-action-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 8px 12px;
     border: none;
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.post-action-btn:hover {
-    color: var(--primary);
-    background: rgba(139, 92, 246, 0.1);
-}
-.post-action-btn i {
-    font-size: 16px;
-}
-.privacy-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: var(--radius);
+    border-radius: 8px;
+    background: var(--surface-hover);
+    color: var(--text);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
+}
+
+.post-action-btn:hover {
+    background: var(--border);
+}
+
+[data-theme="light"] .post-action-btn {
+    background: #ffffff;
     border: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .post-action-btn:hover {
+    background: var(--surface-hover);
+}
+
+[data-theme="dark"] .post-action-btn {
+    background: #27272a;
+    color: #d1d5db;
+}
+
+[data-theme="dark"] .post-action-btn:hover {
+    background: #3f3f46;
+}
+
+.post-action-btn i {
+    font-size: 16px;
+}
+
+.privacy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
     background: transparent;
     color: var(--text-muted);
+    transition: background-color 0.2s ease;
 }
+
 .privacy-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--bg);
+    color: var(--text);
 }
+
 .privacy-btn.active {
-    background: rgba(139, 92, 246, 0.1);
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--bg);
+    color: var(--text);
 }
+
 .privacy-btn i {
-    font-size: 14px;
+    font-size: 12px;
 }
+
 .btn-primary {
-    background: var(--primary);
+    background: #3b82f6;
     border: none;
-    padding: 10px 24px;
-    border-radius: var(--radius);
+    padding: 8px 20px;
+    border-radius: 8px;
     font-weight: 600;
     font-size: 14px;
     color: white;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.15s ease;
 }
+
 .btn-primary:hover {
-    background: var(--primary-hover);
+    background: #2563eb;
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 1;
+    transform: none;
 }
 
 /* Posts Feed */
@@ -202,11 +251,125 @@
 .guest-cta p { color: var(--text-muted); margin-bottom: 20px; }
 
 @media (max-width: 640px) {
-    .feed-container { padding: 0 12px; }
-    .create-post { padding: 16px; }
-    .story-avatar-wrapper { width: 60px; height: 60px; }
-    .story-name { max-width: 60px; }
-    
+    .feed-container { max-width: 100%; padding: 12px 0 100px; }
+
+    .create-post {
+        padding: 16px;
+        border-radius: 24px;
+        border: none;
+        margin-bottom: 12px;
+        width: 100%;
+        max-width: 100%;
+        box-shadow: none;
+        margin-top: 0;
+    }
+
+    .create-post-header {
+        gap: 10px;
+    }
+
+    .create-post-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .create-post-author {
+        font-size: 13px;
+    }
+
+    #privacy-btn {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        background: var(--surface-hover) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 4px !important;
+    }
+
+    .create-post textarea {
+        min-height: 50px;
+        font-size: 13px;
+        padding: 8px 10px;
+        margin-top: 8px !important;
+    }
+
+    .post-actions {
+        flex-direction: row;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .post-actions-left {
+        display: flex;
+        gap: 6px !important;
+        padding: 0;
+        border-bottom: none;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        padding-bottom: 2px;
+        flex: 1;
+        min-width: 0;
+    }
+    .post-actions-left::-webkit-scrollbar {
+        display: none;
+    }
+
+    .post-action-btn {
+        flex: 0 0 auto;
+        padding: 6px 10px;
+        font-size: 11px;
+        gap: 4px;
+        background: var(--surface-hover);
+    }
+
+    .post-action-btn span {
+        display: inline;
+    }
+
+    .post-action-btn i {
+        font-size: 14px;
+    }
+
+    .privacy-btn:hover {
+        background: transparent;
+        color: var(--text-muted);
+    }
+
+    .btn-primary {
+        width: auto;
+        padding: 6px 14px;
+        margin-top: 0;
+        border-radius: 6px;
+        margin-left: auto;
+        flex-shrink: 0;
+        z-index: 5;
+        font-size: 13px;
+    }
+
+    .btn-primary:hover {
+        opacity: 1;
+    }
+
+    .btn-primary:disabled {
+        background: var(--text-muted);
+        cursor: not-allowed;
+    }
+
+    .story-item:hover {
+        transform: none;
+    }
+
+    .story-avatar-wrapper { width: 48px; height: 48px; padding: 2px; }
+    .story-avatar { border-width: 2px; }
+    .story-name { max-width: 48px; font-size: 10px; }
+    .stories-section { margin-bottom: 0px;margin-left: 7px; }
+    .stories-header { margin-bottom: 8px; }
+    .stories-header h3 { font-size: 15px; }
+    .stories-scroll { gap: 10px; }
+    .story-item.create .add-icon { width: 18px; height: 18px; font-size: 9px; border-width: 2px; }
+
     /* Larger remove button for mobile */
     #media-previews button {
         width: 28px !important;
@@ -214,14 +377,20 @@
         top: 6px !important;
         right: 6px !important;
     }
-    
+
     /* Mobile clear all button - full width */
     #clear-all-media-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 12px 16px;
-        font-size: 14px;
-        margin-bottom: 12px;
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        justify-content: center !important;
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        margin-bottom: 0px !important;
+        display: flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+        white-space: nowrap !important;
+        max-width: 100% !important;
     }
     
     /* Adjust media preview grid for mobile */
@@ -230,17 +399,19 @@
     }
     
     #media-previews > div {
-        width: 80px !important;
-        height: 80px !important;
+        width: calc(33.33% - 6px) !important;
+        aspect-ratio: 1/1 !important;
+        height: auto !important;
+        border-radius: 8px !important;
     }
 }
 
 /* Light theme button fix */
-body.light-theme .btn-primary {
+[data-theme="light"] .btn-primary {
     background: linear-gradient(135deg, #3b82f6, #06b6d4);
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
-body.light-theme .btn-primary:hover {
+[data-theme="light"] .btn-primary:hover {
     box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
 }
 
@@ -291,4 +462,29 @@ body.light-theme .btn-primary:hover {
     display: block;
     margin-bottom: 12px;
     color: var(--primary);
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .post-action-btn:hover {
+        background: var(--surface-hover);
+    }
+    
+    .privacy-btn:hover {
+        background: transparent;
+        color: var(--text-muted);
+    }
+    
+    .btn-primary:hover {
+        opacity: 1;
+        transform: none;
+    }
+    
+    .story-item:hover {
+        transform: none;
+    }
+    
+    .post-actions {
+        flex-wrap: wrap;
+    }
 }

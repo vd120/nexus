@@ -59,6 +59,10 @@ return [
     'username_cooldown_info' => 'ممكن تغير اسم المستخدم كل 3 أيام. المسؤولين يقدروا يغيروا في أي وقت.',
     'time_remaining' => 'متبقي :time',
 
+    // Security
+    'security_settings' => 'إعدادات الأمان',
+    'change_password_desc' => 'حافظ على أمان حسابك باستخدام كلمة مرور قوية.',
+
     // Explore Users Page
     'explore_users' => 'استكشاف المستخدمين',
     'back_to_feed' => 'الرجوع للرئيسية',

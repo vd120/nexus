@@ -4,7 +4,7 @@
     @php $locale = request()->cookie('locale', app()->getLocale()); @endphp
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $locale === 'ar' ? '404 - الصفحة مش موجودة' : '404 - Page Not Found')</title>
+    <title>@yield('title', __('errors.not_found_title'))</title>
     <style>
         * {
             margin: 0;
@@ -63,12 +63,15 @@
             p { font-size: 0.875rem; }
             .error-icon { font-size: 4rem; }
         }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
     <div class="error-icon">🔍</div>
-    <h1>@yield('title', $locale === 'ar' ? '404 - الصفحة مش موجودة' : '404 - Page Not Found')</h1>
-    <p>@yield('message', $locale === 'ar' ? 'يا خسارة! الصفحة اللي بتدور عليها مش موجودة.' : "Oops! The page you're looking for doesn't exist.")</p>
-    <button onclick="history.back()">@yield('button', $locale === 'ar' ? 'رجوع' : 'Go Back')</button>
+    <h1>@yield('title', __('errors.not_found_title'))</h1>
+    <p>@yield('message', __('errors.not_found_message'))</p>
+    <button onclick="history.back()">@yield('button', __('errors.go_back'))</button>
 </body>
 </html>

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\User;
-use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
@@ -22,11 +21,12 @@ class NotificationController extends Controller
                 ], 401);
             }
 
-            // Get active conversation ID from request (when user is viewing a chat)
+            // Get active conversation ID from request
             $activeConversationId = $request->input('active_conversation_id');
 
-            // Build query for notifications
-            $query = Notification::where('user_id', $user->id)
+            // Build query with EAGER LOADING to fix N+1 problem
+            $query = Notification::with(['user', 'related'])
+                ->where('user_id', $user->id)
                 ->orderBy('created_at', 'desc')
                 ->take(50);
 
@@ -40,6 +40,15 @@ class NotificationController extends Controller
 
             $notifications = $query->get();
 
+            // Pre-fetch all necessary related users for notification types that use data['follower_id'] etc.
+            // This is an additional safeguard for data-only notifications
+            $triggerUserIds = [];
+            foreach ($notifications as $n) {
+                if ($n->type === 'follow' && isset($n->data['follower_id'])) $triggerUserIds[] = $n->data['follower_id'];
+                if ($n->type === 'mention' && isset($n->data['mentioner_id'])) $triggerUserIds[] = $n->data['mentioner_id'];
+            }
+            $preFetchedUsers = User::whereIn('id', array_unique($triggerUserIds))->get()->keyBy('id');
+
             // Build query for unread count (also exclude active conversation)
             $unreadQuery = Notification::where('user_id', $user->id)->whereNull('read_at');
             if ($activeConversationId) {
@@ -52,62 +61,45 @@ class NotificationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'notifications' => $notifications->map(function ($notification) {
+                'notifications' => $notifications->map(function ($notification) use ($preFetchedUsers) {
                     try {
-
                         $triggerUser = null;
+                        
+                        // Try to get user from pre-fetched list first
                         if ($notification->type === 'follow') {
-                            $triggerUser = User::find($notification->data['follower_id'] ?? null);
+                            $triggerUser = $preFetchedUsers->get($notification->data['follower_id'] ?? null);
                         } elseif ($notification->type === 'mention') {
-                            $triggerUser = User::find($notification->data['mentioner_id'] ?? null);
+                            $triggerUser = $preFetchedUsers->get($notification->data['mentioner_id'] ?? null);
                         }
 
-                        // Generate link based on notification type
+                        // Generate link based on notification type using EAGER LOADED relationships
                         $link = null;
                         if ($notification->type === 'follow' && $triggerUser) {
                             $link = '/users/' . ($triggerUser->username ?? $triggerUser->id);
                         } elseif ($notification->type === 'like' && $notification->related_id) {
-                            // Posts use slug, not ID
-                            $post = \App\Models\Post::find($notification->related_id);
+                            $post = $notification->related_type === 'App\Models\Post' ? $notification->related : null;
                             $link = $post ? '/posts/' . $post->slug : null;
                         } elseif ($notification->type === 'comment' && $notification->related_id) {
-                            // For comment notifications, related_id is the Comment ID, so we need to get the Post from the Comment
-                            $comment = \App\Models\Comment::find($notification->related_id);
+                            $comment = $notification->related_type === 'App\Models\Comment' ? $notification->related : null;
                             $post = $comment ? $comment->post : null;
                             $link = $post ? '/posts/' . $post->slug : null;
                         } elseif ($notification->type === 'mention' && $notification->related_id) {
-                            // For mention notifications, redirect to the post/comment where user was mentioned
                             if ($notification->related_type === 'App\\Models\\Post') {
-                                $post = \App\Models\Post::find($notification->related_id);
+                                $post = $notification->related;
                                 $link = $post ? '/posts/' . $post->slug : null;
                             } elseif ($notification->related_type === 'App\\Models\\Comment') {
-                                $comment = \App\Models\Comment::find($notification->related_id);
+                                $comment = $notification->related;
                                 $post = $comment ? $comment->post : null;
                                 $link = $post ? '/posts/' . $post->slug . '#comment-' . $comment->id : null;
                             } else {
-                                // Fallback to mentioner's profile
                                 $link = $triggerUser ? '/users/' . ($triggerUser->username ?? $triggerUser->id) : null;
                             }
                         } elseif ($notification->type === 'message' && ($notification->data['conversation_id'] ?? null)) {
-                            // Conversations use slug, not ID
-                            $conversation = \App\Models\Conversation::find($notification->data['conversation_id']);
+                            $conversation = $notification->related_type === 'App\Models\Conversation' ? $notification->related : null;
                             $link = $conversation ? '/chat/' . $conversation->slug : null;
                         } elseif ($notification->type === 'group_invite' && ($notification->data['conversation_id'] ?? null)) {
-                            // Group invite - redirect to chat conversation where invite was sent
-                            $conversation = \App\Models\Conversation::find($notification->data['conversation_id']);
+                            $conversation = $notification->related_type === 'App\Models\Conversation' ? $notification->related : null;
                             $link = $conversation ? '/chat/' . $conversation->slug : null;
-                        } elseif ($notification->type === 'event_reaction' && $notification->related_id) {
-                            // Life event reaction - redirect to event (using slug)
-                            $event = \App\Models\Event::find($notification->related_id);
-                            $link = $event ? '/life-events/' . $event->slug : null;
-                        } elseif (in_array($notification->type, ['birthday', 'birthday_reminder']) && ($notification->data['birthday_user_id'] ?? null)) {
-                            // Birthday notification - redirect to user's profile
-                            $birthdayUser = User::find($notification->data['birthday_user_id']);
-                            $link = $birthdayUser ? '/users/' . ($birthdayUser->username ?? $birthdayUser->id) : null;
-                        } elseif ($notification->type === 'anniversary' && $notification->related_id) {
-                            // Anniversary notification - redirect to event (using slug)
-                            $event = \App\Models\Event::find($notification->related_id);
-                            $link = $event ? '/life-events/' . $event->slug : null;
                         }
 
                         return [
@@ -122,13 +114,10 @@ class NotificationController extends Controller
                             'user' => $triggerUser ? [
                                 'id' => $triggerUser->id,
                                 'username' => $triggerUser->username,
-                                'avatar' => $triggerUser->profile && $triggerUser->profile->avatar
-                                    ? asset('storage/' . $triggerUser->profile->avatar)
-                                    : null,
+                                'avatar' => $triggerUser->avatar_url,
                             ] : null,
                         ];
                     } catch (\Exception $e) {
-
                         return [
                             'id' => $notification->id,
                             'type' => $notification->type,
@@ -271,41 +260,5 @@ class NotificationController extends Controller
             'success' => true,
             'unread_count' => $unreadCount
         ]);
-    }
-
-    /**
-     * Get real-time updates for the current user
-     */
-    public function getRealtimeUpdates(Request $request)
-    {
-        try {
-            $user = auth()->user();
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => __('messages.unauthenticated')
-                ], 401);
-            }
-
-            $realtimeService = new RealtimeService();
-
-            
-            $postIds = $request->get('post_ids', []);
-
-            $data = $realtimeService->getRealtimeData($user->id, $postIds);
-
-            return response()->json([
-                'success' => true,
-                'data' => $data,
-                'timestamp' => now()->timestamp
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error getting real-time updates: ' . $e->getMessage()
-            ], 500);
-        }
     }
 }

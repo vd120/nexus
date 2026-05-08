@@ -398,6 +398,28 @@ body:has(.chat-page) .mobile-nav {
     white-space: nowrap;
 }
 
+.typing-indicator-sidebar {
+    display: none;
+    color: #25d366 !important;
+    font-size: 13px;
+    font-style: italic;
+    font-weight: 600;
+    animation: typing-fade 1.5s infinite;
+}
+
+.conversation-item.is-typing .preview-content-wrapper {
+    display: none !important;
+}
+
+.conversation-item.is-typing .typing-indicator-sidebar {
+    display: block !important;
+}
+
+@keyframes typing-fade {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
 /* Empty State */
 .empty-state {
     padding: 60px 20px;
@@ -1398,8 +1420,9 @@ body:has(.chat-page) .mobile-nav {
     gap: 8px;
     padding: 8px 16px;
     margin-bottom: 4px;
-    color: var(--wa-text-muted);
+    color: #25d366;
     font-size: 13px;
+    font-weight: 500;
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
@@ -1423,7 +1446,7 @@ body:has(.chat-page) .mobile-nav {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--wa-text-muted);
+    background: #25d366;
     animation: typingBounce 1.4s infinite ease-in-out both;
 }
 
@@ -2105,5 +2128,106 @@ body:has(.chat-page) .mobile-nav {
     .message-media video,
     .media-grid-single img {
         max-height: 220px;
+    }
+}
+
+/* Specialized msg-item-actions for private chat */
+.message-content .msg-item-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 20;
+    opacity: 0;
+    transition: all 0.2s ease;
+    transform: translateY(-5px);
+}
+
+.message-content:hover .msg-item-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.message-content .msg-action-trigger {
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    font-size: 10px;
+}
+
+.message-content .msg-action-trigger:hover {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+/* Optimized Media Bubble (WhatsApp Style) */
+.message-content.has-media {
+    padding: 3px !important;
+    overflow: hidden;
+    max-width: 350px;
+    width: fit-content;
+}
+
+.message-content.has-media .message-media-album,
+.message-content.has-media .message-media {
+    margin: 0 !important;
+    border-radius: 6px 6px 4px 4px;
+}
+
+.message-content.has-media .text {
+    padding: 8px 12px 12px 12px;
+    margin: 0;
+    display: block;
+    width: 100%;
+}
+
+.message-content.has-media .message-time {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: white !important;
+    backdrop-filter: blur(4px);
+    z-index: 15;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+}
+
+.message-content.has-media .message-time i {
+    color: white !important;
+    font-size: 9px;
+}
+
+/* If there is text, don't float the time over the media */
+.message-content.has-media.has-text .message-time {
+    position: static;
+    background: transparent;
+    padding: 0 10px 8px 10px;
+    margin-top: -8px;
+    color: rgba(233, 237, 239, 0.7) !important;
+    backdrop-filter: none;
+    align-self: flex-end;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+.message.own .message-content.has-media.has-text .message-time {
+    padding: 0 10px 8px 10px;
+}
+
+@media (max-width: 768px) {
+    .message-content.has-media {
+        max-width: 100%;
     }
 }

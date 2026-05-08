@@ -25,7 +25,7 @@ class HashtagController extends Controller
         
         $user = auth()->user();
         
-        $query = Post::with(['user.profile', 'media', 'likes', 'comments'])
+        $query = Post::with(['user.profile', 'media', 'likes', 'reactions', 'comments'])
             ->whereHas('hashtags', function ($q) use ($hashtag) {
                 $q->where('hashtag_id', $hashtag->id);
             });
@@ -75,5 +75,26 @@ class HashtagController extends Controller
         $topHashtags = Hashtag::popular(5)->get();
         $allHashtags = Hashtag::orderBy('usage_count', 'desc')->paginate(50);
         return view('hashtags.index', compact('topHashtags', 'allHashtags'));
+    }
+
+    /**
+     * Get hashtag suggestions for autocomplete
+     */
+    public function suggestions(Request $request)
+    {
+        $search = $request->get('search', '');
+        
+        $hashtags = Hashtag::where('name', 'like', '%' . $search . '%')
+            ->orderBy('usage_count', 'desc')
+            ->limit(8)
+            ->get();
+            
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'top' => [],
+                'matching' => $hashtags
+            ]
+        ]);
     }
 }

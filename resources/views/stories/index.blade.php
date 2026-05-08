@@ -308,15 +308,82 @@
 }
 
 @media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 20px !important;
+    }
+    
+    .story-section h3 {
+        font-size: 16px !important;
+    }
+
     .stories-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
+    }
+    
+    .btn-primary {
+        padding: 6px 12px !important;
+        font-size: 13px !important;
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
+    .stories-page {
+        padding: 10px 8px !important;
+    }
+
+    .page-header {
+        margin-bottom: 15px !important;
+    }
+
     .stories-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .story-card {
+        border-radius: 12px !important;
+    }
+    
+    .story-avatar {
+        width: 32px !important;
+        height: 32px !important;
+        border-width: 2px !important;
+    }
+    
+    .story-user {
+        font-size: 11px !important;
+    }
+    
+    .story-time {
+        font-size: 9px !important;
+    }
+    
+    .story-overlay {
+        padding: 6px !important;
+    }
+    
+    .story-text-preview i {
+        font-size: 24px !important;
+    }
+    
+    .story-text-snippet {
+        font-size: 10px !important;
+    }
+    
+    .empty-state {
+        padding: 20px 10px !important;
+    }
+    
+    .empty-state i {
+        font-size: 32px !important;
+    }
+}
+
+@media (max-width: 400px) {
+    .stories-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 6px !important;
     }
 }
 </style>

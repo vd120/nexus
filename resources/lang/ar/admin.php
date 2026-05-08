@@ -224,4 +224,16 @@ return [
     'post_already_deleted' => 'تم حذف المنشور بالفعل',
     'post_already_deleted_message' => 'تم حذف هذا المنشور. يمكنك وضع علامة كمتمت مراجعة لإغلاق البلاغ.',
     'mark_as_reviewed' => 'وضع كمتمت مراجعة',
+
+    // Report Reasons
+    'reasons' => [
+        'spam' => 'محتوى غير مرغوب فيه (Spam)',
+        'inappropriate' => 'محتوى غير لائق',
+        'harassment' => 'تحرش',
+        'hate_speech' => 'خطاب كراهية',
+        'violence' => 'عنف',
+        'misinformation' => 'معلومات مضللة',
+        'copyright' => 'حقوق الملكية',
+        'other' => 'سبب آخر',
+    ],
 ];

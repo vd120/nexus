@@ -12,8 +12,7 @@ class MessageDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function sender_can_delete_message_for_everyone_and_record_is_soft_deleted()
+    public function test_sender_can_delete_message_for_everyone_and_record_is_soft_deleted()
     {
         $sender = User::factory()->create();
         $recipient = User::factory()->create();
@@ -42,8 +41,7 @@ class MessageDeletionTest extends TestCase
         $this->assertDatabaseHas('messages', ['id' => $msg->id, 'deleted_by_sender' => true]);
     }
 
-    /** @test */
-    public function recipient_can_delete_message_for_me_only_and_message_hidden_for_them()
+    public function test_recipient_can_delete_message_for_me_only_and_message_hidden_for_them()
     {
         $sender = User::factory()->create();
         $recipient = User::factory()->create();

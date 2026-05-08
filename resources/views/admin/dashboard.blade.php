@@ -124,35 +124,35 @@
         <div class="actions-row">
             <a href="{{ route('admin.users') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-users-cog"></i></div>
-                <span>{{ __('admin.users') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.users') }}</b>
             </a>
             <a href="{{ route('admin.posts') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-images"></i></div>
-                <span>{{ __('admin.posts') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.posts') }}</b>
             </a>
             <a href="{{ route('admin.comments') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-comments"></i></div>
-                <span>{{ __('admin.comments') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.comments') }}</b>
             </a>
             <a href="{{ route('admin.stories') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-camera"></i></div>
-                <span>{{ __('admin.stories') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.stories') }}</b>
             </a>
             @if($stats['pending_reports'] > 0)
             <a href="{{ route('admin.reports') }}" class="action-btn highlight" style="position: relative;">
                 <div class="action-icon"><i class="fas fa-flag"></i></div>
-                <span>{{ __('admin.reports') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.reports') }}</b>
                 <span class="notification-badge">{{ $stats['pending_reports'] }}</span>
             </a>
             @else
             <a href="{{ route('admin.reports') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-flag"></i></div>
-                <span>{{ __('admin.reports') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.reports') }}</b>
             </a>
             @endif
             <a href="#" onclick="showCreateAdminModal()" class="action-btn highlight">
                 <div class="action-icon"><i class="fas fa-user-plus"></i></div>
-                <span>{{ __('admin.new_admin') }}</span>
+                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.new_admin') }}</b>
             </a>
         </div>
     </div>
@@ -176,15 +176,15 @@
                             <img src="{{ $user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name">{{ $user->username }}</span>
-                            <span class="activity-time">{{ $user->created_at->diffForHumans() }}</span>
+                            <span class="activity-name" style="color: #ffffff !important; font-weight: bold;">{{ $user->username }}</span>
+                            <span class="activity-time" style="color: #86868b !important;">{{ $user->created_at->diffForHumans() }}</span>
                         </div>
                         <a href="{{ route('admin.users.show', $user) }}" class="activity-link">
                             <i class="fas fa-arrow-right"></i>
                         </a>
                     </div>
                     @empty
-                    <div class="empty-activity">{{ __('admin.no_users_yet') }}</div>
+                    <div class="empty-activity" style="color: #86868b !important;">{{ __('admin.no_users_yet') }}</div>
                     @endforelse
                 </div>
             </div>
@@ -201,15 +201,15 @@
                             <img src="{{ $post->user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name">{{ $post->user->username }}</span>
-                            <span class="activity-time">{{ Str::limit($post->content ?? __('admin.media_post'), 30) }}</span>
+                            <span class="activity-name" style="color: #ffffff !important; font-weight: bold;">{{ $post->user->username }}</span>
+                            <span class="activity-time" style="color: #86868b !important;">{{ Str::limit($post->content ?? __('admin.media_post'), 30) }}</span>
                         </div>
                         <a href="{{ route('admin.posts') }}" class="activity-link">
                             <i class="fas fa-arrow-right"></i>
                         </a>
                     </div>
                     @empty
-                    <div class="empty-activity">{{ __('admin.no_posts_yet') }}</div>
+                    <div class="empty-activity" style="color: #86868b !important;">{{ __('admin.no_posts_yet') }}</div>
                     @endforelse
                 </div>
             </div>
@@ -236,7 +236,10 @@
             </div>
             <div class="form-row">
                 <label>{{ __('admin.username') }}</label>
-                <input type="text" name="username" required minlength="3" maxlength="50" autocomplete="username" placeholder="{{ __('admin.username') }}">
+                <div style="position: relative;">
+                    <input type="text" name="username" id="admin-username" required minlength="3" maxlength="50" autocomplete="username" placeholder="{{ __('admin.username') }}" pattern="[a-zA-Z0-9_\-]+" style="width: 100%;">
+                    <div id="admin-username-status" style="font-size: 12px; margin-top: 4px; display: none;"></div>
+                </div>
             </div>
             <div class="form-row">
                 <label>{{ __('admin.email') }}</label>
@@ -270,5 +273,51 @@ document.getElementById('create-admin-modal').addEventListener('click', function
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') hideCreateAdminModal();
 });
+
+// Admin Username Check
+function initAdminUsernameCheck() {
+    const usernameInput = document.getElementById('admin-username');
+    const statusDiv = document.getElementById('admin-username-status');
+    const submitBtn = document.querySelector('#create-admin-modal .btn-submit');
+    
+    if (!usernameInput || !statusDiv) return;
+    
+    let debounceTimer;
+    
+    usernameInput.addEventListener('input', function() {
+        const username = this.value.trim();
+        
+        clearTimeout(debounceTimer);
+        statusDiv.style.display = 'none';
+        submitBtn.disabled = false;
+        
+        if (username.length < 3) return;
+        
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ __('messages.username_checking') }}';
+        statusDiv.style.color = 'var(--text-muted)';
+        statusDiv.style.display = 'block';
+        
+        debounceTimer = setTimeout(() => {
+            fetch('/api/check-username?username=' + encodeURIComponent(username))
+                .then(r => r.json())
+                .then(data => {
+                    if (data.available) {
+                        statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> {{ __('messages.username_available') }}';
+                        statusDiv.style.color = '#22c55e';
+                        submitBtn.disabled = false;
+                    } else {
+                        statusDiv.innerHTML = '<i class="fas fa-times-circle"></i> {{ __('messages.username_taken') }}';
+                        statusDiv.style.color = '#ef4444';
+                        submitBtn.disabled = true;
+                    }
+                })
+                .catch(() => {
+                    statusDiv.style.display = 'none';
+                });
+        }, 500);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initAdminUsernameCheck);
 </script>
 @endsection

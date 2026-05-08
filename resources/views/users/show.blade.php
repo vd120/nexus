@@ -4,7 +4,7 @@
 
 @section('content')
 <style>
-.profile-container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+.profile-container { max-width: 1024px; margin: 0 auto; padding-bottom: 80px; }
 .profile-header { position: relative; margin-bottom: 90px; }
 .cover-image {
     width: 100%; height: 260px; background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -55,18 +55,80 @@
 
 /* Mobile Responsive */
 @media (max-width: 640px) {
-    .profile-container { padding: 0 8px; }
-    .profile-avatar-wrapper { left: 50%; transform: translateX(-50%); bottom: -50px; }
-    .profile-info { padding: 1px 0 0; text-align: center; justify-content: center; }
-    .profile-meta { justify-content: center; }
-    .profile-actions { width: 100%; justify-content: center; }
-    .profile-stats { padding: 16px; justify-content: center; gap: 24px; }
+    .profile-container { position: relative; }
+    .profile-header { margin-bottom: 0px; }
+    .profile-avatar-wrapper { 
+        left: 20px !important; 
+        transform: none !important; 
+        bottom: -45px !important; 
+    }
+    .profile-avatar {
+        width: 90px !important;
+        height: 90px !important;
+    }
+    .profile-info { padding: 0 20px; text-align: left; }
+    .profile-details { width: 100%; margin-top: 40px; }
+    .profile-meta { justify-content: flex-start; }
+    .profile-badges { justify-content: flex-start; }
+    .profile-actions { 
+        position: absolute; 
+        top: 16px; 
+        right: 16px; 
+        display: flex; 
+        gap: 8px; 
+        z-index: 100;
+        margin: 0 !important;
+        width: auto !important;
+    }
+    .profile-stats { padding: 16px; justify-content: center; gap: 24px; border-top: none; margin: 10px 0; }
+    .profile-content { padding: 0; }
+    .pinned-posts-section { margin-bottom: 20px; }
+    .regular-posts-section { gap: 12px; }
     .cover-image { height: 180px; }
-    .profile-name { font-size: 20px; text-align: left; }
-    .profile-username { font-size: 14px; }
-    .profile-bio { font-size: 14px; text-align: center; }
-    .profile-actions .btn { width: 100%; max-width: 200px; justify-content: center; }
+    .profile-name { font-size: 20px; font-weight: 800; text-align: left; margin-bottom: 2px; }
+    .profile-username { font-size: 14px; text-align: left; margin-bottom: 10px; }
+    .profile-bio { font-size: 14px; text-align: left; margin-bottom: 16px; }
+    .profile-actions .btn { 
+        width: 42px;
+        height: 42px;
+        border-radius: -50%;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(15, 23, 42, 0.7) !important;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #fff !important;
+        font-size: 0 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        transition: all 0.2s ease;
+        text-decoration: none !important;
+    }
+    .profile-actions .btn i { 
+        font-size: 18px !important; 
+        margin: 0 !important; 
+        display: block !important;
+    }
+    .profile-actions .btn:active { transform: scale(0.9); background: rgba(0, 0, 0, 0.8) !important; }
+    #qr-code-display svg, #qr-code-display img { max-width: 100% !important; height: auto !important; }
 }
+    /* Edge-to-edge mobile alignment */
+    @media (max-width: 768px) {
+        :is(.app-layout, .main-content, .profile-container, .profile-content) { 
+            padding: 0 !important; 
+            margin: 0 !important; 
+            width: 100% !important; 
+            max-width: 100% !important; 
+        }
+        .regular-posts-section { gap: 8px; width: 100%; }
+        .pinned-posts-container { gap: 8px !important; }
+        .profile-info { padding: 16px; width: 100%; box-sizing: border-box; }
+        .profile-stats { margin: 12px 0; width: 100%; overflow-x: auto; }
+        .pinned-posts-section { padding: 0; }
+        .pinned-posts-header { padding: 0 16px; }
+    }
 </style>
 
 <div class="profile-container">
@@ -117,7 +179,7 @@
                 @if($user->profile && $user->profile->location)
                     <span><i class="fas fa-map-marker-alt"></i> {{ $user->profile->location }}</span>
                 @endif
-                <span><i class="fas fa-calendar"></i> Joined {{ $user->created_at->format('M Y') }}</span>
+                <span><i class="fas fa-calendar"></i> {{ __('messages.joined_on', ['date' => $user->created_at->format('M Y')]) }}</span>
             </div>
         </div>
 
@@ -150,15 +212,15 @@
 
     <div class="profile-stats">
         <a href="{{ route('users.show', $user) }}" class="stat-item">
-            <div class="stat-number">{{ $postsCount }}</div>
+            <div class="stat-number" id="posts-count">{{ $postsCount }}</div>
             <div class="stat-label">{{ __('users.posts') }}</div>
         </a>
         <a href="{{ route('users.followers', $user) }}" class="stat-item">
-            <div class="stat-number">{{ $followersCount }}</div>
+            <div class="stat-number" id="follower-count">{{ $followersCount }}</div>
             <div class="stat-label">{{ __('users.followers') }}</div>
         </a>
         <a href="{{ route('users.following', $user) }}" class="stat-item">
-            <div class="stat-number">{{ $followingCount }}</div>
+            <div class="stat-number" id="following-count">{{ $followingCount }}</div>
             <div class="stat-label">{{ __('users.following') }}</div>
         </a>
         @if(auth()->check() && auth()->id() === $user->id)
@@ -169,35 +231,30 @@
         @endif
     </div>
 
-    <div class="profile-content">
+    <div class="profile-content" style="max-width: 680px; margin: 0 auto;">
         {{-- Pinned Posts Section --}}
-        @if($pinnedPosts->count() > 0)
-            <div class="pinned-posts-section" style="margin-bottom: 30px;">
-                <div class="pinned-posts-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 0 4px;">
-                    <i class="fas fa-thumbtack" style="color: var(--accent); transform: rotate(45deg);"></i>
-                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text); margin: 0;">
-                        {{ __('users.pinned_posts') }}
-                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">({{ $pinnedCount }}/3)</span>
-                    </h3>
-                    @if($isOwner && $pinnedCount > 1)
-                        <button type="button" class="btn btn-sm" onclick="toggleReorderMode()" id="reorderBtn" style="margin-left: auto; padding: 4px 12px; font-size: 12px;">
-                            <i class="fas fa-sort"></i> {{ __('users.reorder') }}
-                        </button>
-                    @endif
-                </div>
-                <div class="pinned-posts-container" id="pinnedPostsContainer">
-                    @foreach($pinnedPosts as $post)
-                        @include('partials.post', ['post' => $post, 'isPinned' => true])
-                    @endforeach
-                </div>
+        <div class="pinned-posts-section" style="margin-bottom: 30px; {{ $pinnedPosts->count() === 0 ? 'display: none;' : '' }}">
+            <div class="pinned-posts-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 0 4px;">
+                <i class="fas fa-thumbtack" style="color: var(--primary); font-size: 13px; transform: rotate(45deg); opacity: 0.8;"></i>
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--text-muted); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                    {{ __('users.pinned_posts') }}
+                </h3>
+                @if($isOwner)
+                    <button type="button" class="btn btn-sm btn-reorder" onclick="toggleReorderMode()" id="reorderBtn" style="margin-left: auto; padding: 4px 12px; font-size: 11px; border-radius: 8px; display: {{ $pinnedCount <= 1 ? 'none' : 'flex' }}; align-items: center; gap: 6px; background: var(--surface-hover); border: 1px solid var(--border);">
+                        <i class="fas fa-sort"></i> <span>{{ __('users.reorder') }}</span>
+                    </button>
+                @endif
             </div>
-        @endif
+            <div class="pinned-posts-container" id="pinnedPostsContainer" style="display: flex; flex-direction: column; gap: 20px;">
+                @foreach($pinnedPosts as $post)
+                    @include('partials.post', ['post' => $post, 'isPinned' => true])
+                @endforeach
+            </div>
+        </div>
 
         {{-- Regular Posts Section --}}
-        <div class="regular-posts-section">
-            @if($pinnedPosts->count() > 0)
-                <div style="border-top: 1px solid var(--border); margin-bottom: 20px;"></div>
-            @endif
+        <div class="regular-posts-section" style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="pinned-divider" style="border-top: 1px solid var(--border); margin: 10px 0 20px 0; {{ $pinnedPosts->count() === 0 ? 'display: none;' : '' }}"></div>
             @forelse($posts as $post)
                 @include('partials.post', ['post' => $post, 'isPinned' => false])
             @empty
@@ -226,7 +283,7 @@
         </div>
         
         <div id="qr-code-content" style="display:none;">
-            <div id="qr-code-display" style="background:white;padding:16px;border-radius:var(--radius-md);display:inline-block;margin-bottom:20px;"></div>
+            <div id="qr-code-display" style="background:white;padding:16px;border-radius:var(--radius-md);display:inline-block;margin-bottom:20px;max-width:100%;box-sizing:border-box;"></div>
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;word-break:break-all;" id="qr-profile-url"></p>
             <div style="display:flex;gap:12px;justify-content:center;">
                 <button class="btn btn-primary" onclick="downloadQrCode()"><i class="fas fa-download"></i> {{ __('users.download_qr') }}</button>
@@ -278,8 +335,24 @@ function profileToggleFollow(btn, userName) {
     })
     .then(r => r.json())
     .then(data => {
-        // Force reload immediately
-        window.location.href = window.location.href;
+        if (data.success) {
+            const isNowFollowing = data.is_following;
+            btn.setAttribute('data-following', isNowFollowing ? 'true' : 'false');
+            btn.innerHTML = '<i class="fas fa-user-' + (isNowFollowing ? 'check' : 'plus') + '"></i> <span>' + (isNowFollowing ? followingText : followText) + '</span>';
+            btn.disabled = false;
+            
+            // Update follower count in DOM
+            const followerStat = document.getElementById('follower-count');
+            if (followerStat && data.followers_count !== undefined) {
+                followerStat.textContent = data.followers_count;
+            }
+            
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.message || 'Error updating follow status', 'error');
+            btn.innerHTML = '<i class="fas fa-user-' + (isFollowing ? 'check' : 'plus') + '"></i> <span>' + (isFollowing ? followingText : followText) + '</span>';
+            btn.disabled = false;
+        }
     })
     .catch(() => {
         btn.innerHTML = '<i class="fas fa-user-' + (isFollowing ? 'check' : 'plus') + '"></i> <span>' + (isFollowing ? followingText : followText) + '</span>';
@@ -299,8 +372,21 @@ function profileUnblockUser(userName) {
     })
     .then(r => r.json())
     .then(data => {
-        // Force reload immediately
-        window.location.href = window.location.href;
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Update UI dynamically
+            const actionsDiv = document.querySelector('.profile-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = `
+                    <button class="nav-action-btn primary" data-following="false" onclick="profileToggleFollow(this, '${userName}')">
+                        <i class="fas fa-user-plus"></i> <span>${followText}</span>
+                    </button>
+                    <button class="nav-action-btn" onclick="profileBlockUser('${userName}')">
+                        <i class="fas fa-ban"></i> <span>${blockText}</span>
+                    </button>
+                `;
+            }
+        }
     })
     .catch(() => {
         alert(errorUnblockingText);
@@ -319,8 +405,17 @@ function profileBlockUser(userName) {
     })
     .then(r => r.json())
     .then(data => {
-        // Force reload immediately
-        window.location.href = window.location.href;
+        if (data.success) {
+            showToast(data.message, 'success');
+            const actionsDiv = document.querySelector('.profile-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = `
+                    <button class="nav-action-btn danger" onclick="profileUnblockUser('${userName}')">
+                        <i class="fas fa-unlock"></i> <span>Unblock</span>
+                    </button>
+                `;
+            }
+        }
     })
     .catch(() => {
         alert(errorBlockingText);
@@ -427,180 +522,8 @@ document.addEventListener('keydown', function(e) {
 // Pinned Posts Functions
 const pinPostText = {!! json_encode(__('users.post_pinned')) !!};
 const unpinPostText = {!! json_encode(__('users.post_unpinned')) !!};
-const maxPinnedReachedText = {!! json_encode(__('posts.max_pinned_reached', ['max' => 3])) !!};
+const maxPinnedReachedText = {!! json_encode(__('posts.max_pinned_reached', ['max' => $user->is_admin ? 10 : 5])) !!};
 const confirmPinText = {!! json_encode(__('users.confirm_pin_post')) !!};
 
-function pinPost(postId) {
-    if (!confirm(confirmPinText)) return;
-
-    fetch(`/users/{{ $user->username }}/posts/${postId}/pin`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json'
-        }
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast(pinPostText, 'success');
-            setTimeout(() => location.reload(), 500);
-        } else {
-            showToast(data.message || maxPinnedReachedText, 'error');
-        }
-    })
-    .catch(() => {
-        showToast('Failed to pin post', 'error');
-    });
-}
-
-function unpinPost(postId) {
-    if (!confirm('Are you sure you want to unpin this post?')) return;
-
-    fetch(`/users/{{ $user->username }}/posts/${postId}/unpin`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json'
-        }
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast(unpinPostText, 'success');
-            // Remove the post from pinned section
-            const postElement = document.getElementById(`post-${postId}`);
-            if (postElement) {
-                postElement.remove();
-            }
-            // Update pinned count
-            const pinnedSection = document.querySelector('.pinned-posts-section');
-            if (pinnedSection && document.querySelectorAll('.pinned-post').length === 0) {
-                pinnedSection.remove();
-            }
-        } else {
-            showToast(data.message || 'Failed to unpin post', 'error');
-        }
-    })
-    .catch(() => {
-        showToast('Failed to unpin post', 'error');
-    });
-}
-
-// Reorder functionality
-let isReorderMode = false;
-let sortableInstance = null;
-
-function toggleReorderMode() {
-    isReorderMode = !isReorderMode;
-    const container = document.getElementById('pinnedPostsContainer');
-    const reorderBtn = document.getElementById('reorderBtn');
-
-    if (isReorderMode) {
-        // Enable drag and drop
-        container.style.border = '2px dashed var(--accent)';
-        container.style.padding = '10px';
-        container.style.borderRadius = 'var(--radius-md)';
-
-        // Add drag handles to posts
-        document.querySelectorAll('.pinned-post').forEach(post => {
-            post.style.cursor = 'grab';
-            post.style.opacity = '0.9';
-            post.setAttribute('draggable', 'true');
-        });
-
-        reorderBtn.innerHTML = '<i class="fas fa-check"></i> Done';
-        reorderBtn.classList.add('btn-primary');
-
-        // Initialize drag and drop
-        initDragAndDrop();
-    } else {
-        // Disable drag and drop
-        container.style.border = 'none';
-        container.style.padding = '';
-
-        document.querySelectorAll('.pinned-post').forEach(post => {
-            post.style.cursor = '';
-            post.style.opacity = '';
-            post.removeAttribute('draggable');
-        });
-
-        reorderBtn.innerHTML = '<i class="fas fa-sort"></i> {{ __('users.reorder') }}';
-        reorderBtn.classList.remove('btn-primary');
-
-        // Save new order
-        savePinnedOrder();
-    }
-}
-
-function initDragAndDrop() {
-    const posts = document.querySelectorAll('.pinned-post');
-    let draggedPost = null;
-
-    posts.forEach(post => {
-        post.addEventListener('dragstart', function(e) {
-            draggedPost = this;
-            setTimeout(() => this.style.opacity = '0.5', 0);
-        });
-
-        post.addEventListener('dragend', function() {
-            setTimeout(() => this.style.opacity = '0.9', 0);
-            draggedPost = null;
-        });
-
-        post.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.style.borderTop = '3px solid var(--accent)';
-        });
-
-        post.addEventListener('dragleave', function() {
-            this.style.borderTop = 'none';
-        });
-
-        post.addEventListener('drop', function(e) {
-            e.preventDefault();
-            this.style.borderTop = 'none';
-
-            if (draggedPost !== this) {
-                const container = document.getElementById('pinnedPostsContainer');
-                const allPosts = Array.from(container.querySelectorAll('.pinned-post'));
-                const draggedIndex = allPosts.indexOf(draggedPost);
-                const dropIndex = allPosts.indexOf(this);
-
-                if (draggedIndex < dropIndex) {
-                    container.insertBefore(draggedPost, this.nextSibling);
-                } else {
-                    container.insertBefore(draggedPost, this);
-                }
-            }
-        });
-    });
-}
-
-function savePinnedOrder() {
-    const container = document.getElementById('pinnedPostsContainer');
-    const postIds = Array.from(container.querySelectorAll('.pinned-post')).map(post => {
-        return post.getAttribute('data-post-id');
-    });
-
-    fetch(`/users/{{ $user->username }}/pinned-posts/reorder`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ post_ids: postIds })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showToast('{{ __('users.posts_reordered') }}', 'success');
-        }
-    })
-    .catch(() => {
-        showToast('Failed to save order', 'error');
-    });
-}
 </script>
 @endsection

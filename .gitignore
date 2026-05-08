@@ -24,3 +24,7 @@ Homestead.yaml
 Thumbs.db
 .npmrc
 .qwen
+
+**/caddy
+frankenphp
+frankenphp-worker.php

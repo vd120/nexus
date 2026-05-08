@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'choose_image' => 'Choose Image',
+    'optional' => 'Optional',
     // Page titles
     'messages' => 'Messages',
     'chat' => 'Chat',
@@ -51,7 +53,7 @@ return [
     // Message placeholders
     'start_a_conversation' => '👋 Start a conversation',
     'type_a_message' => 'Type a message',
-    'message_deleted' => 'message deleted',
+    'message_deleted' => 'This message was deleted',
 
     // Message status
     'seen' => 'Seen',
@@ -98,6 +100,7 @@ return [
     'sent_a_document' => 'Sent a document',
     'sent_a_gif' => 'Sent a GIF',
     'sent_a_sticker' => 'Sent a sticker',
+    'gallery_image' => 'Gallery Image',
 
     // Empty states
     'no_messages_in_chat' => 'Start a conversation with :user',
@@ -113,6 +116,8 @@ return [
     'failed_to_send' => 'Failed to send. Please try again.',
     'failed_to_send_media' => 'Failed to send media. Please try again.',
     'error_sending_media' => 'Error sending media. Please try again.',
+    'connection_error' => 'Connection error',
+    'an_error_occurred' => 'An error occurred',
 
     // Pronouns
     'you' => 'You',
@@ -139,6 +144,13 @@ return [
     'not_following_anyone' => "You're not following anyone yet.",
     'add_members_later' => 'You can add members later!',
     'explore_users' => 'Explore Users',
+    'regenerate_invite_link' => 'Regenerate link',
+    'regenerate_invite_confirm' => 'Generate a new invite link? The old link will stop working.',
+    'photo' => 'Photo',
+    'video' => 'Video',
+    'audio' => 'Audio',
+    'document' => 'Document',
+    'voice_message' => 'Voice message',
     'cancel' => 'Cancel',
     'create' => 'Create',
     'save_changes' => 'Save Changes',
@@ -149,7 +161,7 @@ return [
     'group_members' => 'Group Members',
     'manage_members_desc' => 'Manage who is in this group',
     'admin' => 'Admin',
-    'add_members' => 'Add Members',
+    'add_member' => 'Add Member',
     'search_users' => 'Search users by name...',
     'danger_zone' => 'Danger Zone',
     'danger_zone_desc' => 'Once you delete a group, there is no going back. Please be certain.',
@@ -209,6 +221,15 @@ return [
     'reply_comments_prompt' => 'Login to reply to comments!',
     'delete_post' => 'Delete post',
     'clear_all' => 'Clear All',
+    'cleared_the_chat' => ':user cleared the chat',
+    'you_cleared_the_chat' => 'You cleared the chat',
+    'delete_conversation' => 'Delete Conversation',
+    'confirm_delete_conversation' => 'Are you sure you want to delete this conversation? This will remove all messages and cannot be undone.',
+    'conversation_deleted' => 'This conversation has been deleted by the other participant.',
+    'mute_notifications' => 'Mute Notifications',
+    'unmute_notifications' => 'Unmute Notifications',
+    'notifications_muted' => 'Notifications muted',
+    'notifications_unmuted' => 'Notifications unmuted',
     
     // Voice messages
     'record_voice' => 'Record voice message',
@@ -219,4 +240,63 @@ return [
     'stop_recording' => 'Stop recording',
     'cancel' => 'Cancel',
     'send' => 'Send',
+    'replied_to_you' => 'Replied',
+    'you_replied' => 'You replied',
+    'react' => 'React',
+    'reactions' => 'Reactions',
+    'reacted_with' => ':user reacted with :emoji',
+    'and_others' => 'and :count others',
+    'reacted_on_message' => 'reacted :emoji on ":content"',
+    'unread_messages' => 'Unread Messages',
+    'click_to_remove' => 'Click to remove',
+
+    // System Messages
+    'group_created_by' => ':user created this group',
+    'added_to_group' => ':user added to the group by :admin',
+    'exited_group' => ':user exited group',
+    'removed_from_group' => ':admin removed :user',
+    'made_admin' => ':admin made :user an admin',
+    'removed_admin' => ':admin removed :user from admin',
+    'joined_via_invite_link' => ':user joined the group using invite link',
+    'you_were_removed' => 'You were removed from group',
+    'you_are_admin_now' => 'You are admin now',
+
+    // Message Info
+    'message_info' => 'Message Info',
+    'read_by' => 'Read by',
+    'delivered_to' => 'Delivered to',
+    'remaining' => 'Remaining',
+    'group_settings' => 'Group Settings',
+    'general' => 'General',
+    'my_preferences' => 'My Preferences',
+    'group_information' => 'Group Information',
+    'change_photo' => 'Change Photo',
+    'save_changes' => 'Save Changes',
+    'confirm_leave' => 'Are you sure you want to leave this group?',
+    'administrator' => 'Administrator',
+    'owner' => 'Owner',
+    'promote_to_admin' => 'Promote to Admin',
+    'dismiss_as_admin' => 'Dismiss as Admin',
+    'member_added_successfully' => 'Member added successfully!',
+    'user_already_member' => 'User is already a member of this group.',
+    'remove_from_group' => 'Remove from Group',
+    'confirm_remove_member' => 'Are you sure you want to remove this member?',
+    'group_updated_successfully' => 'Group settings updated successfully.',
+    'member_removed_successfully' => 'Member removed successfully.',
+    'role_updated_successfully' => 'Member role updated successfully.',
+    'left_group_successfully' => 'You have left the group successfully.',
+    'mute_desc' => 'Mute notifications for this group chat.',
+    'no_contacts_to_add' => 'No contacts available to add.',
+    'add_to_group' => 'Add to Group',
+    'group_deleted_successfully' => 'Group deleted successfully.',
+    'confirm_delete_group' => 'Are you sure you want to delete this group? This action cannot be undone.',
+
+    // Additional titles and labels
+    'create_chat_group' => 'Create Chat Group',
+    'new_chat_group' => 'New Chat Group',
+    'start_private_group_desc' => 'Start a private conversation with multiple people.',
+    'no_friends_found' => 'No friends found to add.',
+    'upload' => 'Upload',
+    'scroll_to_bottom' => 'Scroll to bottom',
+    'close' => 'Close',
 ];

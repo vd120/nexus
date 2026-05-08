@@ -9,20 +9,10 @@ return [
     'online' => 'Online',
     
     // Chat Messages
-    'welcome' => "**Welcome to Nexus AI**\n\n" .
-                 "I'm here to help you get the most out of your Nexus experience. I can assist with tips, best practices, and answers to common questions.\n\n" .
-                 "**What would you like to explore?**\n" .
-                 "Just tap a button below or type a number:\n\n" .
-                 "**1** — Help & Menu\n" .
-                 "**2** — Writing Better Posts\n" .
-                 "**3** — Follow Suggestions\n" .
-                 "**4** — Trending Topics\n" .
-                 "**5** — Privacy & Security\n" .
-                 "**6** — Engagement Tips\n" .
-                 "**7** — Stories Guide\n" .
-                 "**8** — Profile Optimization\n" .
-                 "**9** — Search & Discover\n\n" .
-                 "I'm ready when you are!",
+    'welcome' => "👋 **Welcome to Nexus AI**\n\n" .
+                 "I'm your intelligent companion for the Nexus platform. I can help you with almost anything—from drafting creative posts to finding the best communities for your interests.\n\n" .
+                 "**How can I assist you today?**\n" .
+                 "Feel free to ask me anything in plain text, or try one of the suggestions below!",
     
     'invalid_number' => 'No worries! Just tap a button above or type a number from **1 to 9** to get started.',
     
@@ -219,7 +209,7 @@ return [
                                  "Anything else you'd like to explore? Tap a number!",
     
     // Chat Input
-    'input_placeholder' => 'Type a number (1-9)...',
+    'input_placeholder' => 'Ask me anything...',
     'send' => 'Send',
     'stop' => 'Stop',
     'clear_chat' => 'Clear Chat',

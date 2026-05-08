@@ -3,141 +3,343 @@
    Same design for all pages
    ============================================ */
 @media (max-width: 480px) {
+
     /* Base Nav Container - All Pages */
     nav,
     .nav-container,
     .header,
     .header-inner {
-/* Direction follows language */
+        /* Direction follows language */
     }
 
     /* Nav Container (Auth Pages & Landing) */
     nav {
-padding: 10px 16px !important;
+        padding: 10px 16px !important;
     }
 
     .nav-container {
-padding: 0 16px !important;
-height: 52px !important;
-max-width: 100% !important;
-width: 100% !important;
+        padding: 0 16px !important;
+        height: 48px !important;
+        max-width: 100% !important;
+        width: 100% !important;
     }
 
     /* Header (Main App Layout) */
     .header {
-padding: 10px 16px !important;
-width: 100% !important;
-max-width: 100% !important;
-left: 0 !important;
-right: 0 !important;
+        padding: 0 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: rgba(13, 13, 13, 0.75) !important;
+        backdrop-filter: blur(20px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    [data-theme="light"] .header {
+        background: rgba(255, 255, 255, 0.8) !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
     }
 
     .header-inner {
-padding: 0 16px !important;
-height: 52px !important;
-width: 100% !important;
-max-width: 100% !important;
+        padding: 0 16px !important;
+        height: 48px !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
     /* Logo / Brand */
     .nav-brand,
     .logo {
-font-size: 18px !important;
-font-weight: 700 !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
     }
 
     /* Theme Toggle Button */
     #themeToggle,
     .nav-action-btn {
-width: 36px !important;
-height: 36px !important;
-min-width: 36px !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
     }
 
     /* Language Switcher */
     .language-switcher {
-padding: 6px 10px !important;
+        padding: 6px 10px !important;
     }
 
     .language-switcher .current-locale,
     .language-switcher .lang-divider,
     .language-switcher .lang-alt {
-display: none !important;
+        display: none !important;
     }
 
     .language-switcher span:first-child {
-font-size: 16px !important;
+        font-size: 16px !important;
     }
 
     /* Back Button (Auth Pages) */
     .back-btn {
-padding: 6px 12px !important;
-font-size: 12px !important;
+        padding: 6px 12px !important;
+        font-size: 12px !important;
     }
 
     .back-btn span {
-display: none !important;
+        display: none !important;
     }
 
-    /* Navigation Links - Hide on mobile for main app (auth/landing keep their hamburger menu) */
-    .header .nav-links {
-display: none !important;
+    /* Navigation Links - Hide on mobile to avoid duplication with bottom nav */
+    .header .nav-links,
+    .nav-links,
+    header nav.nav-links {
+        display: none !important;
     }
 
     /* User Actions (Main App) */
     .user-actions {
-gap: 4px !important;
+        gap: 4px !important;
     }
 
     .nav-action-btn {
-width: 36px !important;
-height: 36px !important;
-padding: 0 !important;
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.03) !important;
+        border-radius: 50% !important;
+        transition: all 0.2s ease !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    [data-theme="light"] .nav-action-btn {
+        background: rgba(0, 0, 0, 0.04) !important;
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+        color: rgba(0, 0, 0, 0.7) !important;
     }
 
     .nav-action-btn .badge {
-top: 2px !important;
-right: 2px !important;
-min-width: 16px !important;
-height: 16px !important;
-font-size: 9px !important;
-padding: 0 4px !important;
+        top: -4px !important;
+        right: -4px !important;
+        min-width: 18px !important;
+        height: 18px !important;
+        font-size: 10px !important;
+        padding: 0 4px !important;
+        border: 2px solid var(--bg) !important;
+        background: #ff3b30 !important; /* Apple Red */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
     }
 
     /* User Button (Main App) */
     .nav-user-btn {
-height: 36px !important;
-padding: 4px 8px 4px 4px !important;
+        height: 36px !important;
+        padding: 4px 8px 4px 0 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.03) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    html[dir="rtl"] .nav-user-btn {
+        padding: 4px 0 4px 8px !important;
+    }
+
+    [data-theme="light"] .nav-user-btn {
+        background: rgba(0, 0, 0, 0.04) !important;
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    }
+
+    [data-theme="light"] .nav-user-btn span {
+        color: #111111 !important;
+    }
+
+    [data-theme="light"] .nav-user-btn .fa-chevron-down {
+        color: #111111 !important;
+        opacity: 0.6 !important;
     }
 
     .nav-user-btn .user-avatar {
-width: 28px !important;
-height: 28px !important;
+        width: 28px !important;
+        height: 28px !important;
+        border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
     }
 
     .nav-user-btn span {
-font-size: 12px !important;
-max-width: 80px !important;
+        font-size: 12px !important;
+        max-width: 80px !important;
+        font-weight: 600 !important;
     }
 
     .nav-user-btn .fa-chevron-down {
-font-size: 9px !important;
+        font-size: 9px !important;
+        opacity: 0.5 !important;
     }
 
     /* User Menu Dropdown - Mobile */
     #userMenu {
-        min-width: 200px !important;
+        min-width: 170px !important;
         padding: 4px !important;
+        border-radius: 12px !important;
     }
 
-    #userMenu a, #userMenu button {
-        padding: 10px 12px !important;
+    #userMenu a,
+    #userMenu button {
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+        gap: 8px !important;
+    }
+
+    #userMenu a i,
+    #userMenu button i {
+        width: 14px !important;
         font-size: 13px !important;
-        gap: 10px !important;
     }
 
-    #userMenu a i, #userMenu button i {
-        width: 16px !important;
-        font-size: 14px !important;
+    #userMenu .divider {
+        margin: 4px 0 !important;
+    }
+
+    #userMenu .language-section-header {
+        padding: 6px 10px 2px !important;
+        font-size: 9px !important;
+    }
+
+    #userMenu .lang-toggle-row {
+        padding: 8px 10px !important;
+        margin: 4px 8px 8px !important;
+        border-radius: 10px !important;
+    }
+
+    #userMenu .lang-title {
+        font-size: 11px !important;
+    }
+
+    #userMenu .lang-subtitle {
+        font-size: 9px !important;
+    }
+
+    #userMenu .ios-switch {
+        width: 34px !important;
+        height: 18px !important;
+    }
+
+    #userMenu .switch-knob {
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+    /* Bottom Navigation Bar - Apple-inspired Glassmorphism */
+    .mobile-bottom-nav {
+        display: block !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: rgba(15, 15, 15, 0.75);
+        backdrop-filter: blur(25px) saturate(180%);
+        -webkit-backdrop-filter: blur(25px) saturate(180%);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 9999;
+        padding: 0;
+        padding-bottom: env(safe-area-inset-bottom, 4px);
+        box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    [data-theme="light"] .mobile-bottom-nav {
+        background: rgba(255, 255, 255, 0.8);
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);
+    }
+
+    .mobile-nav-inner {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        max-width: 500px;
+        margin: 0 auto;
+        height: 56px;
+    }
+
+    .mobile-nav-inner a {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: var(--text-muted);
+        gap: 1px;
+        flex: 1;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        -webkit-tap-highlight-color: transparent;
+        height: 100%;
+    }
+
+    .mobile-nav-inner a i {
+        font-size: 19px;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        opacity: 0.7;
+    }
+
+    .mobile-nav-inner a span {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.1px;
+        display: block !important;
+        opacity: 0.7;
+        transition: all 0.2s;
+    }
+
+    /* Active State - Apple Style */
+    .mobile-nav-inner a.active {
+        color: var(--primary);
+    }
+
+    .mobile-nav-inner a.active i {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+
+    .mobile-nav-inner a.active span {
+        opacity: 1;
+        font-weight: 600;
+    }
+
+    /* Badge Redesign - Clean Apple Style */
+    .mobile-msg-badge {
+        position: absolute;
+        top: 6px;
+        right: calc(50% - 20px);
+        background: #ff3b30;
+        color: white;
+        font-size: 9px;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 3px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1.5px solid var(--bg);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    [data-theme="light"] .mobile-msg-badge {
+        border-color: #fff;
+    }
+
+    /* Add padding to bottom of page body to avoid overlap */
+    body {
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 4px)) !important;
+    }
+}
+
+/* Hide bottom nav on desktop */
+@media (min-width: 481px) {
+    .mobile-bottom-nav {
+        display: none !important;
     }
 }

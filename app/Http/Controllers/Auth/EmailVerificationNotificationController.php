@@ -13,7 +13,7 @@ class EmailVerificationNotificationController extends Controller
      */
     public function store(Request $request)
     {
-        if ($request->user()->hasVerifiedEmail()) {
+        if ($request->user()->hasVerifiedEmail() && !session('auth.suspicious')) {
             // User is already verified, check if they need to set password
             if ($request->user()->password === null) {
                 return redirect()->route('password.set-password')->with('message', __('messages.please_set_password'));

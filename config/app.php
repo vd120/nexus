@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'socket_io_url' => env('SOCKET_IO_URL', 'http://localhost:3001'),
+
+    'force_https' => (bool) env('APP_FORCE_HTTPS', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

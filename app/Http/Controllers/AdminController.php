@@ -32,7 +32,7 @@ class AdminController extends Controller
                 $q->where('is_private', true);
             })->count(),
             'recent_users' => User::with('profile')->latest()->take(5)->get(),
-            'recent_posts' => Post::with(['user.profile'])->latest()->take(5)->get(),
+            'recent_posts' => Post::with(['user.profile', 'reactions'])->latest()->take(5)->get(),
         ];
 
         return view('admin.dashboard', compact('stats'));
@@ -69,7 +69,7 @@ class AdminController extends Controller
     public function showUser(User $user)
     {
         $user->load(['profile', 'posts' => function($q) {
-            $q->with(['media', 'comments.user', 'likes'])->latest();
+            $q->with(['media', 'comments.user', 'likes', 'reactions'])->latest();
         }, 'followers', 'follows', 'stories' => function($q) {
             $q->with(['storyViews', 'reactions'])->latest();
         }]);
@@ -178,6 +178,13 @@ class AdminController extends Controller
 
             $filename = time() . '_avatar_' . uniqid() . '.jpg';
             $avatarPath = 'avatars/' . $filename;
+            
+            // Ensure directory exists
+            $fullPath = storage_path('app/public/avatars');
+            if (!file_exists($fullPath)) {
+                mkdir($fullPath, 0755, true);
+            }
+            
             $avatarImage->cover(200, 200)->toJpeg(90)->save(storage_path('app/public/' . $avatarPath));
 
             \Log::info('Admin avatar compressed and stored at: ' . $avatarPath);
@@ -213,6 +220,12 @@ class AdminController extends Controller
             $filename = time() . '_cover_' . uniqid() . '.jpg';
             $coverPath = 'covers/' . $filename;
 
+            // Ensure directory exists
+            $fullPath = storage_path('app/public/covers');
+            if (!file_exists($fullPath)) {
+                mkdir($fullPath, 0755, true);
+            }
+
             // Resize to max width while maintaining aspect ratio
             if ($coverImage->width() > 1200) {
                 $coverImage->scale(width: 1200);
@@ -227,6 +240,15 @@ class AdminController extends Controller
         // Update or create profile
         $user->profile()->updateOrCreate(['user_id' => $user->id], $profileData);
 
+        // If suspended, notify the user immediately via socket
+        if ($request->has('is_suspended') && !$user->getOriginal('is_suspended')) {
+            app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'account:status', [
+                'status' => 'suspended',
+                'message' => __('messages.account_suspended_contact_admin'),
+                'redirect_url' => route('login.view')
+            ]);
+        }
+
         return redirect()->route('admin.users.show', $user)->with('success', __('messages.user_updated'));
     }
 
@@ -237,6 +259,22 @@ class AdminController extends Controller
             return redirect()->back()->with('error', __('messages.cannot_delete_admin'));
         }
 
+        // Notify the user via socket before deletion
+        $originalLocale = app()->getLocale();
+        if ($user->language) {
+            app()->setLocale($user->language);
+        }
+
+        $message = __('messages.account_deleted_contact_admin');
+
+        app()->setLocale($originalLocale);
+
+        app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'account:status', [
+            'status' => 'deleted',
+            'message' => $message,
+            'redirect_url' => route('login.view')
+        ]);
+
         // Delete user and all related data
         $user->delete();
 
@@ -245,7 +283,7 @@ class AdminController extends Controller
 
     public function posts(Request $request)
     {
-        $query = Post::with(['user', 'media', 'comments', 'likes']);
+        $query = Post::with(['user', 'media', 'comments', 'likes', 'reactions']);
 
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
@@ -341,10 +379,13 @@ class AdminController extends Controller
             'is_admin' => true,
         ]);
 
-        $user->profile()->create([
-            'bio' => 'Administrator Account',
-            'is_private' => false,
-        ]);
+        $user->profile()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'bio' => 'Administrator Account',
+                'is_private' => false,
+            ]
+        );
 
         return redirect()->back()->with('success', __('messages.admin_account_created'));
     }

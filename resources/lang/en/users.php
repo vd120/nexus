@@ -59,6 +59,10 @@ return [
     'username_cooldown_info' => 'Username can be changed every 3 days. Admins can change anytime.',
     'time_remaining' => ':time remaining',
 
+    // Security
+    'security_settings' => 'Security Settings',
+    'change_password_desc' => 'Keep your account secure by using a strong password.',
+
     // Explore Users Page
     'explore_users' => 'Explore Users',
     'back_to_feed' => 'Back to feed',

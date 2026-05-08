@@ -47,4 +47,9 @@ return [
     'sign_in' => 'Sign In',
     'built_for_authentic_connections' => 'Built for authentic connections.',
     'contact_support' => 'Contact Support',
+    'features_nav' => 'Features',
+    'join_nav' => 'Join',
+    'stat_users_count' => '+50K',
+    'stat_posts_count' => '+120K',
+    'stat_stories_count' => '+85K',
 ];

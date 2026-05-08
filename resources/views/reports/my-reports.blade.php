@@ -165,7 +165,7 @@
                     <div class="meta-item">
                         <i class="fas fa-calendar-alt"></i>
                         <span>{{ __('messages.reported_on') }}</span>
-                        <strong>{{ $report->created_at->format('M d, Y • h:i A') }}</strong>
+                        <strong>{{ $report->created_at->format('M d, Y • h:i a') }}</strong>
                     </div>
                     <div class="meta-item">
                         <i class="fas fa-clock"></i>
@@ -200,7 +200,7 @@
                                 <span>{{ $report->admin_note }}</span>
                             </div>
                             @endif
-                            <span class="review-time">{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i A') }}</span>
+                            <span class="review-time">{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i a') }}</span>
                         </div>
                     @else
                         <i class="fas fa-times-circle"></i>
@@ -220,7 +220,7 @@
                             @else
                                 <p>{{ __('messages.report_not_accepted') }}</p>
                             @endif
-                            <span class="review-time">{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i A') }}</span>
+                            <span class="review-time">{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i a') }}</span>
                         </div>
                     @endif
                 </div>
@@ -281,7 +281,23 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/my-reports.css') }}">
+<style>
+    /* Critical Responsive Overrides */
+    @media (max-width: 768px) {
+        .my-reports-page { padding: 1rem 0.5rem !important; }
+        .stats-cards { grid-template-columns: repeat(2, 1fr) !important; gap: 0.5rem !important; }
+        .stat-card { padding: 0.75rem !important; flex-direction: column !important; text-align: center !important; }
+        .report-header { flex-direction: column !important; align-items: stretch !important; gap: 0.75rem !important; }
+        .report-actions { display: flex !important; gap: 0.5rem !important; border-top: 1px solid var(--border) !important; padding-top: 0.75rem !important; }
+        .view-details-btn { flex: 1 !important; justify-content: center !important; background: linear-gradient(135deg, var(--primary), #8b5cf6) !important; color: white !important; }
+    }
+    .report-card { 
+        background: rgba(255, 255, 255, 0.03) !important; 
+        backdrop-filter: blur(10px) !important; 
+        border: 1px solid rgba(255, 255, 255, 0.05) !important; 
+    }
+</style>
+<link rel="stylesheet" href="{{ asset('css/my-reports.css') }}?v={{ time() }}">
 <script>
 function deleteReport(reportSlug) {
     if (!confirm('{{ __('messages.delete_report_confirm') }}')) {
@@ -298,7 +314,16 @@ function deleteReport(reportSlug) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            // Find the report card and remove it
+            const deleteBtn = document.querySelector(`button[onclick="deleteReport('${reportSlug}')"]`);
+            const card = deleteBtn ? deleteBtn.closest('.report-card') : null;
+            if (card) {
+                card.style.transition = 'all 0.3s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => card.remove(), 300);
+            }
+            showToast(data.message || 'Report deleted', 'success');
         } else {
             alert(data.message || '{{ __('messages.error_deleting_report') }}');
         }

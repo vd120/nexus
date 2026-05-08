@@ -20,7 +20,7 @@ class AdminMiddleware
         }
 
         if (!auth()->user()->is_admin) {
-            abort(403, 'Access denied. Admin privileges required.');
+            abort(403, __('messages.access_denied'));
         }
 
         return $next($request);

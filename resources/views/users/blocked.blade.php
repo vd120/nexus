@@ -102,13 +102,22 @@ function blockedPageUnblock(btn, username) {
             'Accept': 'application/json' 
         }
     })
-    .then(r => {
-        if (!r.ok) throw new Error('Network response was not ok');
-        return r.json();
-    })
+    .then(r => r.json())
     .then(data => {
-        // Reload the page to update the list
-        window.location.reload();
+        if (data.success && !data.blocking) {
+            // Successfully unblocked, remove the card
+            const card = btn.closest('.user-card');
+            if (card) {
+                card.style.transition = 'all 0.3s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.9)';
+                setTimeout(() => card.remove(), 300);
+            }
+            showToast('{{ __('users.unblocked_success') }}', 'success');
+        } else {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     })
     .catch((error) => {
         console.error('Error:', error);

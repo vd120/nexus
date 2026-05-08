@@ -36,7 +36,7 @@ class CheckUserSuspended
                 
                 // Redirect to suspended page or login with message
                 if ($request->expectsJson()) {
-                    return response()->json(['error' => 'Your account has been suspended.'], 403);
+                    return response()->json(['error' => __('messages.account_suspended_json')], 403);
                 }
                 
                 return redirect()->route('auth.suspended');

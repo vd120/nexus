@@ -108,13 +108,22 @@ function followingPageUnfollow(btn, username) {
             'Accept': 'application/json' 
         }
     })
-    .then(r => {
-        if (!r.ok) throw new Error('Network response was not ok');
-        return r.json();
-    })
+    .then(r => r.json())
     .then(data => {
-        // Reload the page to update the list
-        window.location.reload();
+        if (data.success && !data.is_following) {
+            // Successfully unfollowed, remove the card
+            const card = btn.closest('.user-card');
+            if (card) {
+                card.style.transition = 'all 0.3s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(20px)';
+                setTimeout(() => card.remove(), 300);
+            }
+            showToast(data.message, 'success');
+        } else {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     })
     .catch((error) => {
         console.error('Error:', error);
@@ -125,6 +134,7 @@ function followingPageUnfollow(btn, username) {
 
 function followingPageToggleFollow(btn, username) {
     const originalHtml = btn.innerHTML;
+    const isFollowing = btn.getAttribute('data-following') === 'true';
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     btn.disabled = true;
     
@@ -135,13 +145,19 @@ function followingPageToggleFollow(btn, username) {
             'Accept': 'application/json' 
         }
     })
-    .then(r => {
-        if (!r.ok) throw new Error('Network response was not ok');
-        return r.json();
-    })
+    .then(r => r.json())
     .then(data => {
-        // Reload the page to update the list
-        window.location.reload();
+        if (data.success) {
+            const isNowFollowing = data.is_following;
+            btn.setAttribute('data-following', isNowFollowing ? 'true' : 'false');
+            btn.classList.toggle('btn-primary', !isNowFollowing);
+            btn.innerHTML = isNowFollowing ? '{{ __('users.following') }}' : '{{ __('users.follow') }}';
+            btn.disabled = false;
+            showToast(data.message, 'success');
+        } else {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     })
     .catch((error) => {
         console.error('Error:', error);

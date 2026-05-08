@@ -19,6 +19,7 @@ class PostController extends Controller
 
         // Get paginated posts, but filter based on privacy settings
         $posts = Post::with(['user', 'media', 'comments.replies.user', 'comments.likes'])
+            ->approved()
             ->where(function($query) use ($user) {
                 // Always show public posts from non-private accounts
                 $query->where('is_private', false)
@@ -100,6 +101,7 @@ class PostController extends Controller
 
         $postData = $request->only('content');
         $postData['is_private'] = $request->has('is_private') ? true : false;
+        $postData['is_approved'] = true; // Auto-approve regular feed posts
 
         if ($request->hasFile('media')) {
             $file = $request->file('media');

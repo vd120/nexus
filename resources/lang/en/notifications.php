@@ -8,7 +8,9 @@ return [
     'new_follower' => ':user started following you',
     'liked_your_post' => ':user liked your post',
     'liked_your_comment' => ':user liked your comment',
+    'liked_your_reply' => ':user liked your reply',
     'commented_on_your_post' => ':user commented on your post',
+    'replied_to_your_comment' => ':user replied to your comment',
     'mentioned_you' => ':user mentioned you',
     'mentioned_you_in_post' => ':user mentioned you in a post',
     'mentioned_you_in_comment' => ':user mentioned you in a comment',
@@ -18,8 +20,10 @@ return [
     'invited_to_group_generic' => 'You received a group invite',
     'added_to_group' => ':user added you to :group',
     'new_group_member' => ':user joined :group',
-    'story_reaction' => ':user reacted to your story',
+    'story_reaction' => ':user reacted on your story',
     'story_view' => ':user viewed your story',
+    'reacted_to_your_post' => ':user reacted to your post with :reaction',
+    'reacted_to_your_message' => ':user reacted :reaction on ":content"',
 
     // Notification Actions
     'view_post' => 'View Post',
@@ -71,7 +75,7 @@ return [
     'likes' => 'Likes',
     'when_likes_post' => 'When someone likes your post',
     'comments' => 'Comments',
-    'when_comments_post' => 'When someone comments on your post',
+    'when_comments_post' => 'When someone comments on your post or replies to your comment',
     'new_followers' => 'New Followers',
     'when_follows_you' => 'When someone follows you',
     'messages' => 'Messages',
@@ -90,12 +94,6 @@ return [
     'report_accepted_message' => 'Your report was accepted and action was taken.',
     'report_rejected' => 'Report Not Accepted',
     'report_rejected_message' => 'Your report was reviewed but not accepted.',
-
-    // Life Events Notifications
-    'birthday_today' => '🎂 It\'s :user\'s birthday today!',
-    'birthday_tomorrow' => '🎂 :user\'s birthday is tomorrow!',
-    'birthday_reminder' => 'Birthday Reminder: :user\'s birthday is coming up!',
-    'anniversary_today' => '🎉 :user is celebrating :years years since :event!',
-    'anniversary_reminder' => ':user\'s :years year anniversary of :event is coming up!',
-    'event_reaction' => ':user reacted to your life event with :reaction',
+    'dnd' => 'Do Not Disturb',
+    'connecting' => 'Connecting to real-time server...',
 ];

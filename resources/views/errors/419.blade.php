@@ -4,7 +4,7 @@
     @php $locale = request()->cookie('locale', app()->getLocale()); @endphp
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $locale === 'ar' ? 'الجلسة انتهت' : 'Session Expired')</title>
+    <title>@yield('title', __('errors.page_expired_title'))</title>
     <style>
         * {
             margin: 0;
@@ -63,12 +63,14 @@
             p { font-size: 0.875rem; }
             .error-icon { font-size: 4rem; }
         }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
     <div class="error-icon">⏰</div>
-    <h1>@yield('title', $locale === 'ar' ? 'الجلسة انتهت' : 'Session Expired')</h1>
-    <p>@yield('message', $locale === 'ar' ? 'جلستك انتهت. لو سمحت حدّث الصفحة وحاول تاني.' : 'Your session has expired. Please refresh the page and try again.')</p>
-    <button onclick="window.location.reload()">@yield('button', $locale === 'ar' ? 'تحديث الصفحة' : 'Refresh Page')</button>
+    <h1>@yield('title', __('errors.page_expired_title'))</h1>
+    <p>@yield('message', __('errors.page_expired_message'))</p>
+    <button onclick="window.location.reload()">@yield('button', __('errors.refresh_page'))</button>
 </body>
 </html>

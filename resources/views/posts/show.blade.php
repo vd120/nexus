@@ -3,81 +3,71 @@
 @section('title', __('messages.post_detail_page'))
 
 @section('content')
+
+@push('styles')
+<style>
+    @media (max-width: 768px) {
+        :is(.app-layout, .main-content) { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+    }
+</style>
+@endpush
+
 <div class="post-detail-page">
     <div class="page-header">
-        <a href="{{ url()->previous() }}" class="back-link">
+        <a href="{{ route('home') }}" class="back-link">
             <i class="fas fa-arrow-left"></i>
             {{ __('messages.back') }}
         </a>
-        <h1>{{ __('messages.post_detail_page') }}</h1>
     </div>
 
-    <div class="post-container">
+    <div class="post-detail-wrapper">
         @include('partials.post', ['post' => $post])
     </div>
 </div>
 
 <style>
 .post-detail-page {
-    max-width: 600px;
+    max-width: 680px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px 16px 100px;
 }
 
 .page-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.page-header h1 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--twitter-dark);
+    margin-bottom: 12px;
 }
 
 .back-link {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: var(--twitter-blue);
+    color: var(--text-muted);
     text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 8px 12px;
-    border-radius: 20px;
-    transition: background-color 0.2s ease;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: var(--surface);
+    transition: all 0.3s ease;
+    margin-bottom: 8px;
 }
 
 .back-link:hover {
-    background: var(--twitter-light);
+    background: var(--surface-hover);
+    color: var(--text);
+    transform: translateX(-4px);
 }
 
-.post-container {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* Mobile Responsive */
+/* Mobile Responsive - Perfect Sync with Feed */
 @media (max-width: 768px) {
     .post-detail-page {
-        padding: 16px;
+        max-width: 100%;
+        padding: 12px 0 100px;
+        margin: 0;
     }
 
     .page-header {
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-    }
-
-    .post-container {
-        padding: 16px;
+        padding: 0 16px;
+        margin-bottom: 12px;
     }
 }
 </style>

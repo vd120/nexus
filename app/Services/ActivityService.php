@@ -382,7 +382,7 @@ class ActivityService
                 'country' => $session->country ?? null,
                 'city' => $session->city ?? null,
                 'last_active' => $session->logged_at->diffForHumans(),
-                'login_time' => $session->logged_at->format('M d, Y h:i A'),
+                'login_time' => $session->logged_at->format('M d, Y h:i a'),
                 'is_current' => $session->is_current_session ?? false,
             ];
         })->filter(function($session) {

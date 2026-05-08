@@ -7,6 +7,10 @@
     <title>Story - {{ $user->username }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ asset('css/stories-show.css') }}">
+    <script>
+        window.reactionImages = {};
+        window.getReactionImage = function(emoji) { return null; };
+    </script>
 </head>
 <body>
     <div class="story-viewer">
@@ -52,17 +56,23 @@
                             <div class="story-text-container" style="background: {{ $bgColor }}">
                                 <div class="story-text-content">{{ $story->content }}</div>
                             </div>
-                        @elseif($story->media_type === 'image')
-                            <img src="{{ asset('storage/' . $story->media_path) }}" alt="Story" class="story-media">
-                            @if($story->content)
-                                <div class="story-caption">{{ $story->content }}</div>
-                            @endif
                         @else
-                            <video autoplay muted class="story-media" playsinline>
-                                <source src="{{ asset('storage/' . $story->media_path) }}" type="video/mp4">
-                            </video>
-                            @if($story->content)
-                                <div class="story-caption">{{ $story->content }}</div>
+                            {{-- Media story (image or video) --}}
+                            @if($story->media_type === 'image')
+                                <img src="{{ asset('storage/' . $story->media_path) }}" alt="Story" class="story-media">
+                            @else
+                                <video autoplay muted class="story-media" playsinline loop>
+                                    <source src="{{ asset('storage/' . $story->media_path) }}" type="video/mp4">
+                                </video>
+                            @endif
+
+                            @if(isset($story->content) && strlen(trim($story->content)) > 0)
+                                <div class="story-caption-wrapper">
+                                    <div class="story-caption">{{ $story->content }}</div>
+                                    @if(mb_strlen($story->content) > 120)
+                                        <button class="show-more-btn" onclick="toggleCaption(this, event)">{{ __('messages.show_more') }}</button>
+                                    @endif
+                                </div>
                             @endif
                         @endif
                     </div>
@@ -111,13 +121,7 @@
                 </button>
             </div>
 
-            <!-- User Reaction Display -->
-            <div id="user-reaction-display" class="user-reaction-display" style="display: none;">
-                <span id="user-reaction-emoji"></span>
-            </div>
 
-            <!-- Floating Reactions Container -->
-            <div id="floating-reactions" class="floating-reactions"></div>
 
         </div>
     </div>
@@ -367,6 +371,7 @@
             }
 
             startTimer();
+            checkUserReaction();
         }
 
         function nextStory() {
@@ -414,26 +419,28 @@
         }
 
         function toggleReaction() {
+            const btn = document.getElementById('reaction-btn');
+            if (!btn) return;
+
             const story = stories[currentIndex];
             const storySlug = story.dataset.storySlug;
             const username = '{{ $user->username }}';
             
-            // Check if user already has a reaction
-            fetch('/stories/' + username + '/' + storySlug + '/check-reaction')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.has_reaction) {
-                        // User already reacted - REMOVE reaction
-                        removeReaction(storySlug, username);
-                    } else {
-                        // User hasn't reacted - ADD default heart reaction
-                        addReaction(storySlug, username, '❤️');
-                    }
-                })
-                .catch(err => console.error('Error checking reaction:', err));
+            const hasReaction = btn.classList.contains('has-reaction');
+            
+            // Optimistic UI Update: Toggle immediately
+            updateReactionButton(!hasReaction);
+
+            if (hasReaction) {
+                // Was liked, now remove
+                removeReaction(storySlug, username, true);
+            } else {
+                // Was not liked, now add
+                addReaction(storySlug, username, '❤️', true);
+            }
         }
 
-        function addReaction(storySlug, username, emoji) {
+        function addReaction(storySlug, username, emoji, isOptimistic = false) {
             fetch('/stories/' + username + '/' + storySlug + '/react', {
                 method: 'POST',
                 headers: {
@@ -444,19 +451,18 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // Update reaction button to red heart
-                    updateReactionButton(true);
-                    // Show user reaction display
-                    showUserReaction(emoji);
-                    // Show floating reaction animation
-                    showFloatingReaction(emoji);
+                if (!data.success && isOptimistic) {
+                    // Revert UI if server failed
+                    updateReactionButton(false);
                 }
             })
-            .catch(err => console.error('Error adding reaction:', err));
+            .catch(err => {
+                console.error('Error adding reaction:', err);
+                if (isOptimistic) updateReactionButton(false);
+            });
         }
 
-        function removeReaction(storySlug, username) {
+        function removeReaction(storySlug, username, isOptimistic = false) {
             fetch('/stories/' + username + '/' + storySlug + '/react', {
                 method: 'DELETE',
                 headers: {
@@ -466,12 +472,15 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // Update reaction button to white heart
-                    updateReactionButton(false);
+                if (!data.success && isOptimistic) {
+                    // Revert UI if server failed
+                    updateReactionButton(true);
                 }
             })
-            .catch(err => console.error('Error removing reaction:', err));
+            .catch(err => {
+                console.error('Error removing reaction:', err);
+                if (isOptimistic) updateReactionButton(true);
+            });
         }
 
         function updateReactionButton(hasReaction) {
@@ -501,40 +510,7 @@
                 .catch(err => console.error('Error checking reaction:', err));
         }
 
-        function showUserReaction(emoji) {
-            const display = document.getElementById('user-reaction-display');
-            const emojiSpan = document.getElementById('user-reaction-emoji');
 
-            emojiSpan.textContent = emoji;
-            display.style.display = 'flex';
-
-            // Hide after 3 seconds
-            setTimeout(() => {
-                display.style.display = 'none';
-            }, 3000);
-        }
-
-        function showFloatingReaction(emoji) {
-            const container = document.getElementById('floating-reactions');
-            if (!container) return;
-
-            // Create floating reaction element
-            const reaction = document.createElement('span');
-            reaction.className = 'floating-reaction';
-            reaction.textContent = emoji;
-
-            // Random horizontal position within container
-            const randomX = Math.random() * 100 - 50; // -50 to 50
-            reaction.style.left = `calc(50% + ${randomX}px)`;
-
-            // Add to container
-            container.appendChild(reaction);
-
-            // Remove after animation completes
-            setTimeout(() => {
-                reaction.remove();
-            }, 2000);
-        }
 
         function deleteStory(storySlug) {
             if (!confirm('{{ __('messages.delete_story_confirm') }}')) return;
@@ -562,6 +538,23 @@
                     showToast(t.failed_to_delete_story || '{{ __('messages.failed_to_delete_story') }}', 'error');
                 }
             });
+        }
+
+        function toggleCaption(btn, event) {
+            if (event) event.stopPropagation();
+            const wrapper = btn.closest('.story-caption-wrapper');
+            const caption = wrapper.querySelector('.story-caption');
+            const isExpanded = wrapper.classList.contains('expanded');
+            
+            if (isExpanded) {
+                wrapper.classList.remove('expanded');
+                btn.textContent = '{{ __('messages.show_more') }}';
+                resumeTimer();
+            } else {
+                wrapper.classList.add('expanded');
+                btn.textContent = '{{ __('messages.show_less') }}';
+                pauseTimer();
+            }
         }
 
         function timeAgo(date) {
@@ -658,12 +651,12 @@
 
                         const t = window.chatTranslations || {};
                         if (typeof showToast === 'function') {
-                            showToast(t.story_shared_success || '{{ __('messages.story_shared_success') }}', 'success', 5000);
+                            showToast(t.story_shared_success || '{{ __('messages.story_shared_success') }}', 'success', null, null, 5000);
                         }
                     } else {
                         const t = window.chatTranslations || {};
                         if (typeof showToast === 'function') {
-                            showToast(t.failed_to_send_message || '{{ __('messages.failed_to_send_message') }}', 'error', 5000);
+                            showToast(t.failed_to_send_message || '{{ __('messages.failed_to_send_message') }}', 'error', null, null, 5000);
                         }
                     }
                 }
@@ -671,7 +664,7 @@
                 console.error('Error:', error);
                 const t = window.chatTranslations || {};
                 if (typeof showToast === 'function') {
-                    showToast(t.failed_to_send_message || '{{ __('messages.failed_to_send_message') }}', 'error', 5000);
+                    showToast(t.failed_to_send_message || '{{ __('messages.failed_to_send_message') }}', 'error', null, null, 5000);
                 }
             }
 
@@ -704,7 +697,7 @@
                 if (Date.now() - toastData.time < 10000) {
                     setTimeout(() => {
                         if (typeof showToast === 'function') {
-                            showToast(toastData.message, toastData.type, 5000);
+                            showToast(toastData.message, toastData.type, null, null, 5000);
                         }
                         sessionStorage.removeItem('storyReplySent');
                     }, 500);

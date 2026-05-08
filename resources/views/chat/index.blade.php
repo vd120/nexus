@@ -18,191 +18,7 @@
 </style>
 <div class="chat-page">
     <div class="chat-layout">
-        {{-- Sidebar - Chat List --}}
-        <aside class="chat-sidebar" id="chatSidebar">
-            {{-- Header --}}
-            <header class="sidebar-header">
-                <div class="header-left">
-                    <div class="user-avatar-large">
-                        <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->username }}">
-                    </div>
-                    <span class="username-text">{{ auth()->user()->username }}</span>
-                </div>
-                <div class="header-actions">
-                    <a href="{{ route('groups.create') }}" class="icon-btn" title="{{ __('chat.new_group') }}">
-                        <i class="fas fa-users"></i>
-                    </a>
-                    <button class="icon-btn" onclick="showUserSearch()" title="{{ __('chat.new_message') }}">
-                        <i class="fas fa-message"></i>
-                    </button>
-                </div>
-            </header>
-
-            {{-- Search --}}
-            <div class="search-bar">
-                <div class="search-input-wrapper">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="{{ __('chat.search_or_start_chat') }}" id="sidebarSearch" oninput="filterSidebarConversations(this.value)">
-                </div>
-            </div>
-
-            {{-- Conversations List --}}
-            <div class="conversations-list" id="sidebarConvList">
-                @forelse($conversations as $conv)
-                @php
-                    $latestMessage = $conv->latestMessage;
-                    $isGroup = $conv->is_group;
-                    $displayName = $isGroup ? $conv->display_name : ($conv->other_user->username ?? 'User');
-                    $avatarUrl = $isGroup
-                        ? ($conv->group && $conv->group->avatar ? asset('storage/' . $conv->group->avatar) : null)
-                        : ($conv->other_user ? $conv->other_user->avatar_url : null);
-
-                    // Message preview logic
-                    $messagePreview = '';
-                    $messageIcon = '';
-                    $isOwn = false;
-                    if ($latestMessage) {
-                        $isOwn = $latestMessage->sender_id === auth()->id();
-                        $content = strip_tags($latestMessage->content);
-
-                        switch ($latestMessage->type) {
-                            case 'image':
-                                $messageIcon = '📷 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_photo') : __('chat.sent_photo');
-                                break;
-                            case 'video':
-                                $messageIcon = '🎥 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_video') : __('chat.sent_video');
-                                break;
-                            case 'audio':
-                                $messageIcon = '🎤 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_audio') : __('chat.sent_audio');
-                                break;
-                            case 'document':
-                                $messageIcon = '📎 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_document') : __('chat.sent_document');
-                                break;
-                            case 'gif':
-                                $messageIcon = 'GIF ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_gif') : __('chat.sent_gif');
-                                break;
-                            case 'sticker':
-                                $messageIcon = '⭐ ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_sticker') : __('chat.sent_sticker');
-                                break;
-                            case 'story_reply':
-                                $messageIcon = '📸 ';
-                                $content = trim(str_replace('📸 Reply to your story:', '', $content));
-                                $messagePreview = $isOwn ? __('chat.you_replied_to_story') : __('chat.replied_to_story');
-                                if (!empty($content)) {
-                                    $messagePreview .= ': ' . Str::limit($content, 25);
-                                }
-                                break;
-                            case 'group_invite':
-                                $messageIcon = '👥 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_group_invite') : __('chat.sent_group_invite');
-                                break;
-                            case 'voice':
-                                $messageIcon = '🎤 ';
-                                $messagePreview = $isOwn ? __('chat.you_sent_voice_message') : __('chat.sent_voice_message');
-                                break;
-                            default:
-                                $messagePreview = $content;
-                                break;
-                        }
-
-                        // Add "You: " prefix for own messages (except story replies and media types that already have it)
-                        if ($isOwn && $latestMessage->type !== 'story_reply' && !in_array($latestMessage->type, ['image', 'video', 'audio', 'voice', 'document', 'gif', 'sticker', 'group_invite'])) {
-                            $messagePreview = __('chat.you').': ' . $messagePreview;
-                        }
-
-                        // For group chats, prefix non-self messages with sender username
-                        if ($isGroup && !$isOwn && $latestMessage->sender) {
-                            $messagePreview = $latestMessage->sender->username . ': ' . $messagePreview;
-                        }
-                    }
-
-                    if (empty($messagePreview)) {
-                        $messagePreview = __('chat.start_a_conversation');
-                    }
-                @endphp
-                <a href="{{ route('chat.show', $conv) }}" class="conversation-item {{ $conv->id === ($conversation->id ?? null) ? 'active' : '' }} {{ $conv->unread_count > 0 ? 'unread' : '' }}" data-name="{{ $displayName }}" data-user-id="{{ $isGroup ? '' : ($conv->other_user?->id ?? '') }}" data-conversation-slug="{{ $conv->slug }}">
-                    <div class="conv-avatar">
-                        @if($avatarUrl)
-                            <img src="{{ $avatarUrl }}" alt="{{ $displayName }}">
-                        @elseif($isGroup)
-                            <div class="avatar-fallback group"><i class="fas fa-users"></i></div>
-                        @else
-                            <div class="avatar-fallback">{{ substr($displayName, 0, 1) }}</div>
-                        @endif
-                        @if(!$isGroup && $conv->other_user)
-                            <span class="online-indicator {{ $conv->other_user->is_online && $conv->other_user->last_active && $conv->other_user->last_active->diffInSeconds(now()) < 120 ? 'online' : '' }}" data-user-id="{{ $conv->other_user->id }}"></span>
-                        @endif
-                    </div>
-                    <div class="conv-content">
-                        <div class="conv-header">
-                            <div class="conv-title-container">
-                                <span class="conv-title">
-                                    {{ $displayName }}
-                                    @if(!$isGroup && $conv->other_user)
-                                        <span class="online-status-text {{ $conv->other_user->is_online && $conv->other_user->last_active && $conv->other_user->last_active->diffInSeconds(now()) < 120 ? 'online' : 'offline' }}"
-                                              data-user-id="{{ $conv->other_user->id }}">
-                                            @if($conv->other_user->is_online && $conv->other_user->last_active && $conv->other_user->last_active->diffInSeconds(now()) < 120)
-                                                • {{ __('chat.online') }}
-                                            @endif
-                                        </span>
-                                    @endif
-                                </span>
-                                @if($conv->other_user)
-                                    <span class="typing-indicator-inline" style="display: none; color: #25d366; font-size: 11px; font-style: italic; margin-left: 6px;" data-conversation-slug="{{ $conv->slug }}">{{ __('chat.typing') }}</span>
-                                @endif
-                            </div>
-                            <span class="conv-time">@if($conv->last_message_at){{ \Carbon\Carbon::parse($conv->last_message_at)->format('H:i') }}@endif</span>
-                        </div>
-                        <div class="conv-footer">
-                            <p class="conv-preview {{ $conv->unread_count > 0 ? 'unread-text' : '' }}">
-                                @if($latestMessage && $latestMessage->sender_id === auth()->id())
-                                    <i class="fas {{ $latestMessage->read_at ? 'fa-check-double read' : 'fa-check sent' }}"></i>
-                                @endif
-                                @if($latestMessage)
-                                    @if($latestMessage->type === 'image')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'video')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'audio')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'document')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'gif')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'sticker')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'story_reply')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @elseif($latestMessage->type === 'group_invite')
-                                        <span class="preview-text">{{ $messagePreview }}</span>
-                                    @else
-                                        <span class="preview-text">{{ $messageIcon }}{{ $messagePreview }}</span>
-                                    @endif
-                                @else
-                                    <span class="preview-text">{{ __('chat.start_a_conversation') }}</span>
-                                @endif
-                            </p>
-                            @if($conv->unread_count > 0)
-                                <span class="unread-pill">{{ $conv->unread_count > 99 ? '99+' : $conv->unread_count }}</span>
-                            @endif
-                        </div>
-                    </div>
-                </a>
-                @empty
-                <div class="empty-state">
-                    <div class="empty-icon"><i class="fas fa-comments"></i></div>
-                    <h3>{{ __('chat.no_messages_yet') }}</h3>
-                    <p>{{ __('chat.start_new_conversation') }}</p>
-                </div>
-                @endforelse
-            </div>
-        </aside>
+        @include('chat.partials.sidebar')
 
         {{-- Main Content - Welcome Screen --}}
         <main class="chat-welcome">
@@ -225,22 +41,6 @@
         </main>
     </div>
 
-    {{-- Search Modal --}}
-    <div id="userSearchModal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) hideUserSearch()">
-        <div class="modal-container">
-            <div class="modal-header">
-                <button class="back-btn" onclick="hideUserSearch()"><i class="fas fa-arrow-left"></i></button>
-                <h3>{{ __('chat.new_chat') }}</h3>
-                <div class="modal-spacer"></div>
-            </div>
-            <div class="modal-body">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="userSearch" placeholder="{{ __('chat.search_contacts') }}" class="search-field">
-                </div>
-                <div id="userResults" class="search-results"></div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -556,28 +356,7 @@
     position: relative;
 }
 
-/* Online indicator dot on avatar */
-.online-indicator {
-    position: absolute;
-    bottom: 2px;
-    right: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #667781; /* Gray for offline */
-    border: 2px solid var(--wa-panel);
-    transition: background 0.3s;
-}
 
-.online-indicator.online {
-    background: #25d366; /* Green for online */
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
 
 .conv-avatar .avatar-fallback,
 .conv-avatar img {
@@ -609,32 +388,7 @@
     color: var(--wa-text);
 }
 
-.online-status-text {
-    font-size: 12px;
-    margin-left: 6px;
-    font-weight: 500;
-    position: relative;
-    display: inline-block;
-}
 
-.online-status-text.online {
-    color: #25d366;
-    animation: neon-pulse 2s ease-in-out infinite;
-}
-
-.online-status-text.offline {
-    color: #667781;
-    animation: none; /* prevent bounce fallback in case class isn't removed immediately */
-}
-
-@keyframes neon-pulse {
-    0%, 100% {
-        text-shadow: 0 0 2px rgba(37, 211, 102, 0.6);
-    }
-    50% {
-        text-shadow: 0 0 12px rgba(37, 211, 102, 1);
-    }
-}
 
 .conv-time {
     font-size: 12px;
@@ -654,7 +408,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 260px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -688,6 +441,28 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
+}
+
+.typing-indicator-sidebar {
+    display: none;
+    color: #25d366 !important;
+    font-size: 13px;
+    font-style: italic;
+    font-weight: 600;
+    animation: typing-fade 1.5s infinite;
+}
+
+.conversation-item.is-typing .preview-content-wrapper {
+    display: none !important;
+}
+
+.conversation-item.is-typing .typing-indicator-sidebar {
+    display: block !important;
+}
+
+@keyframes typing-fade {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
 }
 
 @keyframes pulse {
@@ -806,159 +581,7 @@
     margin-top: 40px;
 }
 
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-container {
-    background: var(--wa-panel);
-    width: 100%;
-    max-width: 450px;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-    display: flex;
-    align-items: center;
-    padding: 16px 20px;
-    background: var(--wa-panel);
-    border-bottom: 1px solid var(--wa-border);
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 500;
-    color: var(--wa-text);
-    flex: 1;
-    text-align: center;
-}
-
-.modal-spacer { width: 38px; }
-
-.back-btn {
-    background: none;
-    border: none;
-    color: var(--wa-text-muted);
-    font-size: 18px;
-    cursor: pointer;
-    padding: 8px;
-    display: flex;
-    align-items: center;
-}
-
-.modal-body {
-    padding: 16px;
-}
-
-.search-box {
-    position: relative;
-    margin-bottom: 16px;
-}
-
-.search-box i {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--wa-text-muted);
-}
-
-.search-field {
-    width: 100%;
-    padding: 12px 14px 12px 44px;
-    background: var(--wa-bg);
-    border: none;
-    border-radius: 8px;
-    color: var(--wa-text);
-    font-size: 14px;
-    outline: none;
-}
-
-.search-field:focus {
-    box-shadow: 0 0 0 2px var(--wa-accent);
-}
-
-.search-results {
-    max-height: 350px;
-    overflow-y: auto;
-}
-
-.result-user {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.result-user:hover {
-    background: var(--wa-panel-hover);
-}
-
-.result-user img {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 12px;
-}
-
-.result-user .avatar-fallback {
-    width: 42px;
-    height: 42px;
-    margin-right: 12px;
-    font-size: 16px;
-}
-
-.result-user {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.result-user:hover {
-    background: var(--wa-panel-hover);
-}
-
-.result-user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-}
-
-.result-user-name {
-    font-size: 14px;
-    color: var(--wa-text);
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.result-user-fullname {
-    font-size: 12px;
-    color: var(--wa-text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+/* Responsive */
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -1012,11 +635,9 @@
 
     .conv-title {
         font-size: 14px;
-        max-width: 140px;
     }
 
     .conv-preview {
-        max-width: 180px;
         font-size: 12px;
     }
 
@@ -1034,11 +655,9 @@
 @media (max-width: 400px) {
     .conv-title {
         font-size: 13px;
-        max-width: 120px;
     }
 
     .conv-preview {
-        max-width: 150px;
         font-size: 11px;
     }
 
@@ -1049,134 +668,6 @@
 </style>
 
 <script>
-    window.currentUserId = {{ auth()->id() }};
-
-    function showUserSearch() {
-        document.getElementById('userSearchModal').style.display = 'flex';
-        setTimeout(() => document.getElementById('userSearch').focus(), 100);
-    }
-
-    function hideUserSearch() {
-        document.getElementById('userSearchModal').style.display = 'none';
-    }
-
-    function filterSidebarConversations(query) {
-        const items = document.querySelectorAll('#sidebarConvList .conversation-item');
-        const q = query.toLowerCase();
-        items.forEach(item => {
-            const name = item.getAttribute('data-name')?.toLowerCase() || '';
-            item.style.display = name.includes(q) ? 'flex' : 'none';
-        });
-    }
-
-    document.getElementById('userSearch').addEventListener('input', function() {
-        const query = this.value.trim();
-        const resultsDiv = document.getElementById('userResults');
-        if (query.length < 2) { resultsDiv.innerHTML = ''; return; }
-
-        fetch(`/api/search-users?q=${encodeURIComponent(query)}`, {
-            credentials: 'include',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept': 'application/json'
-            }
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                resultsDiv.innerHTML = data.users.map(u => `
-                    <div class="result-user" onclick="startChat(${u.id})">
-                        <img src="${escapeHtml(u.avatar_url)}">
-                        <div class="result-user-info">
-                            <div class="result-user-name">${escapeHtml(u.username)}</div>
-                            ${u.name && u.name !== u.username ? `<div class="result-user-fullname">${escapeHtml(u.name)}</div>` : ''}
-                        </div>
-                    </div>
-                `).join('');
-            }
-        });
-    });
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text || '';
-        return div.innerHTML;
-    }
-
-    function startChat(userId) { window.location.href = '/chat/start/' + userId; }
-    function startChatWithUser(userId) { window.location.href = '/chat/start/' + userId; }
-
-    // Translation strings for JavaScript (realtime.js)
-    window.chatTranslations = {
-        you: '{{ __('chat.you') }}',
-        online: '{{ __('chat.online') }}',
-        offline: '{{ __('chat.offline') }}',
-        last_active: '{{ __('chat.last_active') }}',
-        typing: '{{ __('chat.typing') }}',
-        and: '{{ __('chat.and') }}',
-        are_typing: '{{ __('chat.are_typing') }}',
-        users_typing: '{{ __('chat.users_typing') }}',
-        you_sent_photo: '{{ __('chat.you_sent_photo') }}',
-        you_sent_video: '{{ __('chat.you_sent_video') }}',
-        you_sent_audio: '{{ __('chat.you_sent_audio') }}',
-        you_sent_document: '{{ __('chat.you_sent_document') }}',
-        you_sent_gif: '{{ __('chat.you_sent_gif') }}',
-        you_sent_sticker: '{{ __('chat.you_sent_sticker') }}',
-        you_replied_to_story: '{{ __('chat.you_replied_to_story') }}',
-        you_sent_group_invite: '{{ __('chat.you_sent_group_invite') }}',
-        sent_photo: '{{ __('chat.sent_photo') }}',
-        sent_video: '{{ __('chat.sent_video') }}',
-        sent_audio: '{{ __('chat.sent_audio') }}',
-        sent_document: '{{ __('chat.sent_document') }}',
-        sent_gif: '{{ __('chat.sent_gif') }}',
-        sent_sticker: '{{ __('chat.sent_sticker') }}',
-        replied_to_story: '{{ __('chat.replied_to_story') }}',
-        sent_group_invite: '{{ __('chat.sent_group_invite') }}',
-        sent_an_image: '{{ __('chat.sent_an_image') }}',
-        sent_a_video: '{{ __('chat.sent_a_video') }}',
-        sent_an_audio: '{{ __('chat.sent_an_audio') }}',
-        sent_a_document: '{{ __('chat.sent_a_document') }}',
-        sent_a_gif: '{{ __('chat.sent_a_gif') }}',
-        sent_a_sticker: '{{ __('chat.sent_a_sticker') }}',
-        start_a_conversation: '{{ __('chat.start_a_conversation') }}',
-    };
-
-    document.addEventListener('DOMContentLoaded', () => {
-        startMobileBadgePolling();
-    });
-
-    // Poll for unread message count and update mobile badge (page-specific)
-    function startMobileBadgePolling() {
-        setInterval(() => {
-            fetch('/chat/conversations?t=' + Date.now(), {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.conversations) {
-                    // Calculate total unread count
-                    const totalUnread = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
-                    updateMobileBadge(totalUnread);
-                }
-            })
-            .catch(error => console.error('Realtime: Mobile badge polling error:', error));
-        }, 3000);
-    }
-
-    // Update mobile message badge
-    function updateMobileBadge(count) {
-        const badge = document.getElementById('mobileMsgBadge');
-        if (!badge) return;
-
-        if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.style.display = 'flex';
-        } else {
-            badge.style.display = 'none';
-        }
-    }
+    window.activeConversationId = null;
 </script>
 @endsection

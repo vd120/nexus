@@ -41,11 +41,13 @@
 // Load notifications
 async function loadNotificationsList() {
     try {
-        const response = await fetch('/api/notifications', {
+        const response = await fetch('/notifications', {
             headers: {
+                'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            credentials: 'same-origin',
+            credentials: 'include',
         });
 
         if (!response.ok) throw new Error('Failed to load notifications');
@@ -63,34 +65,54 @@ async function loadNotificationsList() {
             return;
         }
 
-        list.innerHTML = data.notifications.map(n => `
-            <div class="notification-item" style="
+        list.innerHTML = data.notifications.map(n => {
+            const typeColor = getTypeColor(n.type);
+            const typeIcon = getTypeIcon(n.type);
+            
+            // Check for reaction image
+            let reactionImg = null;
+            if (['post_reaction', 'chat_reaction', 'story_reaction', 'like', 'event_reaction'].includes(n.type)) {
+                // For 'like', we use the heart SVG by default
+                const emoji = n.type === 'like' ? '❤️' : (n.data ? n.data.reaction_type : null);
+                if (emoji) {
+                    reactionImg = window.getReactionImage ? window.getReactionImage(emoji) : null;
+                }
+            }
+
+            return `
+            <div class="notification-item" onclick="if(window.handleNotifClick) window.handleNotifClick(${n.id}, '${n.link || ''}')" style="
                 display: flex;
                 align-items: flex-start;
                 gap: 15px;
                 padding: 15px;
                 border-bottom: 1px solid rgba(255,255,255,0.05);
-                ${!n.read_at ? 'background: rgba(99, 102, 241, 0.05);' : ''}
+                cursor: pointer;
+                transition: background 0.2s;
+                ${!n.read_at ? 'background: rgba(99, 102, 241, 0.05); border-left: 3px solid var(--primary);' : ''}
             ">
                 <div style="
                     width: 40px;
                     height: 40px;
                     border-radius: 50%;
-                    background: ${getTypeColor(n.type).bg};
+                    background: ${typeColor.bg};
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     flex-shrink: 0;
+                    position: relative;
                 ">
-                    <i class="fas fa-${getTypeIcon(n.type)}" style="color: ${getTypeColor(n.type).color};"></i>
+                    ${reactionImg ? 
+                        `<img src="${reactionImg}" style="width: 24px; height: 24px; object-fit: contain;">` :
+                        `<i class="fas fa-${typeIcon}" style="color: ${typeColor.color};"></i>`
+                    }
                 </div>
                 <div style="flex: 1; min-width: 0;">
                     <p style="color: var(--text); font-size: 14px; margin-bottom: 5px; word-wrap: break-word;">${n.message || 'Notification'}</p>
                     <p style="color: var(--text-muted); font-size: 12px;">${formatDate(n.created_at)}</p>
-                    ${n.link ? `<a href="${n.link}" style="color: var(--primary); font-size: 13px; text-decoration: none; display: inline-block; margin-top: 5px;">View →</a>` : ''}
+                    ${n.link ? `<span style="color: var(--primary); font-size: 13px; text-decoration: none; display: inline-block; margin-top: 5px;">View →</span>` : ''}
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     } catch (error) {
         console.error('Error loading notifications:', error);
         document.getElementById('notifications-list').innerHTML = `
@@ -111,6 +133,8 @@ function getTypeIcon(type) {
         'mention': 'at',
         'message': 'envelope',
         'story_reaction': 'heart',
+        'post_reaction': 'heart',
+        'chat_reaction': 'heart',
         'group_invite': 'users',
         'event_reaction': 'star',
         'birthday': 'birthday-cake',
@@ -131,6 +155,8 @@ function getTypeColor(type) {
         'mention': { bg: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' },
         'message': { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
         'story_reaction': { bg: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' },
+        'post_reaction': { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
+        'chat_reaction': { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
         'group_invite': { bg: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' },
         'event_reaction': { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
         'birthday': { bg: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' },

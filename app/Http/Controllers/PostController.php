@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\PostReaction;
 use App\Models\SavedPost;
 use App\Services\FileUploadService;
 use App\Services\HashtagService;
 use Illuminate\Http\Request;
+use App\Notifications\GroupPostPendingNotification;
+use Illuminate\Support\Facades\Notification;
 
 class PostController extends Controller
 {
@@ -20,19 +23,45 @@ class PostController extends Controller
         $page = $request->get('page', 1);
 
         if ($user) {
-            $posts = Post::with(['user', 'media', 'likes', 'savedPosts', 'comments.replies.user', 'comments.likes'])
+            $posts = Post::withCount(['likes', 'reactions', 'comments'])
+                ->with([
+                    'user', 
+                    'media', 
+                    'userReaction',
+                    'userLike',
+                    'userSavedPost',
+                    'reactions' => function($query) {
+                        $query->select('id', 'post_id', 'reaction_type');
+                    },
+                    'comments' => function($query) {
+                        $query->latest()->limit(5)->with('user'); // Load a few recent comments + their authors
+                    }
+                ])
+                ->approved()
                 ->where(function($query) use ($user) {
+                    // Regular posts (no group)
                     $query->where(function($q) use ($user) {
-                            $q->where('user_id', $user->id);
-                        })
-                        ->orWhere(function($q) use ($user) {
-                            $q->whereHas('user.followers', function($followerQuery) use ($user) {
-                                $followerQuery->where('follower_id', $user->id);
-                            });
-                        })
-                        ->orWhere(function($q) use ($user) {
-                            $q->where('is_private', false);
-                        });
+                        $q->whereNull('social_group_id')
+                          ->where(function($inner) use ($user) {
+                              $inner->where('user_id', $user->id)
+                                   ->orWhereHas('user.followers', function($followerQuery) use ($user) {
+                                       $followerQuery->where('follower_id', $user->id);
+                                   })
+                                   ->orWhere('is_private', false);
+                          });
+                    })
+                    // Group posts
+                    ->orWhere(function($q) use ($user) {
+                        $q->whereNotNull('social_group_id')
+                          ->where(function($inner) use ($user) {
+                              $inner->whereHas('socialGroup', function($groupQuery) {
+                                  $groupQuery->where('privacy_level', 'public');
+                              })
+                              ->orWhereHas('socialGroup.members', function($memberQuery) use ($user) {
+                                  $memberQuery->where('user_id', $user->id)->where('status', 'approved');
+                              });
+                          });
+                    });
                 })
                 ->whereDoesntHave('user.blockedBy', function($blockedByQuery) use ($user) {
                     $blockedByQuery->where('blocker_id', $user->id);
@@ -44,13 +73,29 @@ class PostController extends Controller
                 ->paginate($perPage)
                 ->withQueryString();
 
-            $followedUsersWithStories = \App\Models\User::whereHas('followers', function($query) use ($user) {
-                $query->where('follower_id', $user->id);
-            })->whereHas('activeStories')->with(['activeStories'])->get();
+            // Cache stories for 5 minutes to reduce load
+            $cacheKey = 'user_stories_' . $user->id;
+            $storiesData = cache()->remember($cacheKey, 60, function() use ($user) {
+                return [
+                    'followed_users' => \App\Models\User::whereHas('followers', function($query) use ($user) {
+                        $query->where('follower_id', $user->id);
+                    })->whereHas('activeStories')->with(['activeStories'])->get(),
+                    'my_stories' => $user->activeStories
+                ];
+            });
 
-            $myStories = $user->activeStories;
+            $followedUsersWithStories = $storiesData['followed_users'];
+            $myStories = $storiesData['my_stories'];
         } else {
-            $posts = Post::with(['user', 'media', 'likes', 'comments.replies.user', 'comments.likes'])
+            $posts = Post::withCount(['likes', 'reactions', 'comments'])
+                ->with([
+                    'user', 
+                    'media', 
+                    'reactions' => function($query) {
+                        $query->select('id', 'post_id', 'reaction_type');
+                    }
+                ])
+                ->approved()
                 ->where('is_private', false)
                 ->whereHas('user.profile', function($profileQuery) {
                     $profileQuery->where('is_private', false);
@@ -76,19 +121,45 @@ class PostController extends Controller
         $page = $request->get('page', 1);
 
         if ($user) {
-            $posts = Post::with(['user', 'media', 'likes', 'savedPosts', 'comments.replies.user', 'comments.likes'])
+            $posts = Post::withCount(['likes', 'reactions', 'comments'])
+                ->with([
+                    'user', 
+                    'media', 
+                    'userReaction',
+                    'userLike',
+                    'userSavedPost',
+                    'reactions' => function($query) {
+                        $query->select('id', 'post_id', 'reaction_type');
+                    },
+                    'comments' => function($query) {
+                        $query->latest()->limit(5)->with('user');
+                    }
+                ])
+                ->approved()
                 ->where(function($query) use ($user) {
+                    // Regular posts (no group)
                     $query->where(function($q) use ($user) {
-                            $q->where('user_id', $user->id);
-                        })
-                        ->orWhere(function($q) use ($user) {
-                            $q->whereHas('user.followers', function($followerQuery) use ($user) {
-                                $followerQuery->where('follower_id', $user->id);
-                            });
-                        })
-                        ->orWhere(function($q) use ($user) {
-                            $q->where('is_private', false);
-                        });
+                        $q->whereNull('social_group_id')
+                          ->where(function($inner) use ($user) {
+                              $inner->where('user_id', $user->id)
+                                   ->orWhereHas('user.followers', function($followerQuery) use ($user) {
+                                       $followerQuery->where('follower_id', $user->id);
+                                   })
+                                   ->orWhere('is_private', false);
+                          });
+                    })
+                    // Group posts
+                    ->orWhere(function($q) use ($user) {
+                        $q->whereNotNull('social_group_id')
+                          ->where(function($inner) use ($user) {
+                              $inner->whereHas('socialGroup', function($groupQuery) {
+                                  $groupQuery->where('privacy_level', 'public');
+                              })
+                              ->orWhereHas('socialGroup.members', function($memberQuery) use ($user) {
+                                  $memberQuery->where('user_id', $user->id)->where('status', 'approved');
+                              });
+                          });
+                    });
                 })
                 ->whereDoesntHave('user.blockedBy', function($blockedByQuery) use ($user) {
                     $blockedByQuery->where('blocker_id', $user->id);
@@ -100,7 +171,15 @@ class PostController extends Controller
                 ->paginate($perPage, ['*'], 'page', $page)
                 ->withQueryString();
         } else {
-            $posts = Post::with(['user', 'media', 'likes', 'comments.replies.user', 'comments.likes'])
+            $posts = Post::withCount(['likes', 'reactions', 'comments'])
+                ->with([
+                    'user', 
+                    'media', 
+                    'reactions' => function($query) {
+                        $query->select('id', 'post_id', 'reaction_type');
+                    }
+                ])
+                ->approved()
                 ->where('is_private', false)
                 ->whereHas('user.profile', function($profileQuery) {
                     $profileQuery->where('is_private', false);
@@ -108,13 +187,10 @@ class PostController extends Controller
                 ->latest()
                 ->paginate($perPage, ['*'], 'page', $page)
                 ->withQueryString();
-
-            $followedUsersWithStories = collect();
-            $myStories = collect();
         }
 
         // Render the posts into HTML
-        $html = view('partials.posts-list', compact('posts'))->render();
+        $html = view('partials.posts-list', ['posts' => $posts, 'skipEmpty' => true])->render();
 
         return response()->json([
             'success' => true,
@@ -139,6 +215,12 @@ class PostController extends Controller
     {
         // Check if POST data exceeded PHP limits
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('messages.post_too_large')
+                ], 422);
+            }
             return back()
                 ->withInput()
                 ->withErrors(['media' => __('messages.post_too_large')]);
@@ -148,10 +230,20 @@ class PostController extends Controller
             'content' => 'nullable|string|max:280',
             'media' => 'nullable|array|max:30', // Allow up to 30 files
             'media.*' => 'file|mimes:jpeg,png,jpg,gif,mp4,mov,avi,webm|max:51200', // 50MB max, added webm
+            'social_group_id' => 'nullable|exists:social_groups,id',
+            'social_group_topic_id' => 'nullable|exists:social_group_topics,id',
+            'is_anonymous' => 'nullable|boolean',
+            'is_comments_disabled' => 'nullable|boolean',
         ]);
 
         // Ensure at least content or media is provided
         if (!$request->filled('content') && !$request->hasFile('media')) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please provide either text content or media.'
+                ], 422);
+            }
             return back()->withErrors(['content' => 'Please provide either text content or media.']);
         }
 
@@ -167,6 +259,12 @@ class PostController extends Controller
                 $validation = $fileService->validateFile($file, $allowedMimeTypes);
                 
                 if (!$validation['valid']) {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => implode(', ', $validation['errors'])
+                        ], 422);
+                    }
                     return back()->withErrors([
                         'media.' . $index => implode(', ', $validation['errors'])
                     ])->withInput();
@@ -176,13 +274,95 @@ class PostController extends Controller
             }
         }
 
-        $postData = $request->only('content');
+        $postData = $request->only(['content', 'social_group_id', 'social_group_topic_id']);
         $postData['is_private'] = $request->boolean('is_private');
+        $postData['is_comments_disabled'] = $request->boolean('is_comments_disabled');
+        
+        // 1. Separate Anonymity: Only allowed in communities that support it
+        $isAnonymous = $request->boolean('is_anonymous');
+        if (!$request->social_group_id) {
+            $isAnonymous = false; // Regular posts cannot be anonymous
+        }
+        
+        // 2. Separate Privacy: Regular posts can be private (followers-only), 
+        // while community posts follow community visibility.
+        if ($request->social_group_id) {
+            $postData['is_private'] = false; // Community posts are not "private" in the followers-sense
+        }
+        
+        $postData['is_anonymous'] = $isAnonymous;
+
+        // Default: Approved if it's a regular post or if user is a platform admin
+        $isPlatformAdmin = auth()->user()->is_admin;
+        $postData['is_approved'] = true;
+
+        if ($request->social_group_id) {
+            $group = \App\Models\SocialGroup::findOrFail($request->social_group_id);
+            $member = $group->members()->where('user_id', auth()->id())->first();
+            
+            if (!$member || $member->status !== 'approved' || !$member->canPost()) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to post in this group.'
+                    ], 403);
+                }
+                return back()->withErrors(['social_group_id' => 'You do not have permission to post in this group.']);
+            }
+
+            // 3. Separate Anonymity: Ensure the group actually allows anonymous posts
+            if ($postData['is_anonymous'] && !$group->allow_anonymous_posts) {
+                $postData['is_anonymous'] = false;
+            }
+
+            // Auto-approve admins/moderators or if approval is not required
+            $isAdminOrModerator = in_array($member->role, ['admin', 'moderator']);
+            $postData['is_approved'] = !$group->require_post_approval || $isAdminOrModerator || $isPlatformAdmin;
+
+            if ($group->require_post_approval && !$postData['is_approved']) {
+                $admins = $group->members()
+                    ->whereIn('role', ['admin', 'moderator'])
+                    ->where('status', 'approved')
+                    ->with('user')
+                    ->get()
+                    ->pluck('user');
+
+                // We'll notify later after the post is actually created
+            }
+        }
 
         // Remove old single media fields since we're using the new media table
         unset($postData['media_type'], $postData['media_path'], $postData['media_thumbnail']);
 
         $post = auth()->user()->posts()->create($postData);
+
+        if ($request->social_group_id) {
+            $group = \App\Models\SocialGroup::find($request->social_group_id);
+            if ($group->require_post_approval && !$post->is_approved) {
+                $admins = $group->members()
+                    ->whereIn('role', ['admin', 'moderator'])
+                    ->where('status', 'approved')
+                    ->with('user')
+                    ->get()
+                    ->pluck('user');
+
+                foreach ($admins as $admin) {
+                    \App\Http\Controllers\NotificationController::createNotification(
+                        $admin->id,
+                        'group_post_pending',
+                        [
+                            'group_id' => $group->id,
+                            'group_name' => $group->name,
+                            'group_slug' => $group->slug,
+                            'author_id' => auth()->id(),
+                            'author_name' => auth()->user()->username,
+                            'post_id' => $post->id,
+                        ],
+                        $post
+                    );
+                }
+            }
+        }
 
         // Process mentions in the post content
         if ($post->content) {
@@ -225,13 +405,25 @@ class PostController extends Controller
                         $filename = time() . '_' . uniqid() . '.jpg'; // Always use .jpg for speed
                         $path = 'posts/images/' . $filename;
 
+                        // Ensure directory exists
+                        $fullDirPath = storage_path('app/public/posts/images');
+                        if (!file_exists($fullDirPath)) {
+                            mkdir($fullDirPath, 0755, true);
+                        }
+
                         // Save compressed image (fastest settings)
                         $compressedImage->toJpeg($quality)->save(storage_path('app/public/' . $path));
                     } catch (\Exception $e) {
                         // If compression fails, save the original file
                         $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                         $path = 'posts/images/' . $filename;
-                        $file->move(storage_path('app/public/posts/images'), $filename);
+                        
+                        $fullDirPath = storage_path('app/public/posts/images');
+                        if (!file_exists($fullDirPath)) {
+                            mkdir($fullDirPath, 0755, true);
+                        }
+                        
+                        $file->move($fullDirPath, $filename);
                     }
 
                     $post->media()->create([
@@ -256,8 +448,14 @@ class PostController extends Controller
                     $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     $path = 'posts/videos/' . $filename;
 
+                    // Ensure directory exists
+                    $fullDirPath = storage_path('app/public/posts/videos');
+                    if (!file_exists($fullDirPath)) {
+                        mkdir($fullDirPath, 0755, true);
+                    }
+
                     // Move file to storage
-                    $file->move(storage_path('app/public/posts/videos'), $filename);
+                    $file->move($fullDirPath, $filename);
 
                     $post->media()->create([
                         'media_type' => 'video',
@@ -271,15 +469,64 @@ class PostController extends Controller
 
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
-            $post->load('user', 'media');
+            $post->load(['user', 'media', 'socialGroup', 'socialGroupTopic', 'member']);
             if ($post->user) {
                 $post->user->append('avatar_url');
+            }
+
+            $hideGroupContext = $request->filled('social_group_id');
+            $postHtml = view('partials.post', [
+                'post' => $post,
+                'is_broadcast' => true,
+                'hideGroupContext' => $hideGroupContext
+            ])->render();
+            
+            // Broadcast to all followers
+            $socketService = app(\App\Services\SocketEmitService::class);
+            foreach (auth()->user()->followers as $follower) {
+                $socketService->emitToUser($follower->follower_id, 'post:new', [
+                    'id' => $post->id,
+                    'slug' => $post->slug,
+                    'user_id' => $post->user_id,
+                    'social_group_id' => $post->social_group_id,
+                    'html' => $postHtml,
+                ]);
+            }
+
+            // Broadcast to Group Members if it's a group post and approved
+            if ($post->social_group_id && $post->is_approved) {
+                $memberIds = $post->socialGroup->members()
+                    ->where('status', 'approved')
+                    ->where('user_id', '!=', auth()->id())
+                    ->pluck('user_id');
+
+                foreach ($memberIds as $memberId) {
+                    $socketService->emitToUser($memberId, 'post:new', [
+                        'id' => $post->id,
+                        'slug' => $post->slug,
+                        'user_id' => $post->user_id,
+                        'social_group_id' => $post->social_group_id,
+                        'html' => $postHtml,
+                    ]);
+                }
+            }
+
+            // GLOBAL BROADCAST: If post is public and approved, send to everyone
+            if (!$post->is_private && !$post->social_group_id && $post->is_approved) {
+                $socketService->emit('global', 'post:new', [
+                    'id' => $post->id,
+                    'slug' => $post->slug,
+                    'user_id' => $post->user_id,
+                    'social_group_id' => null,
+                    'html' => $postHtml,
+                ]);
             }
 
             return response()->json([
                 'success' => true,
                 'post' => $post,
-                'message' => __('messages.post_created')
+                'post_html' => $postHtml,
+                'message' => $post->is_approved ? __('messages.post_created') : 'Post submitted for approval.'
             ]);
         }
 
@@ -300,7 +547,7 @@ class PostController extends Controller
             $isOwner = $post->user_id === $user->id;
 
             if (!$isFollowing && !$isOwner) {
-                abort(403, 'This post is private. Only followers can view it.');
+                abort(403, __('messages.post_private_followers_only'));
             }
         }
 
@@ -310,16 +557,28 @@ class PostController extends Controller
             $isOwner = $post->user_id === $user->id;
 
             if (!$isFollowing && !$isOwner) {
-                abort(403, 'This post is from a private account. Follow the user to view their posts.');
+                abort(403, __('messages.post_private_account_follow_to_view'));
             }
         }
 
         // Check if user is blocked by the post author or has blocked the post author
         if ($user->isBlocking($post->user) || $post->user->isBlocking($user)) {
-            abort(403, 'You cannot view this post due to blocking restrictions.');
+            abort(403, __('messages.cannot_view_blocking_restrictions'));
         }
 
-        $post->load(['user', 'media', 'comments.replies.user', 'comments.likes']);
+        $post->load([
+            'user', 'media', 'reactions', 'comments.replies.user', 'comments.likes',
+            'member' => function($query) use ($post) {
+                if ($post->social_group_id) {
+                    $query->where('social_group_id', $post->social_group_id);
+                }
+            },
+            'comments.member' => function($query) use ($post) {
+                if ($post->social_group_id) {
+                    $query->where('social_group_id', $post->social_group_id);
+                }
+            }
+        ]);
         return view('posts.show', compact('post'));
     }
 
@@ -370,25 +629,52 @@ class PostController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Post $post)
+    public function destroy(Request $request, Post $post)
     {
-        if ($post->user_id !== auth()->id()) {
+        $user = auth()->user();
+        
+        if (!$post->canDelete($user)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
             abort(403);
         }
 
-        // Remove hashtags associated with this post
-        app(HashtagService::class)->removePostHashtags($post);
+        // LOGGING & ACCOUNTABILITY: If admin is deleting someone else's post
+        if ($user->is_admin && $post->user_id !== $user->id) {
+            $reason = $request->input('reason', 'No reason provided');
+            
+            // Log this action for audit
+            $actionStr = "admin_delete_post:#{$post->id}_reason:" . substr($reason, 0, 100);
+            app(\App\Services\ActivityService::class)->logActivity($actionStr, $user->id);
+            
+            // Also log to standard Laravel logs for safety
+            \Log::warning("ADMIN ACTION: User #{$user->id} ({$user->username}) deleted post #{$post->id} by user #{$post->user_id}. Reason: {$reason}");
+        }
 
+        // Remove hashtags associated with this post
+        app(\App\Services\HashtagService::class)->removePostHashtags($post);
+
+        $postId = $post->id;
         $post->delete();
 
+        // BROADCAST: Notify all users to remove this post from their feed
+        app(\App\Services\SocketEmitService::class)->emit('global', 'post:deleted', [
+            'post_id' => $postId
+        ]);
+
         // Check if it's an AJAX request
-        if (request()->expectsJson()) {
+        if ($request->expectsJson()) {
             return response()->json([
-                'success' => true
+                'success' => true,
+                'message' => __('messages.post_deleted')
             ]);
         }
 
-        return back();
+        return back()->with('success', __('messages.post_deleted'));
     }
 
     public function like(Post $post)
@@ -403,19 +689,18 @@ class PostController extends Controller
 
             // Create notification for post owner (if not liking own post)
             if ($post->user_id !== $user->id) {
-                $notification = \App\Models\Notification::create([
-                    'user_id' => $post->user_id,
-                    'type' => 'like',
-                    'data' => [
+                $notification = NotificationController::createNotification(
+                    $post->user_id,
+                    'like',
+                    [
                         'liker_name' => $user->username ?? $user->name ?? 'Someone',
                         'liker_username' => $user->username ?? 'Unknown',
                         'liker_id' => $user->id,
                         'post_content' => substr($post->content ?? 'Image post', 0, 50),
                         'post_slug' => $post->slug,
                     ],
-                    'related_type' => \App\Models\Post::class,
-                    'related_id' => $post->id
-                ]);
+                    $post
+                );
 
                 // Send push notification
                 try {
@@ -435,6 +720,14 @@ class PostController extends Controller
             }
         }
 
+        $likesCount = $post->likes()->count();
+
+        // Broadcast count update to everyone
+        app(\App\Services\SocketEmitService::class)->emit('global', 'post:liked', [
+            'post_id' => $post->id,
+            'count' => $likesCount
+        ]);
+
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
             $recentLikers = $post->likes()->with('user:id,name')->latest()->limit(10)->get()->map(function($like) {
@@ -447,7 +740,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'liked' => !$like,
-                'likes_count' => $post->likes()->count(),
+                'likes_count' => $likesCount,
                 'likers' => $recentLikers
             ]);
         }
@@ -500,11 +793,26 @@ class PostController extends Controller
                 $liker = $like->user;
                 $profile = $liker->profile;
 
+                $finalUsername = $liker->username;
+                $finalAvatar = $liker->avatar_url;
+                $finalBio = $profile ? $profile->bio : null;
+
+                if ($post->social_group_id) {
+                    $member = \App\Models\SocialGroupMember::where('social_group_id', $post->social_group_id)
+                        ->where('user_id', $liker->id)
+                        ->first();
+                    if ($member && $member->is_anonymous_default) {
+                        $finalUsername = $member->anonymous_username;
+                        $finalAvatar = 'https://ui-avatars.com/api/?name=Anon&background=374151&color=9ca3af';
+                        $finalBio = null;
+                    }
+                }
+
                 return [
                     'id' => $liker->id,
-                    'username' => $liker->username,
-                    'avatar' => $liker->avatar_url,
-                    'bio' => $profile ? $profile->bio : null,
+                    'username' => $finalUsername,
+                    'avatar' => $finalAvatar,
+                    'bio' => $finalBio,
                     'can_follow' => $liker->id !== $user->id && !$user->isFollowing($liker) && !$liker->isBlocking($user),
                     'is_following' => $user->isFollowing($liker)
                 ];
@@ -516,5 +824,163 @@ class PostController extends Controller
         ]);
     }
 
+    public function react(Post $post, Request $request)
+    {
+        $validated = $request->validate([
+            'emoji' => 'required|string|max:10',
+            'is_anonymous' => 'nullable|boolean',
+        ]);
 
+        if (!in_array($validated['emoji'], Post::REACTION_EMOJIS)) {
+            return response()->json(['success' => false, 'message' => __('messages.invalid_reaction_type')], 422);
+        }
+
+        $userId = auth()->id();
+        $user = auth()->user();
+        $isInitial = !$post->reactions()->where('user_id', $userId)->exists();
+
+        $isAnonymous = $request->boolean('is_anonymous');
+        
+        // Respect global anonymity preference for the group
+        if ($post->social_group_id) {
+            $member = \App\Models\SocialGroupMember::where('social_group_id', $post->social_group_id)
+                ->where('user_id', auth()->id())
+                ->first();
+            if ($member && $member->is_anonymous_default) {
+                $isAnonymous = true;
+            }
+        }
+
+        // Upsert: update existing or create new
+        $reaction = $post->reactions()->updateOrCreate(
+            ['user_id' => $userId],
+            [
+                'reaction_type' => $validated['emoji'],
+                'is_anonymous' => $isAnonymous,
+            ]
+        );
+
+        $post->load(['reactions.user']);
+        $summaries = $post->getGroupedReactions();
+
+        // Broadcast reaction update to all users
+        try {
+            app(\App\Services\SocketEmitService::class)->emit('global', 'post:reacted', [
+                'post_id' => $post->id,
+                'reaction_summaries' => $summaries
+            ]);
+        } catch (\Exception $e) {
+            \Log::debug('Socket.io post:reacted broadcast failed: ' . $e->getMessage());
+        }
+
+        // Create notification for post owner (if not reacting to own post and it's the first time)
+        if ($isInitial && $post->user_id !== $userId) {
+            $notificationData = [
+                'reactor_username' => $user->username ?? $user->name ?? 'Someone',
+                'reaction_type' => $validated['emoji'],
+                'post_slug' => $post->slug,
+            ];
+
+            $notification = NotificationController::createNotification(
+                $post->user_id,
+                'post_reaction',
+                $notificationData,
+                $reaction // Pass the reaction model for anti-leak logic
+            );
+
+            // Use potentially anonymized data from the notification for push
+            $displayName = $notification->data['reactor_username'] ?? 'Someone';
+
+            // Send push notification
+            try {
+                $pushService = app(\App\Services\PushNotificationService::class);
+                if ($pushService && $pushService->isConfigured()) {
+                    $originalLocale = app()->getLocale();
+                    if ($post->user->language) {
+                        app()->setLocale($post->user->language);
+                    }
+
+                    $pushService->sendToUser(
+                        $post->user,
+                        __('notifications.reacted_to_your_post', [
+                            'user' => $displayName,
+                            'reaction' => $validated['emoji']
+                        ]),
+                        $displayName . ' reacted to your post with ' . $validated['emoji'],
+                        url('/posts/' . $post->slug),
+                        ['type' => 'likes', 'notification_id' => $notification->id]
+                    );
+
+                    app()->setLocale($originalLocale);
+                }
+            } catch (\Exception $e) {
+                \Log::debug('Push notification failed: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'reaction_summaries' => $summaries
+        ]);
+    }
+
+    public function removeReaction(Post $post)
+    {
+        $post->reactions()->where('user_id', auth()->id())->delete();
+        
+        $post->load(['reactions.user']);
+        $summaries = $post->getGroupedReactions();
+
+        // Broadcast reaction update to all users
+        try {
+            app(\App\Services\SocketEmitService::class)->emit('global', 'post:reacted', [
+                'post_id' => $post->id,
+                'reaction_summaries' => $summaries
+            ]);
+        } catch (\Exception $e) {
+            \Log::debug('Socket.io post:reacted broadcast failed: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'reaction_summaries' => $summaries
+        ]);
+    }
+
+    public function getReactions(Post $post)
+    {
+        $user = auth()->user();
+
+        // Check if user can view the post (privacy and blocks)
+        if ($post->is_private && !$user->isFollowing($post->user) && $post->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => __('messages.cannot_view_private_post')], 403);
+        }
+
+        if ($user->isBlocking($post->user) || $post->user->isBlocking($user)) {
+            return response()->json(['success' => false, 'message' => __('messages.blocking_restriction')], 403);
+        }
+
+        $reactions = $post->reactions()
+            ->with(['user:id,name,username', 'user.profile:id,user_id,avatar'])
+            ->latest()
+            ->get()
+            ->map(function ($reaction) {
+                $author = $reaction->author;
+                return [
+                    'username' => $author->username,
+                    'avatar' => $author->avatar_url,
+                    'reaction_type' => $reaction->reaction_type,
+                    'created_at' => $reaction->created_at->toISOString()
+                ];
+            });
+
+        // Group reactions for summary tabs if needed
+        $summary = $post->getGroupedReactions();
+
+        return response()->json([
+            'success' => true,
+            'data' => $reactions,
+            'summary' => $summary
+        ]);
+    }
 }

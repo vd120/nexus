@@ -35,8 +35,8 @@ class Conversation extends Model
      */
     public function getParticipantsAttribute()
     {
-        if ($this->is_group && $this->group) {
-            return $this->group->members()->with('user')->get()->pluck('user');
+        if ($this->is_group) {
+            return $this->group ? $this->group->members->map->user->filter() : collect();
         }
 
         // For direct messages, return both users
@@ -60,9 +60,29 @@ class Conversation extends Model
         return $this->hasMany(Message::class)->orderBy('created_at', 'asc');
     }
 
+    public function reactions()
+    {
+        return $this->hasManyThrough(MessageReaction::class, Message::class);
+    }
+
+    public function latestReaction()
+    {
+        return $this->hasOneThrough(MessageReaction::class, Message::class)->latest('message_reactions.updated_at');
+    }
+
     public function latestMessage()
     {
         return $this->hasOne(Message::class)->orderBy('created_at', 'desc');
+    }
+
+    public function mutes()
+    {
+        return $this->hasMany(ConversationMute::class);
+    }
+
+    public function isMutedBy($userId): bool
+    {
+        return $this->mutes()->where('user_id', $userId)->exists();
     }
 
     public function getOtherUserAttribute()
@@ -100,8 +120,26 @@ class Conversation extends Model
 
     public function getUnreadCountAttribute()
     {
+        return $this->unreadCountFor(auth()->id());
+    }
+
+    public function unreadCountFor($userId)
+    {
+        if ($this->is_group) {
+            return $this->messages()
+                ->where('messages.sender_id', '!=', $userId)
+                ->where('messages.type', '!=', 'system')
+                ->where('messages.content', '!=', 'system_cleared')
+                ->whereDoesntHave('receipts', function($q) use ($userId) {
+                    $q->where('user_id', $userId)->whereNotNull('read_at');
+                })
+                ->count();
+        }
+
         return $this->messages()
-            ->where('messages.sender_id', '!=', auth()->id())
+            ->where('messages.sender_id', '!=', $userId)
+            ->where('messages.type', '!=', 'system')
+            ->where('messages.content', '!=', 'system_cleared')
             ->whereNull('read_at')
             ->count();
     }
@@ -109,10 +147,10 @@ class Conversation extends Model
     public function isMember($userId): bool
     {
         if ($this->is_group && $this->group) {
-            return $this->group->hasMember(User::find($userId));
+            return $this->group->isMember(User::find($userId));
         }
         
-        return $this->user1_id === $userId || $this->user2_id === $userId;
+        return (int)$this->user1_id === (int)$userId || (int)$this->user2_id === (int)$userId;
     }
 
     public static function getConversationBetween($user1Id, $user2Id)
@@ -144,9 +182,11 @@ class Conversation extends Model
         return static::create([
             'is_group' => true,
             'group_id' => $group->id,
+            'user1_id' => $group->creator_id,
             'name' => $group->name,
             'avatar' => $group->avatar,
             'slug' => Str::random(24),
+            'last_message_at' => now(),
         ]);
     }
 

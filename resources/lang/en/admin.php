@@ -224,4 +224,16 @@ return [
     'post_already_deleted' => 'Post Already Deleted',
     'post_already_deleted_message' => 'This post has been deleted. You can mark this report as reviewed to close it.',
     'mark_as_reviewed' => 'Mark as Reviewed',
+
+    // Report Reasons
+    'reasons' => [
+        'spam' => 'Spam',
+        'inappropriate' => 'Inappropriate Content',
+        'harassment' => 'Harassment',
+        'hate_speech' => 'Hate Speech',
+        'violence' => 'Violence',
+        'misinformation' => 'Misinformation',
+        'copyright' => 'Copyright Violation',
+        'other' => 'Other Reason',
+    ],
 ];

@@ -24,7 +24,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Vite::prefetch(concurrency: 3);
+        // Trust all proxies for ngrok/octane
+        \Illuminate\Http\Request::setTrustedProxies(['*'], \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR | \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO | \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST | \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT);
+
+        // Enforce HTTPS and Root URL if we are on a tunnel
+        if (str_starts_with(config('app.url'), 'https://') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+            \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
+            
+            // Set HTTPS server variables for proper URL generation and middleware detection
+            if (isset($_SERVER)) {
+                $_SERVER['HTTPS'] = 'on';
+                $_SERVER['SERVER_PORT'] = 443;
+                // Force the host as well to avoid port leaking from internal servers
+                if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+                    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+                }
+            }
+        }
 
         // Register rate limiters
         $this->registerRateLimiters();

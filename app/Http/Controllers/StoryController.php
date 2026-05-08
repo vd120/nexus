@@ -49,6 +49,9 @@ class StoryController extends Controller
                 ],
             ]);
 
+            // Clear stories cache for the current user to ensure it updates on feed
+            cache()->forget('user_stories_' . auth()->id());
+
             return redirect()->route('stories.index')->with('success', __('messages.story_posted'));
         }
 
@@ -95,11 +98,11 @@ class StoryController extends Controller
             $videoMimeTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/webm'];
 
             if (!in_array($mimeType, $videoMimeTypes)) {
-                return back()->withErrors(['media' => 'Invalid video format.']);
+                return back()->withErrors(['media' => __('messages.invalid_video_format')]);
             }
 
             if ($file->getSize() > 52428800) { // 50MB in bytes
-                return back()->withErrors(['media' => 'Video file too large.']);
+                return back()->withErrors(['media' => __('messages.video_too_large')]);
             }
 
             // Get trim values if provided (max 60 seconds)
@@ -162,7 +165,7 @@ class StoryController extends Controller
 
             $mediaType = 'video';
         } else {
-            return back()->withErrors(['media' => 'Invalid file type.']);
+            return back()->withErrors(['media' => __('messages.invalid_file_type')]);
         }
 
         // Create story with 24-hour expiration
@@ -174,6 +177,9 @@ class StoryController extends Controller
             'expires_at' => now()->addHours(24),
         ]);
 
+        // Clear stories cache for the current user to ensure it updates on feed
+        cache()->forget('user_stories_' . auth()->id());
+
         return redirect()->route('stories.index')->with('success', __('messages.story_posted'));
     }
 
@@ -183,7 +189,7 @@ class StoryController extends Controller
         $currentUser = auth()->user();
 
         if ($user->id !== $currentUser->id && !$currentUser->isFollowing($user)) {
-            abort(403, 'You can only view stories from users you follow.');
+            abort(403, __('messages.view_stories_followed_only'));
         }
 
         // Get all active stories from this user with their views
@@ -221,7 +227,7 @@ class StoryController extends Controller
     {
         // Check if current user is the story author
         if ($story->user_id !== auth()->id()) {
-            abort(403, 'You can only view viewers of your own stories.');
+            abort(403, __('messages.view_viewers_own_only'));
         }
 
         // Get all users who viewed this story with their view timestamps and reactions
@@ -254,7 +260,7 @@ class StoryController extends Controller
 
         // Check if user can view this story
         if ($story->user_id !== $authUser->id && !$authUser->isFollowing($story->user)) {
-            abort(403, 'You can only react to stories from users you follow.');
+            abort(403, __('messages.react_stories_followed_only'));
         }
 
         // Check if user already reacted to this story
@@ -278,18 +284,19 @@ class StoryController extends Controller
 
         // Create notification for story owner (only for new reactions)
         if ($isNewReaction && $story->user_id !== $authUser->id) {
-            \App\Models\Notification::create([
-                'user_id' => $story->user_id,
-                'type' => 'story_reaction',
-                'data' => [
+            NotificationController::createNotification(
+                $story->user_id,
+                'story_reaction',
+                [
                     'reactor_name' => $authUser->username,
                     'reactor_username' => $authUser->username,
                     'reaction_type' => $request->reaction_type,
                     'story_id' => $story->id,
+                    'story_slug' => $story->slug,
+                    'story_owner_username' => $story->user->username,
                 ],
-                'related_id' => $story->id,
-                'related_type' => \App\Models\Story::class,
-            ]);
+                $story
+            );
         }
 
         return response()->json(['success' => true]);
@@ -357,7 +364,7 @@ class StoryController extends Controller
 
         // Check if user can view this story
         if ($story->user_id !== $user->id && !$user->isFollowing($story->user)) {
-            abort(403, 'You can only unreact to stories from users you follow.');
+            abort(403, __('messages.unreact_stories_followed_only'));
         }
 
         // Remove user's reaction from this story
@@ -384,6 +391,9 @@ class StoryController extends Controller
         }
 
         $story->delete();
+
+        // Clear stories cache for the current user
+        cache()->forget('user_stories_' . auth()->id());
 
         // Log for debugging
         \Log::info('Story deleted', [

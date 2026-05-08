@@ -28,10 +28,10 @@ return [
     'messages' => 'Messages',
     'notifications' => 'Notifications',
     'groups' => 'Groups',
-    'ai_assistant' => 'AI Assistant',
+    'ai_assistant' => 'Nexus AI',
+    'global_chat' => 'Global Chat',
     'explore' => 'Explore Users',
-    'life_events' => 'Life Events',
-    'memory_book' => 'Memory Book',
+
 
     // Admin
     'admin_panel' => 'Admin Panel',

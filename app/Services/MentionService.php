@@ -57,17 +57,19 @@ class MentionService
             ]);
 
 
-            Notification::create([
-                'user_id' => $mentionedUser->id,
-                'type' => 'mention',
-                'data' => [
+            \App\Http\Controllers\NotificationController::createNotification(
+                $mentionedUser->id,
+                'mention',
+                [
                     'mentioner_name' => $mentioner->name,
                     'mentioner_username' => $mentioner->username,
+                    'mentioner_id' => $mentioner->id,
                     'mentionable_type' => get_class($mentionable),
+                    'post_slug' => ($mentionable instanceof \App\Models\Post) ? $mentionable->slug : ($mentionable->post->slug ?? null),
+                    'comment_id' => ($mentionable instanceof \App\Models\Comment) ? $mentionable->id : null,
                 ],
-                'related_type' => get_class($mentionable),
-                'related_id' => $mentionable->id,
-            ]);
+                $mentionable
+            );
         }
     }
 

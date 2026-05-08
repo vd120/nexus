@@ -40,22 +40,28 @@
     window.addMember = function(groupId, userId) {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-        fetch('/groups/' + groupId + '/members', {
+        fetch('/messaging-groups/' + groupId + '/members', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ user_id: userId })
+            body: JSON.stringify({ members: [userId] })
         })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                const membersList = document.getElementById('membersList');
+                if (membersList && data.member_html) {
+                    membersList.insertAdjacentHTML('beforeend', data.member_html);
+                }
+                const results = document.getElementById('searchResults');
+                if (results) results.innerHTML = '';
+                showToast('Member added', 'success');
             } else {
                 const t = window.chatTranslations || window.groupTranslations || {};
-                showToast(t.failed_to_add_member || 'Failed to add member', 'error');
+                showToast(data.message || t.failed_to_add_member || 'Failed to add member', 'error');
             }
         })
         .catch(() => {
@@ -69,7 +75,7 @@
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-        fetch('/groups/' + groupId + '/members/' + userId, {
+        fetch('/messaging-groups/' + groupId + '/members/' + userId, {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': csrfToken,
@@ -79,7 +85,11 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                const memberCard = document.getElementById(`member-${userId}`);
+                if (memberCard) {
+                    memberCard.remove();
+                }
+                showToast('Member removed', 'success');
             } else {
                 const t = window.chatTranslations || window.groupTranslations || {};
                 showToast(t.failed_to_remove_member || 'Failed to remove member', 'error');

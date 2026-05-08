@@ -24,9 +24,14 @@ body.light-theme .empty-state { background: #ffffff; }
 </style>
 
 <div class="saved-posts-container">
-    <div class="page-header">
-        <h1><i class="fas fa-bookmark"></i> {{ __('users.saved_posts') }}</h1>
-        <p>{{ trans_choice('users.saved_posts_count', $savedPosts->count(), ['count' => $savedPosts->count()]) }}</p>
+    <div class="page-header" style="display: flex; align-items: flex-start; gap: 16px;">
+        <a href="javascript:history.back()" class="btn" style="width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0; min-width: 38px;">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div style="flex: 1;">
+            <h1 style="margin: 0;"><i class="fas fa-bookmark" style="color: var(--primary);"></i> {{ __('users.saved_posts') }}</h1>
+            <p style="margin: 4px 0 0 0;">{{ trans_choice('users.saved_posts_count', $savedPosts->count(), ['count' => $savedPosts->count()]) }}</p>
+        </div>
     </div>
 
     <div class="posts-feed">

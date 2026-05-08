@@ -1,106 +1,143 @@
 @extends('layouts.app')
 
-@section('title', __('chat.create_group'))
+@section('title', __('chat.create_chat_group') . ' - Nexus')
 
 @section('content')
-<link rel="stylesheet" href="{{ asset('css/groups-create.css') }}">
+<div class="create-group-container" style="max-width: 500px; margin: 60px auto; padding: 0 20px;">
+    <div class="card" style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 40px;">
+        <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 8px;">{{ __('chat.new_chat_group') }}</h1>
+        <p style="color: var(--text-muted); margin-bottom: 32px;">{{ __('chat.start_private_group_desc') }}</p>
 
-<div class="create-group-page">
-    <div class="create-group-container">
-        <div class="create-group-header">
-            <a href="{{ route('chat.index') }}" class="back-link">
-                <i class="fas fa-arrow-left"></i>
-            </a>
-            <h1>{{ __('chat.create_new_group') }}</h1>
-        </div>
-
-        <form action="{{ route('groups.store') }}" method="POST" enctype="multipart/form-data" class="create-group-form">
+        <form action="{{ route('groups.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
 
-            <div class="form-group avatar-upload">
-                <label for="avatar" class="avatar-label">
-                    <div class="avatar-preview" id="avatarPreview">
-                        <i class="fas fa-users"></i>
-                        <span>{{ __('chat.add_photo') }}</span>
+            @if ($errors->any())
+                <div style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.2); color: #ef4444; padding: 12px; border-radius: 12px; margin-bottom: 24px; font-size: 14px;">
+                    <ul style="margin: 0; padding-left: 20px;">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 700; margin-bottom: 8px;">{{ __('chat.group_name') }}</label>
+                <input type="text" name="name" required style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-hover); color: var(--text);" placeholder="{{ __('chat.enter_group_name') }}">
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 700; margin-bottom: 8px;">{{ __('chat.description') }} ({{ __('chat.optional') ?? 'Optional' }})</label>
+                <textarea name="description" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-hover); color: var(--text);" rows="2" placeholder="{{ __('chat.whats_this_group_about') }}"></textarea>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-weight: 700; margin-bottom: 12px;">{{ __('chat.select_members') }}</label>
+                <div class="members-selector" style="background: var(--surface-hover); border: 1px solid var(--border); border-radius: 16px; padding: 16px;">
+                    <input type="text" id="userSearch" placeholder="{{ __('chat.search_friends') }}" style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); margin-bottom: 16px;">
+                    <div id="usersList" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                        @forelse($users as $user)
+                            <label class="user-option" style="display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 10px; cursor: pointer; transition: background 0.2s;">
+                                <input type="checkbox" name="members[]" value="{{ $user->id }}" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                <img src="{{ $user->avatar_url }}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 700; font-size: 14px;">{{ $user->username }}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">{{ $user->name }}</div>
+                                </div>
+                            </label>
+                        @empty
+                            <p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">{{ __('chat.no_friends_found') }}</p>
+                        @endforelse
                     </div>
-                </label>
-                <input type="file" id="avatar" name="avatar" accept="image/*" onchange="previewAvatar(event)" hidden>
-            </div>
-
-            <div class="form-group">
-                <label for="name">{{ __('chat.group_name_required') }}</label>
-                <input type="text" id="name" name="name" value="{{ old('name') }}" placeholder="{{ __('chat.enter_group_name') }}" required maxlength="100">
-                @error('name')
-                    <span class="error-message">{{ $message }}</span>
-                @enderror
-            </div>
-
-            <div class="form-group">
-                <label for="description">{{ __('chat.description') }}</label>
-                <textarea id="description" name="description" placeholder="{{ __('chat.whats_this_group_about') }}" maxlength="500" rows="3">{{ old('description') }}</textarea>
-                @error('description')
-                    <span class="error-message">{{ $message }}</span>
-                @enderror
-            </div>
-
-            <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="is_private" value="1" {{ old('is_private') ? 'checked' : '' }}>
-                    <span>{{ __('chat.private_group') }}</span>
-                </label>
-                <p class="help-text">{{ __('chat.private_groups_help') }}</p>
-            </div>
-
-            <div class="form-group members-selection">
-                <label>{{ __('chat.select_members_optional') }}</label>
-                <p class="help-text">{{ __('chat.add_members_now_or_later') }}</p>
-
-                @if($friends->count() > 0)
-                <div class="friends-list">
-                    @foreach($friends as $friend)
-                    <label class="friend-item">
-                        <input type="checkbox" name="members[]" value="{{ $friend->id }}" {{ in_array($friend->id, old('members', [])) ? 'checked' : '' }}>
-                        <div class="friend-info">
-                            <img src="{{ $friend->avatar_url }}" alt="{{ $friend->username }}">
-                            <span>{{ $friend->username }}</span>
-                        </div>
-                        <span class="checkmark"><i class="fas fa-check"></i></span>
-                    </label>
-                    @endforeach
                 </div>
-                @else
-                <div class="no-friends">
-                    <p>{{ __('chat.not_following_anyone') }} {{ __('chat.add_members_later') }}</p>
-                    <a href="{{ route('explore') }}" class="btn-explore">{{ __('chat.explore_users') }}</a>
-                </div>
-                @endif
                 @error('members')
-                    <span class="error-message">{{ $message }}</span>
+                    <span style="color: #ef4444; font-size: 12px; margin-top: 4px; display: block;">{{ $message }}</span>
                 @enderror
             </div>
 
-            <div class="form-actions">
-                <a href="{{ route('chat.index') }}" class="btn-cancel">{{ __('chat.cancel') }}</a>
-                <button type="submit" class="btn-create">
-                    <i class="fas fa-users"></i>
-                    {{ __('chat.create_group') }}
+            <div style="margin-bottom: 32px; text-align: center;">
+                <label style="display: block; font-weight: 700; margin-bottom: 16px; text-align: left;">{{ __('chat.group_avatar') }}</label>
+                <div id="avatarPreviewContainer" style="width: 120px; height: 120px; border-radius: 32px; background: var(--surface-hover); border: 2px dashed var(--border); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; transition: all 0.3s ease;">
+                    <img id="avatarImage" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                    <div id="avatarPlaceholder" style="text-align: center; color: var(--text-muted);">
+                        <i class="fas fa-camera" style="font-size: 24px; display: block; margin-bottom: 4px;"></i>
+                        <span style="font-size: 12px;">{{ __('chat.upload') }}</span>
+                    </div>
+                </div>
+                <input type="file" name="avatar" id="avatarInput" accept="image/*" style="display: none;" onchange="previewAvatar(event)">
+                <button type="button" class="btn btn-ghost" style="font-size: 13px; padding: 4px 12px;" onclick="document.getElementById('avatarInput').click()">
+                    {{ __('chat.choose_image') !== 'chat.choose_image' ? __('chat.choose_image') : 'Choose Image' }}
                 </button>
             </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; height: 52px; font-weight: 700; border-radius: 16px; box-shadow: 0 8px 20px rgba(0, 168, 132, 0.2);">
+                {{ __('chat.create_group') }}
+            </button>
         </form>
     </div>
 </div>
 
 <script>
-function previewAvatar(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('avatarPreview');
-            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+    function previewAvatar(event) {
+        const input = event.target;
+        const preview = document.getElementById('avatarImage');
+        const placeholder = document.getElementById('avatarPlaceholder');
+        const container = document.getElementById('avatarPreviewContainer');
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                placeholder.style.display = 'none';
+                container.style.borderStyle = 'solid';
+                container.style.borderColor = 'var(--primary)';
+            }
+            
+            reader.readAsDataURL(input.files[0]);
         }
-        reader.readAsDataURL(file);
     }
-}
+
+    // Allow clicking the container to trigger file input
+    document.getElementById('avatarPreviewContainer').onclick = function() {
+        document.getElementById('avatarInput').click();
+    };
+
+    // Search functionality
+    document.getElementById('userSearch').oninput = function() {
+        const query = this.value.toLowerCase();
+        const options = document.querySelectorAll('.user-option');
+        
+        options.forEach(option => {
+            const username = option.querySelector('div[style*="font-weight: 700"]').textContent.toLowerCase();
+            const name = option.querySelector('div[style*="font-size: 12px"]').textContent.toLowerCase();
+            
+            if (username.includes(query) || name.includes(query)) {
+                option.style.display = 'flex';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    };
 </script>
+
+<style>
+    .user-option:hover {
+        background: var(--surface) !important;
+    }
+    .user-option input:checked + img + div {
+        color: var(--primary);
+    }
+    /* Custom scrollbar for members list */
+    #usersList::-webkit-scrollbar {
+        width: 6px;
+    }
+    #usersList::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #usersList::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 10px;
+    }
+</style>
 @endsection

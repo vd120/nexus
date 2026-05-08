@@ -57,4 +57,13 @@ return [
         'subject' => env('VAPID_SUBJECT', 'mailto:'.env('MAIL_FROM_ADDRESS', 'noreply@example.com')),
     ],
 
+    'socket' => [
+        'internal_url' => env('INTERNAL_SOCKET_URL', 'http://127.0.0.1:3001'),
+        'secret' => env('SOCKET_INTERNAL_SECRET'),
+    ],
+
+    'openrouter' => [
+        'key' => env('OPENROUTER_API_KEY'),
+    ],
+
 ];

@@ -94,6 +94,7 @@
 <script>
 function followersPageToggleFollow(btn, username) {
     const originalHtml = btn.innerHTML;
+    const isFollowing = btn.getAttribute('data-following') === 'true';
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     btn.disabled = true;
     
@@ -104,13 +105,19 @@ function followersPageToggleFollow(btn, username) {
             'Accept': 'application/json' 
         }
     })
-    .then(r => {
-        if (!r.ok) throw new Error('Network response was not ok');
-        return r.json();
-    })
+    .then(r => r.json())
     .then(data => {
-        // Reload the page to update the list
-        window.location.reload();
+        if (data.success) {
+            const isNowFollowing = data.is_following;
+            btn.setAttribute('data-following', isNowFollowing ? 'true' : 'false');
+            btn.classList.toggle('btn-primary', !isNowFollowing);
+            btn.innerHTML = isNowFollowing ? '{{ __('users.following') }}' : '{{ __('users.follow') }}';
+            btn.disabled = false;
+            showToast(data.message, 'success');
+        } else {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     })
     .catch((error) => {
         console.error('Error:', error);

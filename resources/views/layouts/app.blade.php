@@ -1,28 +1,66 @@
 <!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" data-theme="dark">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <style>
+        /* Immediate Theme Background to prevent Flash */
+        html[data-theme="dark"] { background: #0d0d0d; color: #f5f5f7; }
+        html[data-theme="light"] { background: #ffffff; color: #111111; }
+        body { background: inherit; color: inherit; }
+    </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <meta name="theme-color" content="#111111">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" href="data:,">
+    @auth
+        <script>
+            window.SOCKET_CONFIG = {
+                url: '{{ config('app.socket_io_url') }}',
+                userId: {{ auth()->id() }},
+                isAdmin: {{ auth()->user()->is_admin ? 'true' : 'false' }},
+                username: '{{ auth()->user()->username }}',
+                token: '{{ auth()->user()->createSocketToken() }}',
+                following: @json(auth()->user()->following()->pluck('followed_id'))
+            };
+        </script>
+    @endauth
     <title>@yield('title', 'Nexus')</title>
     
-    {{-- Performance: Preconnect to external resources --}}
+    {{-- Performance: System Font Stacks (Zero Load Time) --}}
+    <style>
+        :root {
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            --font-arabic: "Cairo", "Segoe UI", Tahoma, sans-serif;
+        }
+        body { font-family: var(--font-sans); }
+        [lang="ar"] body { font-family: var(--font-arabic); }
+    </style>
+    
+    {{-- Performance: Critical CSS Preloading --}}
+    <link rel="preload" href="{{ asset('css/app-layout.css') }}" as="style">
+    <link rel="preload" href="{{ asset('css/mobile-header.css') }}" as="style">
+    
+    {{-- Cairo only for Arabic - loaded efficiently --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    
-    {{-- Fonts - Load asynchronously --}}
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Cairo:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Cairo:wght@400;600;700&display=swap"></noscript>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
     {{-- Icons --}}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
     
-    {{-- Critical CSS --}}
+    {{-- Main Styles --}}
     <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
     <link rel="stylesheet" href="{{ asset('css/comments.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/partial-posts.css') }}">
     <link rel="stylesheet" href="{{ asset('css/mobile-header.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/modals.css') }}">
 
     {{-- Page-specific styles --}}
     @stack('styles')
@@ -31,63 +69,101 @@
     /* Mobile message badge */
     .mobile-msg-badge {
         position: absolute;
-        top: 2px;
-        right: 8px;
-        background: #ef4444;
+        top: -6px;
+        left: 50%;
+        margin-left: 10px;
+        background: linear-gradient(135deg, #ff4b2b 0%, #ef4444 100%);
         color: white;
-        font-size: 10px;
-        font-weight: 600;
-        min-width: 16px;
-        height: 16px;
+        font-size: 11px;
+        font-weight: 800;
+        min-width: 20px;
+        height: 20px;
         border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0 4px;
-        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+        border: 1.5px solid var(--bg);
         z-index: 10;
     }
     .mobile-nav-inner a {
         position: relative;
     }
+    .notif-reaction {
+        background: rgba(244, 63, 94, 0.1) !important;
+        color: #f43f5e !important;
+    }
+    .notif-reaction i {
+        color: #f43f5e !important;
+    }
+    .notif-item .notif-icon img {
+        border-radius: 4px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+    .toast-reaction-badge img {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+
+    /* Ultra-Simple Fade-In Entrance */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .main-content {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
     </style>
 </head>
 <body id="app-body">
-    <script>
-        (function() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        })();
-    </script>
+
 
     <header class="header">
         <div class="header-inner">
-            <a href="{{ route('home') }}" class="logo">Nexus</a>
+            <a href="{{ route('home') }}" class="logo">
+                <img src="{{ asset('images/btman-white.png') }}" alt="Nexus" class="logo-dark">
+                <img src="{{ asset('images/btman-black.png') }}" alt="Nexus" class="logo-light">
+            </a>
 
             @auth
             <nav class="nav-links">
                 <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}"><i class="fas fa-home"></i> {{ __('navigation.home') }}</a>
                 <a href="{{ route('stories.index') }}" class="{{ request()->routeIs('stories.*') ? 'active' : '' }}"><i class="fas fa-circle-play"></i> {{ __('navigation.stories') }}</a>
-                <a href="{{ route('events.index') }}" class="{{ request()->routeIs('events.*') ? 'active' : '' }}"><i class="fas fa-star"></i> {{ __('navigation.life_events') }}</a>
+                <a href="{{ route('communities.index') }}" class="{{ request()->routeIs('communities.*') ? 'active' : '' }}"><i class="fas fa-users"></i> {{ __('navigation.groups') }}</a>
                 <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}"><i class="fas fa-message"></i> {{ __('navigation.messages') }}</a>
+                <a href="{{ route('global-chat.index') }}" class="{{ request()->routeIs('global-chat.index') ? 'active' : '' }}"><i class="fas fa-globe-americas"></i> {{ __('navigation.global_chat') }}</a>
                 <a href="{{ route('ai.index') }}" class="{{ request()->routeIs('ai.*') ? 'active' : '' }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
             </nav>
             @endauth
 
             <div class="user-actions">
                 @guest
-                @include('partials.language-switcher')
+                <div class="guest-nav-actions" style="display: flex; align-items: center; gap: 12px;">
+                    @include('partials.language-switcher')
+                    <div id="themeToggleGlobal" class="theme-switcher-pill" onclick="toggleTheme()" title="{{ __('home.toggle_theme') }}">
+                        <div class="theme-slide-bg"></div>
+                        <div class="theme-option-btn btn-sun" data-theme-btn="light">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2" stroke-linecap="round"/><path d="M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+                        </div>
+                        <div class="theme-option-btn btn-moon" data-theme-btn="dark">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        </div>
+                    </div>
+                </div>
                 @endguest
 
-                <button class="nav-action-btn" onclick="toggleTheme()" title="{{ __('messages.theme') }}">
-                    <i class="fas fa-sun" id="theme-icon"></i>
-                </button>
-
                 @auth
+                <div class="status-indicator">
+                    <span id="connection-status-dot" class="status-dot pending" title="{{ __('notifications.connecting') }}"></span>
+                </div>
+
                 <div style="position: relative;">
+                    @php $unreadCount = auth()->user()->notifications()->unread()->count(); @endphp
                     <button class="nav-action-btn" id="notifBtn" onclick="toggleNotifications(event)">
-                        <i class="fas fa-bell"></i>
-                        <span class="badge" id="notif-badge" style="display: none;">0</span>
+                    <i class="fas fa-bell" id="notif-bell-icon"></i>
+                        <span class="badge" id="notif-badge" {!! $unreadCount > 0 ? '' : 'style="display: none;"' !!}>
+                            {{ $unreadCount > 99 ? '99+' : $unreadCount }}
+                        </span>
                     </button>
                 </div>
 
@@ -113,7 +189,10 @@
     <div class="dropdown-overlay" id="dropdownOverlay" onclick="closeAllDropdowns()"></div>
 
     @auth
-    <!-- Notification Dropdown - Simple Modern Design -->
+    {{-- Real-time Feed Update Banner --}}
+    <div id="new-posts-banner" class="new-posts-banner"></div>
+    
+    <!-- Notification Dropdown - Modern Design -->
     <div class="dropdown-menu notif-panel" id="notifMenu">
         <div class="notif-header">
             <h3>{{ __('navigation.notifications') }}</h3>
@@ -125,6 +204,10 @@
                 <button class="notif-action-btn danger" onclick="clearAllNotifications(); return false;" title="{{ __('notifications.clear_all') }}">
                     <i class="fas fa-trash"></i>
                     <span>{{ __('notifications.clear_all') }}</span>
+                </button>
+                <button class="notif-action-btn" id="dndToggleBtn" onclick="toggleDND(); return false;" title="{{ __('notifications.dnd') }}">
+                    <i class="fas fa-moon"></i>
+                    <span id="dndText">{{ __('notifications.dnd') }}</span>
                 </button>
             </div>
         </div>
@@ -144,10 +227,12 @@
     <!-- User Menu Dropdown - outside header for proper z-index -->
     <div class="dropdown-menu" id="userMenu">
         <a href="{{ route('users.show', auth()->user()) }}"><i class="fas fa-user"></i> {{ __('navigation.profile') }}</a>
+        <a href="{{ route('communities.index') }}"><i class="fas fa-users"></i> {{ __('navigation.groups') }}</a>
         <a href="{{ route('users.saved-posts') }}"><i class="fas fa-bookmark"></i> {{ __('navigation.saved_posts') }}</a>
         <a href="{{ route('explore') }}"><i class="fas fa-compass"></i> {{ __('navigation.explore') }}</a>
         <a href="{{ route('hashtags.index') }}"><i class="fas fa-hashtag"></i> {{ __('hashtags.hashtags') }}</a>
-        <a href="{{ route('events.index') }}"><i class="fas fa-star"></i> {{ __('navigation.life_events') }}</a>
+        <a href="{{ route('global-chat.index') }}"><i class="fas fa-globe-americas"></i> {{ __('navigation.global_chat') }}</a>
+
         <a href="{{ route('ai.index') }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
         @if(auth()->user()->is_admin)
         <a href="{{ route('admin.dashboard') }}"><i class="fas fa-shield-alt"></i> {{ __('navigation.admin_panel') }}</a>
@@ -168,270 +253,123 @@
         <a href="{{ route('reports.my-reports') }}">
             <i class="fas fa-flag"></i> {{ __('messages.my_reports') }}
         </a>
-
-        <div class="divider"></div>
-        @php
-            $currentLocale = app()->getLocale();
-            $supportedLocales = \App\Http\Controllers\LanguageController::getSupportedLocales();
-        @endphp
-        <div class="language-switcher" style="position: relative; display: block; width: 100%;">
-            <button
-                type="button"
-                class="language-option"
-                onclick="toggleUserLanguageDropdown()"
-                aria-label="{{ __('messages.language') }}"
-                aria-haspopup="true"
-                aria-expanded="false"
-                style="
-                    width: 100%;
-                    justify-content: space-between;
-                    background: transparent;
-                    border: none;
-                    cursor: pointer;
-                "
-            >
-                <span style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 18px;">🌐</span>
-                    <span>{{ __('messages.language') }}</span>
-                </span>
-                <span style="opacity: 0.6; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                    @if($currentLocale === 'ar')
-                        ع
-                    @else
-                        EN
-                    @endif
-                    <span style="opacity: 0.5;">|</span>
-                    <span style="opacity: 0.7;">
-                        @if($currentLocale === 'ar')
-                            EN
-                        @else
-                            ع
-                        @endif
-                    </span>
-                    <svg style="width: 14px; height: 14px; transition: transform 0.2s;" id="user-lang-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </span>
-            </button>
-
-            {{-- Dropdown Menu --}}
-            <div
-                id="user-language-dropdown"
-                class="language-dropdown"
-                style="
-                    display: none;
-                    position: absolute;
-                    bottom: 100%;
-                    left: 0;
-                    margin-bottom: 8px;
-                    min-width: 200px;
-                    z-index: 1001;
-                    overflow: hidden;
-                    padding: 8px;
-                    direction: ltr !important;
-                "
-            >
-                <div style="padding: 8px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px;">
-                    <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
-                        {{ __('messages.select_language') }}
-                    </span>
-                </div>
-                @foreach($supportedLocales as $locale => $details)
-                    <a
-                        href="#"
-                        onclick="switchUserLanguage('{{ $locale }}'); return false;"
-                        class="language-option {{ $currentLocale === $locale ? 'active' : '' }}"
-                        data-locale="{{ $locale }}"
-                        style="
-                            display: flex;
-                            align-items: center;
-                            gap: 12px;
-                            padding: 12px 14px;
-                            border-radius: 8px;
-                            text-decoration: none;
-                            margin-bottom: 2px;
-                        "
-                    >
-                        <span style="font-size: 18px;">{{ $details['flag'] }}</span>
-                        <div style="display: flex; flex-direction: column;">
-                            <span style="font-size: 14px; font-weight: 500;">{{ $details['native_name'] }}</span>
-                            @if($details['name'] !== $details['native_name'])
-                                <span style="font-size: 11px; opacity: 0.6;">{{ $details['name'] }}</span>
-                            @endif
-                        </div>
-                        @if($currentLocale === $locale)
-                            <svg style="width: 16px; height: 16px; margin-left: auto; color: var(--primary);" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                            </svg>
-                        @endif
-                    </a>
-                @endforeach
-            </div>
-        </div>
         
         <div class="divider"></div>
-        <a href="{{ route('password.change') }}"><i class="fas fa-key"></i> {{ __('messages.change_password') }}</a>
+        
+        <div class="lang-menu-item-pill" onclick="switchUserLanguage('{{ app()->getLocale() === 'en' ? 'ar' : 'en' }}'); event.stopPropagation();">
+            <div class="menu-pill-label">
+                <i class="fas fa-globe"></i>
+                <span>{{ __('messages.language') }}</span>
+            </div>
+            <div class="language-switcher-pill">
+                <div class="lang-slide-bg"></div>
+                <div class="lang-option-btn {{ app()->getLocale() === 'en' ? 'active' : '' }}" data-loc-btn="en">EN</div>
+                <div class="lang-option-btn {{ app()->getLocale() === 'ar' ? 'active' : '' }}" data-loc-btn="ar">ع</div>
+            </div>
+        </div>
+
+        <div class="theme-menu-item-pill" onclick="toggleTheme(); event.stopPropagation();">
+            <div class="menu-pill-label">
+                <i class="fas fa-palette" id="theme-icon-main"></i>
+                <span>{{ __('messages.theme') }}</span>
+            </div>
+            <div class="theme-switcher-pill" id="theme-switch">
+                <div class="theme-slide-bg"></div>
+                <div class="theme-option-btn btn-sun" data-theme-btn="light">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
+                </div>
+                <div class="theme-option-btn btn-moon" data-theme-btn="dark">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
         <button onclick="logout()" class="danger"><i class="fas fa-sign-out-alt"></i> {{ __('navigation.logout') }}</button>
     </div>
     @endauth
 
-    <main class="app-layout">
-        <div class="main-content">
+    @auth
+    {{-- Mobile Bottom Navigation --}}
+    <nav class="mobile-bottom-nav">
+        <div class="mobile-nav-inner">
+            <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}">
+                <i class="fa-solid fa-house"></i>
+                <span>{{ __('navigation.home') }}</span>
+            </a>
+            <a href="{{ route('stories.index') }}" class="{{ request()->routeIs('stories.*') ? 'active' : '' }}">
+                <i class="{{ request()->routeIs('stories.*') ? 'fa-solid' : 'fa-regular' }} fa-circle-play"></i>
+                <span>{{ __('navigation.stories') }}</span>
+            </a>
+            <a href="{{ route('communities.index') }}" class="{{ request()->routeIs('communities.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-users"></i>
+                <span>{{ __('navigation.groups') }}</span>
+            </a>
+            <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}">
+                <i class="{{ request()->routeIs('chat.*') ? 'fa-solid' : 'fa-regular' }} fa-comment"></i>
+                @php 
+                    $unreadMessages = \App\Models\Message::where('sender_id', '!=', auth()->id())
+                        ->whereNull('read_at')
+                        ->whereHas('conversation', function($q) {
+                            $q->where('user1_id', auth()->id())
+                              ->orWhere('user2_id', auth()->id())
+                              ->orWhereHas('group.members', function($q2) {
+                                  $q2->where('user_id', auth()->id());
+                              });
+                        })
+                        ->count();
+                @endphp
+                <span class="mobile-msg-badge" id="mobileMsgBadge" style="{{ $unreadMessages > 0 ? 'display: flex !important;' : 'display: none !important;' }}">
+                    {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
+                </span>
+                <span>{{ __('navigation.messages') }}</span>
+            </a>
+            <a href="{{ route('users.show', auth()->user()) }}" class="{{ request()->routeIs('users.show') && request()->route('user') && (is_object(request()->route('user')) ? request()->route('user')->id : request()->route('user')) == auth()->id() ? 'active' : '' }}">
+                <i class="{{ request()->routeIs('users.show') && request()->route('user') && (is_object(request()->route('user')) ? request()->route('user')->id : request()->route('user')) == auth()->id() ? 'fa-solid' : 'fa-regular' }} fa-user"></i>
+                <span>{{ __('navigation.profile') }}</span>
+            </a>
+        </div>
+    </nav>
+    @endauth
+
+    <main class="app-layout @yield('main_class')">
+        <div class="main-content @yield('content_class')">
             <script>
-                // Global chat translations for JavaScript - MUST be before content yield
+                // Essential translations for global JS functions (posts, comments, chat)
                 window.chatTranslations = {
                     you: '{{ __('chat.you') }}',
                     online: '{{ __('chat.online') }}',
                     offline: '{{ __('chat.offline') }}',
-                    last_active: '{{ __('chat.last_active') }}',
-                    you_sent_photo: '{{ __('chat.you_sent_photo') }}',
-                    you_sent_video: '{{ __('chat.you_sent_video') }}',
-                    you_sent_audio: '{{ __('chat.you_sent_audio') }}',
-                    you_sent_document: '{{ __('chat.you_sent_document') }}',
-                    you_sent_gif: '{{ __('chat.you_sent_gif') }}',
-                    you_sent_sticker: '{{ __('chat.you_sent_sticker') }}',
-                    you_replied_to_story: '{{ __('chat.you_replied_to_story') }}',
-                    sent_photo: '{{ __('chat.sent_photo') }}',
-                    sent_video: '{{ __('chat.sent_video') }}',
-                    sent_audio: '{{ __('chat.sent_audio') }}',
-                    sent_document: '{{ __('chat.sent_document') }}',
-                    sent_gif: '{{ __('chat.sent_gif') }}',
-                    sent_sticker: '{{ __('chat.sent_sticker') }}',
-                    replied_to_story: '{{ __('chat.replied_to_story') }}',
-                    sent_an_image: '{{ __('chat.sent_an_image') }}',
-                    sent_a_video: '{{ __('chat.sent_a_video') }}',
-                    sent_an_audio: '{{ __('chat.sent_an_audio') }}',
-                    sent_a_document: '{{ __('chat.sent_a_document') }}',
-                    sent_a_gif: '{{ __('chat.sent_a_gif') }}',
-                    sent_a_sticker: '{{ __('chat.sent_a_sticker') }}',
-                    start_a_conversation: '{{ __('chat.start_a_conversation') }}',
-                    message_deleted: '{{ __('chat.message_deleted') }}',
-                    failed_to_send_media: '{{ __('chat.failed_to_send_media') }}',
-                    is_now_online: '{{ __('messages.is_now_online') }}',
-                    error_sending_media: '{{ __('chat.error_sending_media') }}',
-                    group: '{{ __('chat.group') }}',
-                    invited_you_to_join: '{{ __('chat.invited_you_to_join') }}',
-                    join: '{{ __('chat.join') }}',
-                    sent: '{{ __('chat.sent') }}',
-                    story_reply: '{{ __('chat.story_reply') }}',
-                    seen: '{{ __('chat.seen') }}',
-                    attach: '{{ __('chat.attach') }}',
-                    type_a_message: '{{ __('chat.type_a_message') }}',
-                    send: '{{ __('chat.send') }}',
-                    close: '{{ __('chat.close') }}',
-                    previous: '{{ __('chat.previous') }}',
-                    next: '{{ __('chat.next') }}',
-                    remove_all: '{{ __('chat.remove_all') }}',
-                    delete_message: '{{ __('chat.delete_message') }}',
-                    delete_for_everyone: '{{ __('chat.delete_for_everyone') }}',
-                    delete_for_me: '{{ __('chat.delete_for_me') }}',
-                    delete_message_desc: '{{ __('chat.delete_message_desc') }}',
-                    delete_for_everyone_desc: '{{ __('chat.delete_for_everyone_desc') }}',
-                    delete_for_me_desc: '{{ __('chat.delete_for_me_desc') }}',
-                    confirm_delete: '{{ __('chat.confirm_delete') }}',
-                    is_typing: '{{ __('chat.is_typing') }}',
                     typing: '{{ __('chat.typing') }}',
-                    user: '{{ __('chat.user') }}',
-                    someone: '{{ __('chat.someone') }}',
-                    add_photo: '{{ __('chat.add_photo') }}',
-                    new_group: '{{ __('chat.new_group') }}',
-                    new_message: '{{ __('chat.new_message') }}',
-                    search_or_start_chat: '{{ __('chat.search_or_start_chat') }}',
-                    search_contacts: '{{ __('chat.search_contacts') }}',
-                    no_messages_yet: '{{ __('chat.no_messages_yet') }}',
-                    start_new_conversation: '{{ __('chat.start_new_conversation') }}',
-                    start_conversation: '{{ __('chat.start_conversation') }}',
-                    nexus_web: '{{ __('chat.nexus_web') }}',
-                    welcome_message: '{{ __('chat.welcome_message') }}',
-                    end_to_end_encrypted: '{{ __('chat.end_to_end_encrypted') }}',
-                    start_chat: '{{ __('chat.start_chat') }}',
-                    members_count: '{{ __('chat.members_count') }}',
-                    member_count: '{{ __('chat.member_count') }}',
-                    edit: '{{ __('chat.edit') }}',
-                    clear_chat: '{{ __('chat.clear_chat') }}',
-                    save_changes: '{{ __('chat.save_changes') }}',
-                    cancel: '{{ __('chat.cancel') }}',
-                    create: '{{ __('chat.create') }}',
-                    reply: '{{ __('chat.reply') }}',
-                    write_a_reply: '{{ __('chat.write_a_reply') }}',
-                    delete_comment: '{{ __('chat.delete_comment') }}',
-                    show_reply: '{{ __('chat.show_reply') }}',
-                    show_replies: '{{ __('chat.show_replies') }}',
-                    hide_comments: '{{ __('chat.hide_comments') }}',
-                    like_comments_prompt: '{{ __('chat.like_comments_prompt') }}',
-                    reply_comments_prompt: '{{ __('chat.reply_comments_prompt') }}',
-                    delete_post: '{{ __('chat.delete_post') }}',
+                    sent: '{{ __('chat.sent') }}',
+                    seen: '{{ __('chat.seen') }}',
+                    delivered: '{{ __('chat.delivered') }}',
+                    read: '{{ __('chat.read') }}',
+                    message_deleted: '{{ __('chat.message_deleted') }}',
+                    mark_as_read: '{{ __('messages.mark_as_read') }}',
+                    delete: '{{ __('messages.delete') }}',
+                    delete_message: '{{ __('chat.delete_message') }}',
+                    today: '{{ __('messages.today') }}',
+                    yesterday: '{{ __('messages.yesterday') }}',
+                    cleared_the_chat: '{{ __('chat.cleared_the_chat') }}',
+                    invited_you_to_join: '{{ __('chat.invited_you_to_join') }}',
+                    group: '{{ __('chat.group') }}',
+                    join: '{{ __('chat.join') }}',
+                    playback_speed: '{{ __('chat.playback_speed') }}',
+                    story_reply: '{{ __('chat.story_reply') }}',
+                    failed_to_send_media: '{{ __('chat.failed_to_send_media') }}',
+                    error_sending_media: '{{ __('chat.error_sending_media') }}',
                     follow: '{{ __('chat.follow') }}',
                     following: '{{ __('chat.following') }}',
-                    private: '{{ __('chat.private') }}',
-                    public: '{{ __('chat.public') }}',
-                    show_more: '{{ __('chat.show_more') }}',
-                    show_less: '{{ __('chat.show_less') }}',
-                    save_post: '{{ __('chat.save_post') }}',
-                    saved_post: '{{ __('chat.saved_post') }}',
-                    share: '{{ __('chat.share') }}',
-                    write_a_comment: '{{ __('chat.write_a_comment') }}',
-                    login_to_comment: '{{ __('chat.login_to_comment') }}',
-                    login: '{{ __('chat.login') }}',
-                    show_more_comments: '{{ __('chat.show_more_comments') }}',
-                    like_posts_prompt: '{{ __('chat.like_posts_prompt') }}',
-                    save_posts_prompt: '{{ __('chat.save_posts_prompt') }}',
-                    clear_all: '{{ __('chat.clear_all') }}',
-                    sent_toast: '{{ __('messages.sent') }}',
-                    mark_as_read: '{{ __('messages.mark_as_read') }}',
-                    delete_toast: '{{ __('messages.delete') }}',
-                    delete_story: '{{ __('messages.delete_story') }}',
-                    view_who_watched: '{{ __('messages.view_who_watched') }}',
-                    username_validation: '{{ __('messages.username_validation') }}',
                     post_saved_success: '{{ __('messages.post_saved_success') }}',
                     post_removed_from_saved: '{{ __('messages.post_removed_from_saved') }}',
-                    no_likes_yet: '{{ __('messages.no_likes_yet') }}',
-                    could_not_load_likers: '{{ __('messages.could_not_load_likers') }}',
                     post_link_copied: '{{ __('messages.post_link_copied') }}',
                     failed_to_copy_link: '{{ __('messages.failed_to_copy_link') }}',
-                    account_suspended_message: '{{ __('messages.account_suspended_message') }}',
-                    please_verify_email_message: '{{ __('messages.please_verify_email_message') }}',
-                    concurrent_login_message: '{{ __('messages.concurrent_login_message') }}',
-                    logged_out_message: '{{ __('messages.logged_out_message') }}',
-                    account_deleted_message: '{{ __('messages.account_deleted_message') }}',
-                    account_status_changed: '{{ __('messages.account_status_changed') }}',
-                    story_deleted_success: '{{ __('messages.story_deleted_success') }}',
-                    failed_to_delete_story: '{{ __('messages.failed_to_delete_story') }}',
-                    failed_to_send_message: '{{ __('messages.failed_to_send_message') }}',
-                    story_shared_success: '{{ __('messages.story_shared_success') }}',
+                    no_likes_yet: '{{ __('messages.no_likes_yet') }}',
+                    could_not_load_likers: '{{ __('messages.could_not_load_likers') }}',
                     likes: '{{ __('messages.likes') }}',
-                    comments_count: '{{ __('messages.comments_count') }}',
-                    just_now: '{{ __('messages.just_now') }}',
-                    minutes_ago_short: '{{ __('messages.minutes_ago_short') }}',
-                    hours_ago_short: '{{ __('messages.hours_ago_short') }}',
-                    days_ago_short: '{{ __('messages.days_ago_short') }}',
-                    story: '{{ __('messages.story') }}',
-                    send_message: '{{ __('messages.send_message') }}',
-                    story_deleted_toast: '{{ __('messages.story_deleted_toast') }}',
-                    post_deleted: '{{ __('messages.post_deleted') }}',
-                    failed_to_delete_post: '{{ __('messages.failed_to_delete_post') }}',
-                    account_already_verified: '{{ __('messages.account_already_verified') }}',
-                    verification_code_sent: '{{ __('messages.verification_code_sent') }}',
-                    enter_6_digit_code: '{{ __('messages.enter_6_digit_code') }}',
-                    code_must_be_numbers: '{{ __('messages.code_must_be_numbers') }}',
-                    passwords_mismatch: '{{ __('messages.passwords_mismatch') }}',
-                    weak_password: '{{ __('messages.weak_password') }}',
-                    failed_to_post_comment: '{{ __('messages.failed_to_post_comment') }}',
-                    password_strength_weak: '{{ __('messages.password_strength_weak') }}',
-                    password_strength_medium: '{{ __('messages.password_strength_medium') }}',
-                    password_strength_strong: '{{ __('messages.password_strength_strong') }}',
-                    password_strength_very_strong: '{{ __('messages.password_strength_very_strong') }}',
-                    passwords_match: '{{ __('messages.passwords_match') }}',
-                    passwords_do_not_match: '{{ __('messages.passwords_do_not_match') }}',
-                    username_available: '{{ __('messages.username_available') }}',
-                    username_taken: '{{ __('messages.username_taken') }}',
-                    failed_to_add_member: '{{ __('messages.failed_to_add_member') }}',
-                    error_adding_member: '{{ __('messages.error_adding_member') }}',
-                    failed_to_remove_member: '{{ __('messages.failed_to_remove_member') }}',
-                    error_removing_member: '{{ __('messages.error_removing_member') }}',
-                    failed_to_send_media: '{{ __('messages.failed_to_send_media') }}',
-                    error_sending_media: '{{ __('messages.error_sending_media') }}',
-                    failed_to_join_group: '{{ __('messages.failed_to_join_group') }}',
+                    click_to_remove: '{{ __('chat.click_to_remove') }}',
+                    report_reason_prefix: '{{ __('messages.report_reason_prefix') ?? 'New report for: ' }}'
                 };
 
                 // Post translations for posts.js
@@ -443,40 +381,126 @@
                     new_posts_loaded: '{{ __('messages.new_posts_loaded') }}',
                     failed_to_load_posts: '{{ __('messages.failed_to_load_posts') }}',
                     load_more: '{{ __('messages.load_more') }}',
+                    confirm_pin_post: '{{ __('users.confirm_pin_post') }}',
+                    confirm_unpin_post: '{{ __('users.confirm_unpin_post') }}',
+                    post_pinned: '{{ __('users.post_pinned') }}',
+                    post_unpinned: '{{ __('users.post_unpinned') }}',
+                    pin_post: '{{ __('users.pin_post') }}',
+                    unpin_post: '{{ __('users.unpin_post') }}',
+                    pinned: '{{ __('users.pinned') }}',
                 };
+            </script>
+            <script>
+                 window.reactionImages = {!! json_encode(\App\Models\Post::REACTION_IMAGES) !!};
+                 
+                 window.getReactionImage = function(emoji) {
+                     if (!window.reactionImages || !emoji) return null;
+                     const basic = emoji.replace(/[\uFE00-\uFE0F]/g, '');
+                     if (window.reactionImages[emoji]) return window.reactionImages[emoji];
+                     if (window.reactionImages[basic]) return window.reactionImages[basic];
+                     const withSelector = basic + '\uFE0F';
+                     if (window.reactionImages[withSelector]) return window.reactionImages[withSelector];
+                     return null;
+                 };
             </script>
             @yield('content')
         </div>
     </main>
 
-    @auth
-            <nav class="mobile-nav">
-                <div class="mobile-nav-inner">
-                    <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}"><i class="fas fa-home"></i> {{ __('navigation.home') }}</a>
-                    <a href="{{ route('stories.index') }}" class="{{ request()->routeIs('stories.*') ? 'active' : '' }}"><i class="fas fa-circle-play"></i> {{ __('navigation.stories') }}</a>
-                    <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}">
-                        <i class="fas fa-message"></i> {{ __('navigation.messages') }}
-                        <span class="mobile-msg-badge" id="mobileMsgBadge" style="display: none;">0</span>
-                    </a>
-                    <a href="{{ route('users.show', auth()->user()) }}" class="{{ request()->routeIs('users.show') ? 'active' : '' }}"><i class="fas fa-user"></i> {{ __('navigation.profile') }}</a>
-                </div>
-            </nav>
-    @endauth
+
 
     <div id="toast-container"></div>
 
     @auth
         <script>
             window.currentUserId = {{ auth()->id() }};
+            window.currentUserUsername = "{{ auth()->user()->username }}";
             window.layoutTranslations = {
                 failed_to_join_group: "{{ __('messages.failed_to_join_group') }}"
             };
         </script>
     @endauth
 
-    @vite(['resources/js/app.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js'])
+    <script>
+        // GLOBAL UTILITIES - MUST LOAD FIRST
+        window.escapeHtml = function(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
+
+        window.sanitizeMessage = function(message) {
+            if (!message || typeof message !== 'string') return message;
+            const replyRegex = /\{\s*"__nexus_reply__"\s*:\s*true/;
+            if (replyRegex.test(message)) {
+                try {
+                    const jsonStart = message.indexOf('{');
+                    if (jsonStart !== -1) {
+                        const prefixPart = message.substring(0, jsonStart);
+                        const jsonPart = message.substring(jsonStart);
+                        const replyData = JSON.parse(jsonPart);
+                        return prefixPart + '↩ ' + (replyData.content || '');
+                    }
+                } catch(e) {}
+            }
+            return message;
+        };
+
+        window.showToast = function(message, type = 'info', avatar = null, link = null, duration = 4000, extraData = null) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            // Silence incoming notification toasts if DND is on
+            const isDND = localStorage.getItem('nexus_dnd_enabled') === 'true';
+            if (isDND && (avatar || link) && typeof message === 'string' && !message.includes('Disturb')) {
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type} ${avatar ? 'has-avatar' : ''} ${link ? 'is-clickable' : ''}`;
+            
+            if (link) {
+                toast.style.cursor = 'pointer';
+                toast.onclick = (e) => {
+                    // Prevent propagation to container if any
+                    e.stopPropagation();
+                    
+                    const notifId = extraData?.notification_id || extraData?.id;
+                    console.log('[Toast] Clicked. NotifID:', notifId, 'Link:', link);
+                    
+                    if (window.handleNotifClick) {
+                        window.handleNotifClick(notifId, link);
+                    } else {
+                        window.location.href = link;
+                    }
+                };
+            }
+
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+            
+            // Handle reply JSON in toasts
+            const displayMessage = window.sanitizeMessage(message);
+
+            toast.innerHTML = `
+                ${avatar ? `<div class="toast-avatar"><img src="${avatar}" alt="user"></div>` : `<i class="fas ${icon}"></i>`}
+                <div class="toast-content">
+                    <span>${window.escapeHtml(displayMessage)}</span>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 250);
+            }, duration);
+        };
+    </script>
+
+    @vite(['resources/js/app.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js'])
     @auth
-        @vite(['resources/js/legacy/realtime.js'])
+        @vite(['resources/js/socket-manager.js'])
     @endauth
     <script>
         function toggleUserMenu(event) {
@@ -494,11 +518,27 @@
                 menu.style.top = (rect.bottom + 8) + 'px';
                 if (isRTL) {
                     // Arabic: align to left
-                    menu.style.left = rect.left + 'px';
+                    let left = rect.left;
+                    const menuWidth = 280;
+                    const padding = 16;
+                    if (left + menuWidth > window.innerWidth - padding) {
+                        left = window.innerWidth - menuWidth - padding;
+                    }
+                    if (left < padding) left = padding;
+                    
+                    menu.style.left = left + 'px';
                     menu.style.right = 'auto';
                 } else {
                     // English: align to right
-                    menu.style.right = (window.innerWidth - rect.right) + 'px';
+                    let right = window.innerWidth - rect.right;
+                    const menuWidth = 280;
+                    const padding = 16;
+                    if (right + menuWidth > window.innerWidth - padding) {
+                        right = window.innerWidth - menuWidth - padding;
+                    }
+                    if (right < padding) right = padding;
+
+                    menu.style.right = right + 'px';
                     menu.style.left = 'auto';
                 }
                 menu.classList.add('show');
@@ -512,22 +552,38 @@
             const menu = document.getElementById('notifMenu');
             const btn = document.getElementById('notifBtn');
             const isOpen = menu.classList.contains('show');
+            const isRTL = document.documentElement.dir === 'rtl';
+            
             closeAllDropdowns();
             if (!isOpen) {
                 const rect = btn.getBoundingClientRect();
                 const menuWidth = 380;
                 const padding = 16;
 
-                let top = rect.bottom + 8;
-                let right = window.innerWidth - rect.right;
+                menu.style.top = (rect.bottom + 8) + 'px';
+                
+                if (isRTL) {
+                    // Arabic: align to left of button, but check if it overflows left side of screen
+                    let left = rect.left;
+                    if (left + menuWidth > window.innerWidth - padding) {
+                        left = window.innerWidth - menuWidth - padding;
+                    }
+                    if (left < padding) left = padding;
+                    
+                    menu.style.left = left + 'px';
+                    menu.style.right = 'auto';
+                } else {
+                    // English: align to right of button, but check if it overflows right side of screen
+                    let right = window.innerWidth - rect.right;
+                    if (right + menuWidth > window.innerWidth - padding) {
+                        right = window.innerWidth - menuWidth - padding;
+                    }
+                    if (right < padding) right = padding;
 
-                if (right + menuWidth > window.innerWidth - padding) {
-                    right = padding;
+                    menu.style.right = right + 'px';
+                    menu.style.left = 'auto';
                 }
-
-                menu.style.top = top + 'px';
-                menu.style.right = right + 'px';
-                menu.style.left = 'auto';
+                
                 menu.classList.add('show');
                 document.getElementById('dropdownOverlay').classList.add('active');
                 loadNotifications();
@@ -551,22 +607,106 @@
 
         function logout() { if (confirm('{{ __('auth.sign_out_confirm') }}')) document.getElementById('logout-form').submit(); }
 
-        function showToast(message, type = 'info', duration = 3000) {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-
-            const toast = document.createElement('div');
-            toast.className = 'toast ' + type;
-            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-            toast.innerHTML = '<i class="fas ' + icon + '"></i><span>' + message + '</span>';
-
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.classList.add('removing');
-                setTimeout(() => toast.remove(), 250);
-            }, duration);
+        // Do Not Disturb Logic
+        function initDND() {
+            const isDND = localStorage.getItem('nexus_dnd_enabled') === 'true';
+            updateDNDUI(isDND);
         }
+
+        function toggleDND() {
+            const isDND = localStorage.getItem('nexus_dnd_enabled') === 'true';
+            const newState = !isDND;
+            localStorage.setItem('nexus_dnd_enabled', newState);
+            updateDNDUI(newState);
+            
+            // Show toast feedback
+            if (window.showToast) {
+                const msg = newState ? 'Do Not Disturb Enabled' : 'Do Not Disturb Disabled';
+                window.showToast(msg, 'info', null, null, 1000);
+            }
+        }
+
+        function updateDNDUI(enabled) {
+            const bellIcon = document.getElementById('notif-bell-icon');
+            const dndBtn = document.getElementById('dndToggleBtn');
+            const dndText = document.getElementById('dndText');
+            
+            if (bellIcon) {
+                if (enabled) {
+                    bellIcon.classList.remove('fa-bell');
+                    bellIcon.classList.add('fa-bell-slash');
+                    bellIcon.style.color = '#ffb347'; // Warm moon color
+                } else {
+                    bellIcon.classList.remove('fa-bell-slash');
+                    bellIcon.classList.add('fa-bell');
+                    bellIcon.style.color = '';
+                }
+            }
+            
+            if (dndBtn) {
+                if (enabled) {
+                    dndBtn.classList.add('active');
+                    if (dndText) dndText.textContent = 'DND On';
+                } else {
+                    dndBtn.classList.remove('active');
+                    if (dndText) dndText.textContent = 'DND Off';
+                }
+            }
+        }
+
+        // Initialize DND on load
+        document.addEventListener('DOMContentLoaded', initDND);
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                const oldCount = parseInt(badge.textContent) || 0;
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.style.display = 'flex';
+                    
+                    // Only pulse if count increased
+                    if (count > oldCount) {
+                        badge.classList.remove('pulse');
+                        void badge.offsetWidth; // trigger reflow
+                        badge.classList.add('pulse');
+                    }
+                } else {
+                    badge.style.display = 'none';
+                    badge.classList.remove('pulse');
+                }
+            }
+        }
+
+        window.updateMobileBadge = function() {
+            fetch('/chat/conversations', {
+                headers: { 'Accept': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('mobileMsgBadge');
+                if (!badge) return;
+                
+                let totalUnread = 0;
+                if (data.conversations) {
+                    data.conversations.forEach(c => {
+                        const count = parseInt(c.unread_count || 0);
+                        totalUnread += count;
+                    });
+                } else if (typeof data.unread_count !== 'undefined') {
+                    totalUnread = parseInt(data.unread_count || 0);
+                }
+
+                if (totalUnread > 0) {
+                    badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                    badge.style.setProperty('display', 'flex', 'important');
+                } else {
+                    badge.style.setProperty('display', 'none', 'important');
+                    badge.textContent = '';
+                }
+            })
+            .catch(err => console.warn('Failed to update mobile badge:', err));
+        };
 
         function escapeHtml(text) {
             if (!text) return '';
@@ -575,10 +715,18 @@
             return div.innerHTML;
         }
 
+        function getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.content || '';
+        }
+
         function loadNotifications() {
-            fetch('/api/notifications', {
+            fetch('/notifications', {
                 credentials: 'include',
-                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' }
+                headers: { 
+                    'X-CSRF-TOKEN': getCsrfToken(), 
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
             .then(r => {
                 if (!r.ok) {
@@ -603,7 +751,17 @@
                     const iconClass = getNotificationIconClass(n.type);
                     const notifIcon = getNotificationIcon(n.type);
                     const timeAgo = getTimeAgo(n.created_at);
-                    const truncatedMessage = n.message.length > 60 ? n.message.substring(0, 60) + '...' : n.message;
+                    
+                    // Parse data if string
+                    let notifData = n.data;
+                    if (typeof notifData === 'string') {
+                        try { notifData = JSON.parse(notifData); } catch(e) { notifData = {}; }
+                    }
+
+                    // Sanitize message before truncation
+                    const cleanMessage = window.sanitizeMessage(n.message || '');
+                    const truncatedMessage = cleanMessage.length > 120 ? cleanMessage.substring(0, 120) + '...' : cleanMessage;
+                    
                     return `
                     <div class="notif-item ${n.read_at ? '' : 'unread'}" id="notif-${n.id}" data-id="${n.id}">
                         <div class="notif-icon ${iconClass}" onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
@@ -659,10 +817,16 @@
 
             // Send API request (fire and forget with CSRF)
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            fetch('/api/notifications/' + id + '/read', {
+            fetch('/notifications/' + id + '/read', {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token },
+                headers: { 
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 keepalive: true
+            }).then(() => {
+                // Refresh list to apply new sorting (unread on top)
+                setTimeout(() => loadNotifications(), 500);
             }).catch(() => {});
         }
 
@@ -689,21 +853,30 @@
 
             // Send API request (fire and forget with CSRF)
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            fetch('/api/notifications/mark-all-read', {
+            fetch('/notifications/mark-all-read', {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token },
+                headers: { 
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 keepalive: true
+            }).then(() => {
+                // Refresh list to apply new sorting (unread on top)
+                setTimeout(() => loadNotifications(), 500);
             }).catch(() => {});
         }
 
         function getNotificationIconClass(type) {
             const classes = {
-                'follow': 'follow',
-                'like': 'like',
-                'comment': 'comment',
-                'mention': 'mention',
-                'message': 'message',
-                'group_invite': 'group'
+                'follow': 'notif-follow',
+                'like': 'notif-like',
+                'comment': 'notif-comment',
+                'mention': 'notif-mention',
+                'message': 'notif-msg',
+                'group_invite': 'notif-group',
+                'post_reaction': 'notif-reaction',
+                'chat_reaction': 'notif-reaction',
+                'story_reaction': 'notif-reaction'
             };
             return classes[type] || 'default';
         }
@@ -712,6 +885,9 @@
             const icons = {
                 'follow': 'fa-user-plus',
                 'like': 'fa-heart',
+                'post_reaction': 'fa-heart',
+                'chat_reaction': 'fa-heart',
+                'story_reaction': 'fa-heart',
                 'comment': 'fa-comment',
                 'mention': 'fa-at',
                 'message': 'fa-envelope',
@@ -736,38 +912,54 @@
             return date.toLocaleDateString();
         }
 
-        function handleNotifClick(id, link) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-
-            // Update badge immediately
-            const badge = document.getElementById('notif-badge');
-            if (badge && badge.style.display !== 'none') {
-                const count = parseInt(badge.textContent) || 0;
-                if (count > 1) {
-                    badge.textContent = count - 1;
-                } else {
-                    badge.style.display = 'none';
+        window.handleNotifClick = function(id, link) {
+            console.log('[handleNotifClick] Called for ID:', id, 'Link:', link);
+            
+            // Mark as read (fire and forget)
+            if (id) {
+                const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                fetch('/notifications/' + id + '/read', {
+                    method: 'POST',
+                    headers: { 
+                        'X-CSRF-TOKEN': token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    keepalive: true
+                }).catch(err => console.error('[handleNotifClick] Mark read failed:', err));
+                
+                // Update UI badge immediately
+                const badge = document.getElementById('notif-badge');
+                if (badge && badge.style.display !== 'none') {
+                    const count = parseInt(badge.textContent) || 0;
+                    if (count > 1) {
+                        badge.textContent = count - 1;
+                    } else {
+                        badge.style.display = 'none';
+                    }
                 }
             }
 
-            // Mark as read (fire and forget with CSRF)
-            const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            fetch('/api/notifications/' + id + '/read', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token },
-                keepalive: true
-            }).catch(() => {});
-
-            // Navigate if link exists
+            // Navigate
             if (link) {
+                console.log('[handleNotifClick] Navigating to:', link);
                 closeAllDropdowns();
-                window.location.href = link;
+                
+                // If it's a same-page hash link, just update hash
+                const currentUrl = window.location.origin + window.location.pathname;
+                const targetUrl = link.split('#')[0];
+                
+                if (currentUrl === targetUrl || targetUrl === window.location.href.split('#')[0]) {
+                    const hash = link.split('#')[1];
+                    if (hash) {
+                        window.location.hash = hash;
+                    }
+                } else {
+                    window.location.href = link;
+                }
             } else {
                 closeAllDropdowns();
-                loadNotifications();
+                if (window.loadNotifications) loadNotifications();
             }
         }
 
@@ -796,9 +988,12 @@
 
             // Send API request (fire and forget with CSRF)
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            fetch('/api/notifications/' + id, {
+            fetch('/notifications/' + id, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': token },
+                headers: { 
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 keepalive: true
             }).catch(() => {});
         }
@@ -818,9 +1013,12 @@
 
             // Send API request (fire and forget with CSRF)
             const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            fetch('/api/notifications', {
+            fetch('/notifications', {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': token },
+                headers: { 
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 keepalive: true
             }).catch(() => {});
         }
@@ -828,8 +1026,16 @@
         document.addEventListener('DOMContentLoaded', () => {
             if ({{ auth()->check() ? 'true' : 'false' }}) {
                 window.currentUserId = {{ auth()->id() }};
+                window.updateMobileBadge();
             }
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllDropdowns(); });
+
+            // Initialize Theme Switch and Icon
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const themeSwitch = document.getElementById('theme-switch');
+            const themeIcon = document.getElementById('theme-icon-main');
+            if (themeSwitch && savedTheme === 'dark') themeSwitch.classList.add('on');
+            if (themeIcon) themeIcon.className = savedTheme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
 
             // Auto-detect Arabic text and apply RTL direction
             applyRTLToArabicText();
@@ -851,17 +1057,8 @@
                 if (arrow) arrow.style.transform = 'rotate(0deg)';
                 if (toggle) toggle.setAttribute('aria-expanded', 'false');
             } else {
-                // Position dropdown based on language direction
+                // Just toggle the display since it's now inline
                 dropdown.style.display = 'block';
-                if (isRTL) {
-                    // Arabic: align to right
-                    dropdown.style.right = '0';
-                    dropdown.style.left = 'auto';
-                } else {
-                    // English: align to left
-                    dropdown.style.left = '0';
-                    dropdown.style.right = 'auto';
-                }
                 if (arrow) arrow.style.transform = 'rotate(180deg)';
                 if (toggle) toggle.setAttribute('aria-expanded', 'true');
             }
@@ -925,5 +1122,37 @@
     @auth
         @include('partials.push-notification-settings')
     @endauth
+    {{-- Reactors List Modal (Global) --}}
+    <div id="reactorsModalOverlay" class="global-reactors-overlay" onclick="closeReactorsModal(event)">
+        <div class="global-reactors-modal" onclick="event.stopPropagation()">
+            <div class="global-reactors-header">
+                <h3>{{ __('chat.reactions') }}</h3>
+                <button class="global-reactors-close" onclick="closeReactorsModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="reactorsList" class="global-reactors-list">
+                {{-- Dynamic content --}}
+            </div>
+        </div>
+    </div>
+
+    {{-- Global Modals --}}
+    @include('partials.global-modals')
+
+    <script>
+        window.closeReactorsModal = function(event) {
+            const overlay = document.getElementById('reactorsModalOverlay');
+            if (!overlay) return;
+            
+            // If event exists, only close if clicking overlay itself or the close button
+            if (event) {
+                if (event.target === overlay || event.target.closest('.global-reactors-close')) {
+                    overlay.style.display = 'none';
+                }
+            } else {
+                overlay.style.display = 'none';
+            }
+        };
+    </script>
+    @stack('scripts')
 </body>
 </html>

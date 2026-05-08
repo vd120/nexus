@@ -1,6 +1,6 @@
 /**
  * Push Notification Manager - Nexus
- * Handles browser push notifications with polling-based updates
+ * Handles browser push notifications via WebPush and service workers.
  */
 
 class PushNotificationManager {
@@ -10,9 +10,6 @@ class PushNotificationManager {
         this.vapidPublicKey = null;
         this.isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
         this.permission = Notification.permission;
-        this.pollingInterval = null;
-        this.pollingDelay = 30000; // 30 seconds
-        this.lastNotificationId = null;
         
         // Translations
         this.translations = {
@@ -85,11 +82,6 @@ class PushNotificationManager {
 
         // Get existing subscription
         await this.getSubscription();
-
-        // Start polling for new notifications if subscribed
-        if (this.subscription) {
-            this.startPolling();
-        }
 
         return true;
     }
@@ -205,9 +197,6 @@ class PushNotificationManager {
             await this.saveSubscription(subscription);
             this.subscription = subscription;
 
-            // Start polling
-            this.startPolling();
-
             this.showToast(this.t('enabled'), 'success');
             return true;
         } catch (error) {
@@ -275,7 +264,6 @@ class PushNotificationManager {
                 });
 
                 this.subscription = null;
-                this.stopPolling();
 
                 this.showToast(this.t('disabled'), 'success');
                 return true;
@@ -284,96 +272,6 @@ class PushNotificationManager {
             console.error('[Push] Unsubscribe error:', error);
             this.showToast(this.t('error'), 'error');
             return false;
-        }
-    }
-
-    /**
-     * Start polling for new notifications
-     */
-    startPolling() {
-        if (this.pollingInterval) {
-            this.stopPolling();
-        }
-
-        // Poll immediately
-        this.pollForNotifications();
-
-        // Then poll at interval
-        this.pollingInterval = setInterval(() => {
-            this.pollForNotifications();
-        }, this.pollingDelay);
-
-        console.log('[Push] Polling started');
-    }
-
-    /**
-     * Stop polling
-     */
-    stopPolling() {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            console.log('[Push] Polling stopped');
-        }
-    }
-
-    /**
-     * Poll for new notifications
-     */
-    async pollForNotifications() {
-        try {
-            const response = await fetch('/api/notifications/unread-count', {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-
-            if (!response.ok) return;
-
-            const data = await response.json();
-            
-            // If there are new unread notifications, show a badge notification
-            if (data.unread_count > 0) {
-                this.updateBadge(data.unread_count);
-                
-                // Show a silent notification if count increased
-                if (this.lastNotificationId !== data.unread_count) {
-                    this.showLocalNotification({
-                        title: this.t('settings'),
-                        body: `You have ${data.unread_count} new notification${data.unread_count > 1 ? 's' : ''}`,
-                        url: '/notifications',
-                        silent: true,
-                    });
-                    this.lastNotificationId = data.unread_count;
-                }
-            } else {
-                this.clearBadge();
-            }
-        } catch (error) {
-            console.error('[Push] Polling error:', error);
-        }
-    }
-
-    /**
-     * Show a local notification (from polling)
-     */
-    async showLocalNotification(data) {
-        if (!this.registration) return;
-
-        try {
-            await this.registration.showNotification(data.title, {
-                body: data.body,
-                data: {
-                    url: data.url || '/',
-                },
-                tag: data.tag || 'nexus-poll-notification',
-                silent: data.silent || false,
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
-            });
-        } catch (error) {
-            console.error('[Push] Local notification error:', error);
         }
     }
 

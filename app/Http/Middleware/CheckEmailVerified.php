@@ -29,19 +29,25 @@ class CheckEmailVerified
         if (Auth::check()) {
             $user = Auth::user();
 
-            // Check if user has verified their email
-            if (!$user->hasVerifiedEmail()) {
+            // Check if user has verified their email OR if they have a suspicious login pending verification
+            if (!$user->hasVerifiedEmail() || session('auth.suspicious')) {
                 // For API requests, return JSON error
                 if ($request->expectsJson()) {
                     return response()->json([
-                        'error' => 'Please verify your email address to access this feature.',
+                        'error' => session('auth.suspicious') 
+                            ? 'Suspicious login detected. Please verify your identity.' 
+                            : 'Please verify your email address to access this feature.',
                         'redirect' => route('verification.notice')
                     ], 403);
                 }
 
                 // Redirect to verification notice page
+                $message = session('auth.suspicious') 
+                    ? 'Suspicious login detected. Please verify your identity to continue.' 
+                    : 'Please verify your email address to continue.';
+
                 return redirect()->route('verification.notice')
-                    ->with('message', 'Please verify your email address to continue.');
+                    ->with('message', $message);
             }
         }
 

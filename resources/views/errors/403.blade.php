@@ -4,7 +4,7 @@
     @php $locale = request()->cookie('locale', app()->getLocale()); @endphp
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $locale === 'ar' ? '403 - ممنوع الدخول' : '403 - Access Denied')</title>
+    <title>@yield('title', __('errors.forbidden_title'))</title>
     <style>
         * {
             margin: 0;
@@ -63,12 +63,14 @@
             p { font-size: 0.875rem; }
             .error-icon { font-size: 4rem; }
         }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
     <div class="error-icon">🚫</div>
-    <h1>@yield('title', $locale === 'ar' ? '403 - ممنوع الدخول' : '403 - Access Denied')</h1>
-    <p>@yield('message', $locale === 'ar' ? 'مش عندك صلاحية تدخل الصفحة دي.' : "You don't have permission to access this page.")</p>
-    <button onclick="history.back()">@yield('button', $locale === 'ar' ? 'رجوع' : 'Go Back')</button>
+    <h1>@yield('title', __('errors.forbidden_title'))</h1>
+    <p>@yield('message', __('errors.forbidden_message'))</p>
+    <button onclick="history.back()">@yield('button', __('errors.go_back'))</button>
 </body>
 </html>

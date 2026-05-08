@@ -533,13 +533,24 @@
 }
 
 .follow-btn:not(.following) {
-    background: var(--twitter-blue);
+    background: var(--primary, #1da1f2);
     color: white;
+    border: 1px solid var(--primary, #1da1f2);
 }
 
 .follow-btn.following {
-    background: var(--twitter-blue);
-    color: white;
+    background: transparent;
+    color: var(--primary, #1da1f2);
+    border: 1px solid var(--primary, #1da1f2);
+}
+
+.follow-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.follow-btn:active {
+    transform: translateY(0);
 }
 
 .unblock-btn {
@@ -714,8 +725,23 @@ function exploreToggleFollow(btn, username) {
     })
     .then(r => r.json())
     .then(data => {
-        // Force reload immediately
-        window.location.href = window.location.href;
+        if (data.success) {
+            const isFollowing = data.is_following;
+            btn.innerHTML = isFollowing ? '{{ __('users.following') }}' : '{{ __('users.follow') }}';
+            btn.classList.toggle('following', isFollowing);
+            btn.disabled = false;
+            
+            // Update follower counter if it exists
+            const followerStat = document.querySelector(`[data-user-followers="${data.user_id}"]`);
+            if (followerStat && data.followers_count !== undefined) {
+                followerStat.textContent = data.followers_count;
+            }
+            
+            showToast(data.message, 'success');
+        } else {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     })
     .catch(() => {
         btn.innerHTML = originalText;
@@ -737,8 +763,46 @@ function exploreToggleBlock(btn, username) {
     })
     .then(r => r.json())
     .then(data => {
-        // Force reload immediately
-        window.location.href = window.location.href;
+        if (data.success) {
+            const isBlocking = data.blocking;
+            btn.innerHTML = isBlocking ? '{{ __('users.unblock') }}' : '{{ __('users.block') }}';
+            btn.classList.toggle('danger', isBlocking);
+            btn.disabled = false;
+            showToast(data.message, 'success');
+            // Update UI instead of removing the card
+            const card = btn.closest('.user-card');
+            
+            // Update follower counter
+            const followerStat = document.querySelector(`[data-user-followers="${data.user_id}"]`);
+            if (followerStat && data.followers_count !== undefined) {
+                followerStat.textContent = data.followers_count;
+            }
+
+            if (isBlocking) {
+                btn.className = 'btn unblock-btn';
+                const followBtn = card.querySelector('.follow-btn');
+                if (followBtn) followBtn.style.display = 'none';
+                
+                const nameHeader = card.querySelector('.user-name');
+                if (nameHeader && !nameHeader.querySelector('.blocked-by-you')) {
+                    nameHeader.insertAdjacentHTML('beforeend', '<span class="block-indicator blocked-by-you"><i class="fas fa-ban"></i> {{ __('users.blocked') }}</span>');
+                }
+            } else {
+                btn.className = 'btn block-btn';
+                const followBtn = card.querySelector('.follow-btn');
+                if (followBtn) {
+                    followBtn.style.display = 'block';
+                    followBtn.innerHTML = '{{ __('users.follow') }}';
+                    followBtn.classList.remove('following');
+                }
+                
+                const indicator = card.querySelector('.blocked-by-you');
+                if (indicator) indicator.remove();
+            }
+        } else {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     })
     .catch(() => {
         btn.innerHTML = originalText;

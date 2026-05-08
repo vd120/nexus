@@ -14,6 +14,10 @@
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
+        <style>
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            #app { animation: fadeIn 0.3s ease-out forwards; }
+        </style>
     </head>
     <body class="font-sans antialiased">
         @inertia

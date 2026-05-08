@@ -17,7 +17,7 @@ class ForceHttps
     {
         // Force HTTPS in production or if APP_FORCE_HTTPS is set
         // Skip HTTPS enforcement in local development
-        if (!$request->secure() && (app()->environment('production') || env('APP_FORCE_HTTPS', false))) {
+        if (!$request->secure() && (app()->environment('production') || config('app.force_https', false))) {
             return redirect()->secure($request->getRequestUri());
         }
 

@@ -43,7 +43,7 @@
                 </div>
                 <div class="info-item">
                     <label>{{ __('messages.submitted_on') }}:</label>
-                    <span>{{ $report->created_at->format('M d, Y • h:i A') }}</span>
+                    <span>{{ $report->created_at->format('M d, Y • h:i a') }}</span>
                 </div>
                 <div class="info-item">
                     <label>{{ __('messages.last_updated') }}:</label>
@@ -62,12 +62,12 @@
         {{-- Reported Post Card --}}
         <div class="detail-card">
             <h2><i class="fas fa-newspaper"></i> {{ __('messages.reported_post') }}</h2>
-            @if($report->post)
+            @if($report->post && !$report->post->trashed())
             <div class="post-detail">
                 <div class="post-header">
-                    <img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar">
+                    <img src="{{ $report->post->author->avatar_url }}" alt="" class="avatar">
                     <div class="post-meta">
-                        <span class="author">{{ $report->post->user->username }}</span>
+                        <span class="author">{{ $report->post->author->username }}</span>
                         <span class="date">{{ $report->post->created_at->diffForHumans() }}</span>
                         @if($report->post->is_private)
                         <span class="private-badge"><i class="fas fa-lock"></i> {{ __('messages.private') }}</span>
@@ -146,7 +146,7 @@
                 @endif
                 <div class="review-timestamp">
                     <i class="fas fa-clock"></i>
-                    <span>{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i A') }}</span>
+                    <span>{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i a') }}</span>
                 </div>
                 @else
                 <div class="status-header rejected">
@@ -170,7 +170,7 @@
                 @endif
                 <div class="review-timestamp">
                     <i class="fas fa-clock"></i>
-                    <span>{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i A') }}</span>
+                    <span>{{ __('messages.reviewed_on') }} {{ $report->reviewed_at->format('M d, Y • h:i a') }}</span>
                 </div>
                 @endif
             </div>
@@ -201,7 +201,7 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/report-detail-user.css') }}">
+<link rel="stylesheet" href="{{ asset('css/report-detail-user.css') }}?v={{ time() }}">
 <script>
 function deleteReport(reportSlug) {
     if (!confirm('{{ __('messages.delete_report_confirm') }}')) {

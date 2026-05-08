@@ -32,23 +32,23 @@
     <div class="report-detail-section">
         {{-- Report Information --}}
         <div class="detail-card">
-            <h2><i class="fas fa-flag"></i> {{ __('admin.report_information') }}</h2>
+            <h2 style="color: #ffffff !important;"><i class="fas fa-flag"></i> {{ __('admin.report_information') }}</h2>
             <div class="detail-grid">
                 <div class="detail-item">
-                    <label>{{ __('admin.report_slug') }}:</label>
-                    <span class="slug-text">{{ $report->slug }}</span>
+                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.report_slug') }}:</b>
+                    <span class="slug-text" style="color: #5e60ce !important; font-family: monospace; font-weight: bold;">{{ $report->slug }}</span>
                 </div>
                 <div class="detail-item">
-                    <label>{{ __('admin.reason') }}:</label>
-                    <span class="reason-badge">{{ \App\Models\PostReport::REASONS[$report->reason] ?? $report->reason }}</span>
+                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.reason') }}:</b>
+                    <span class="reason-badge" style="background: rgba(94, 96, 206, 0.1); color: #ffffff !important; padding: 4px 12px; border-radius: 20px;">{{ \App\Models\PostReport::REASONS[$report->reason] ?? $report->reason }}</span>
                 </div>
                 <div class="detail-item">
-                    <label>{{ __('admin.reported_by') }}:</label>
-                    <span>{{ $report->created_at->format('M d, Y H:i') }}</span>
+                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.reported_by') }}:</b>
+                    <span style="color: #ffffff !important;">{{ $report->created_at->format('M d, Y h:i a') }}</span>
                 </div>
                 <div class="detail-item">
-                    <label>{{ __('admin.status') }}:</label>
-                    <span class="status-badge {{ $report->status }}">
+                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.status') }}:</b>
+                    <span class="status-badge {{ $report->status }}" style="font-weight: bold;">
                         @if($report->status === 'pending')
                             {{ __('admin.pending') }}
                         @elseif($report->status === 'accepted')
@@ -62,78 +62,58 @@
 
             @if($report->content)
             <div class="detail-section">
-                <label>{{ __('admin.additional_details') }}:</label>
-                <p class="content-text">{{ $report->content }}</p>
-            </div>
-            @endif
-
-            @if($report->reviewed_by)
-            <div class="detail-section">
-                <label>{{ __('admin.review_information') }}:</label>
-                <div class="review-info">
-                    <span><strong>{{ __('admin.reviewed_by') }}:</strong> {{ $report->reviewer->username ?? 'Unknown' }}</span>
-                    <span><strong>{{ __('admin.reviewed_at') }}:</strong> {{ $report->reviewed_at->format('M d, Y H:i') }}</span>
-                    @if($report->admin_note)
-                    <div class="admin-note">
-                        <strong>{{ __('admin.admin_note') }}:</strong>
-                        <p>{{ $report->admin_note }}</p>
-                    </div>
-                    @endif
-                </div>
+                <b style="color: #86868b !important; display: block; margin-bottom: 8px;">{{ __('admin.additional_details') }}:</b>
+                <p class="content-text" style="color: #ffffff !important; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px;">{{ $report->content }}</p>
             </div>
             @endif
         </div>
 
         {{-- Reporter Information --}}
         <div class="detail-card">
-            <h2><i class="fas fa-user"></i> {{ __('admin.reporter_information') }}</h2>
-            <div class="user-profile">
-                <img src="{{ $report->reporter->avatar_url }}" alt="" class="profile-avatar">
+            <h2 style="color: #ffffff !important;"><i class="fas fa-user"></i> {{ __('admin.reporter_information') }}</h2>
+            <div class="user-profile" style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px;">
+                <img src="{{ $report->reporter->avatar_url }}" alt="" class="profile-avatar" style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--border);">
                 <div class="profile-info">
-                    <h3>{{ $report->reporter->username }}</h3>
-                    <p>{{ $report->reporter->name }}</p>
-                    <p class="email">{{ $report->reporter->email }}</p>
-                    <div class="profile-stats">
-                        <span><strong>{{ $report->reporter->posts->count() }}</strong> {{ __('admin.posts') }}</span>
-                        <span><strong>{{ $report->reporter->followers->count() }}</strong> {{ __('admin.followers') }}</span>
-                        <span><strong>{{ $report->reporter->following->count() }}</strong> {{ __('admin.following') }}</span>
-                    </div>
+                    <h3 style="color: #ffffff !important; margin: 0;">{{ $report->reporter->username }}</h3>
+                    <p style="color: #86868b !important; margin: 2px 0;">{{ $report->reporter->name }}</p>
                 </div>
             </div>
-            <a href="{{ route('admin.users.show', $report->reporter) }}" class="btn btn-secondary btn-sm">
+            <a href="{{ route('admin.users.show', $report->reporter) }}" class="btn btn-secondary btn-sm" style="color: #ffffff !important; border-color: #444;">
                 <i class="fas fa-user-circle"></i> {{ __('admin.view_profile') }}
             </a>
         </div>
 
         {{-- Reported Post --}}
         <div class="detail-card">
-            <h2><i class="fas fa-newspaper"></i> {{ __('admin.reported_post') }}</h2>
+            <h2 style="color: #ffffff !important;"><i class="fas fa-newspaper"></i> {{ __('admin.reported_post') }}</h2>
             @if($report->post)
             <div class="post-detail">
-                <div class="post-header">
-                    <img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar">
-                    <div class="post-meta">
-                        <span class="author">{{ $report->post->user->username }}</span>
-                        <span class="date">{{ $report->post->created_at->diffForHumans() }}</span>
-                        @if($report->post->is_private)
-                        <span class="private-badge"><i class="fas fa-lock"></i> {{ __('admin.private') }}</span>
-                        @endif
+                <div class="post-header" style="display: -webkit-inline-box; -webkit-box-align: center; vertical-align: middle; gap: 12px; margin-bottom: 15px;">
+                    <img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; display: block;">
+                    <div class="post-meta" style="display: -webkit-inline-box; -webkit-box-orient: vertical; -webkit-box-pack: center; margin-left: 10px;">
+                        <b class="author" style="color: #ffffff !important; display: block; line-height: 1.2;">{{ $report->post->user->username }}</b>
+                        <span class="date" style="color: #86868b !important; font-size: 0.8rem; line-height: 1.2;">
+                            {{ $report->post->created_at->diffForHumans() }}
+                            @if($report->post->trashed())
+                                <span style="color: #ef4444; font-weight: bold; margin-left: 5px;">[{{ __('admin.suspended') }}]</span>
+                            @endif
+                        </span>
                     </div>
                 </div>
 
                 @if($report->post->content)
-                <div class="post-content">
-                    <p>{{ $report->post->content }}</p>
+                <div class="post-content" style="background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                    <p style="color: #ffffff !important; margin: 0;">{{ $report->post->content }}</p>
                 </div>
                 @endif
 
                 @if($report->post->media->count() > 0)
-                <div class="post-media">
+                <div class="post-media" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px;">
                     @foreach($report->post->media as $media)
                         @if($media->media_type === 'image')
-                            <img src="{{ asset('storage/' . $media->media_path) }}" alt="">
+                            <img src="{{ asset('storage/' . $media->media_path) }}" alt="" style="width: 100%; height: 300px; object-fit: cover; border-radius: 12px; border: 1px solid #333;">
                         @elseif($media->media_type === 'video')
-                            <video controls>
+                            <video controls style="width: 100%; height: 300px; object-fit: cover; border-radius: 12px; border: 1px solid #333;">
                                 <source src="{{ asset('storage/' . $media->media_path) }}" type="video/mp4">
                             </video>
                         @endif
@@ -141,73 +121,65 @@
                 </div>
                 @endif
 
-                <div class="post-stats">
-                    <span><i class="fas fa-heart"></i> {{ $report->post->likes->count() }} {{ __('admin.likes') }}</span>
-                    <span><i class="fas fa-comment"></i> {{ $report->post->comments->count() }} {{ __('admin.comments') }}</span>
+                <div class="post-stats" style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <span style="color: #86868b !important;"><i class="fas fa-heart" style="color: #5e60ce;"></i> {{ $report->post->likes->count() }} {{ __('admin.likes') }}</span>
+                    <span style="color: #86868b !important;"><i class="fas fa-comment" style="color: #5e60ce;"></i> {{ $report->post->comments->count() }} {{ __('admin.comments') }}</span>
                 </div>
 
-                <a href="{{ route('posts.show', $report->post->slug) }}" target="_blank" class="btn btn-secondary btn-sm">
+                <a href="{{ route('posts.show', $report->post->slug) }}" target="_blank" class="btn btn-secondary btn-sm" style="color: #ffffff !important; border-color: #444;">
                     <i class="fas fa-external-link-alt"></i> {{ __('admin.view_post') }}
                 </a>
-            </div>
-            @else
-            <div class="status-message rejected">
-                <i class="fas fa-trash-alt"></i>
-                <h3>{{ __('admin.post_deleted') }}</h3>
-                <p>{{ __('admin.post_no_longer_available') }}</p>
             </div>
             @endif
         </div>
 
         {{-- Action Section (only for pending reports) --}}
         @if($report->isPending() && $report->post)
-        <div class="detail-card action-card">
-            <h2><i class="fas fa-gavel"></i> {{ __('admin.take_action_on_report') }}</h2>
+        <div class="detail-card action-card" style="border: 2px solid #5e60ce !important;">
+            <h2 style="color: #ffffff !important;"><i class="fas fa-gavel"></i> {{ __('admin.take_action_on_report') }}</h2>
 
-            <form method="POST" action="{{ route('admin.reports.accept', $report) }}" class="action-form" id="accept-form">
+            <form method="POST" action="{{ route('admin.reports.accept', $report) }}" class="action-form">
                 @csrf
-                <input type="hidden" name="action" value="delete" id="action-input">
-
                 <div class="action-options">
-                    <h3>{{ __('admin.select_action') }}:</h3>
-                    <div class="option-group">
+                    <h3 style="color: #ffffff !important; font-size: 1rem; margin-bottom: 15px;">{{ __('admin.select_action') }}:</h3>
+                    <div class="option-group" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                         <label class="option-card">
                             <input type="radio" name="action" value="delete" checked>
                             <div class="option-content">
-                                <i class="fas fa-trash"></i>
-                                <span>{{ __('admin.delete_post') }}</span>
-                                <small>{{ __('admin.delete_post_description') }}</small>
+                                <i class="fas fa-trash" style="font-size: 24px; margin-bottom: 8px;"></i>
+                                <b style="color: #ffffff !important; display: block;">{{ __('admin.delete_post') }}</b>
+                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.delete_post_description') }}</small>
                             </div>
                         </label>
                         <label class="option-card">
                             <input type="radio" name="action" value="hide">
                             <div class="option-content">
-                                <i class="fas fa-eye-slash"></i>
-                                <span>{{ __('admin.hide_post') }}</span>
-                                <small>{{ __('admin.hide_post_description') }}</small>
+                                <i class="fas fa-eye-slash" style="font-size: 24px; margin-bottom: 8px;"></i>
+                                <b style="color: #ffffff !important; display: block;">{{ __('admin.hide_post') }}</b>
+                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.hide_post_description') }}</small>
                             </div>
                         </label>
                         <label class="option-card">
                             <input type="radio" name="action" value="warning">
                             <div class="option-content">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>{{ __('admin.issue_warning') }}</span>
-                                <small>{{ __('admin.issue_warning_description') }}</small>
+                                <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 8px;"></i>
+                                <b style="color: #ffffff !important; display: block;">{{ __('admin.issue_warning') }}</b>
+                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.issue_warning_description') }}</small>
                             </div>
                         </label>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="admin_note_accept">{{ __('admin.admin_note') }}:</label>
-                    <textarea name="admin_note" id="admin_note_accept" rows="3" placeholder="{{ __('admin.admin_note_placeholder') }}"></textarea>
+                <div class="form-group" style="margin-top: 20px;">
+                    <b style="color: #ffffff !important; display: block; margin-bottom: 8px;">{{ __('admin.admin_note') }}:</b>
+                    <textarea name="admin_note" rows="3" style="background: rgba(255, 255, 255, 0.05); color: #ffffff !important; border: 1px solid #444; width: 100%; border-radius: 8px; padding: 10px;" placeholder="{{ __('admin.admin_note_placeholder') }}"></textarea>
                 </div>
 
-                <div class="action-buttons">
-                    <button type="submit" class="btn btn-success" onclick="document.getElementById('action-input').value = document.querySelector('input[name=\'action\']:checked').value">
+                <div class="action-buttons" style="margin-top: 20px; display: flex; gap: 15px;">
+                    <button type="submit" class="btn btn-success" style="background: #22c55e !important; color: #fff !important; font-weight: bold; padding: 10px 20px;">
                         <i class="fas fa-check"></i> {{ __('admin.accept_report_and_take_action') }}
                     </button>
-                    <button type="button" class="btn btn-danger" onclick="document.getElementById('reject-form').classList.toggle('hidden')">
+                    <button type="button" class="btn btn-danger" style="background: #ef4444 !important; color: #fff !important; font-weight: bold; padding: 10px 20px;" onclick="document.getElementById('reject-form').classList.toggle('hidden')">
                         <i class="fas fa-times"></i> {{ __('admin.reject_report') }}
                     </button>
                 </div>

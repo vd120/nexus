@@ -71,21 +71,15 @@ class SetLocale
             $locale = $request->route('locale');
             if ($this->isValidLocale($locale)) {
                 Session::put('locale', $locale);
-                
-                // If user is authenticated, save to database
-                if (auth()->check()) {
-                    auth()->user()->update(['language' => $locale]);
-                }
-                
                 return $locale;
             }
         }
-        
-        // 2. Check cookie (available before session - important for error pages!)
-        if ($request->cookie('locale')) {
-            $locale = $request->cookie('locale');
+
+        // 2. HIGHEST PRIORITY: Check authenticated user's preference in DB
+        // This ensures Octane workers stay in sync even if sessions drift
+        if (auth()->check() && auth()->user()->language) {
+            $locale = auth()->user()->language;
             if ($this->isValidLocale($locale)) {
-                Session::put('locale', $locale);
                 return $locale;
             }
         }
@@ -97,12 +91,11 @@ class SetLocale
                 return $locale;
             }
         }
-        
-        // 4. Check authenticated user's preference
-        if (auth()->check() && auth()->user()->language) {
-            $locale = auth()->user()->language;
+
+        // 4. Check cookie
+        if ($request->cookie('locale')) {
+            $locale = $request->cookie('locale');
             if ($this->isValidLocale($locale)) {
-                Session::put('locale', $locale);
                 return $locale;
             }
         }
@@ -110,7 +103,6 @@ class SetLocale
         // 5. Check browser's preferred language
         $preferredLanguage = $request->getPreferredLanguage(self::SUPPORTED_LOCALES);
         if ($preferredLanguage && $this->isValidLocale($preferredLanguage)) {
-            Session::put('locale', $preferredLanguage);
             return $preferredLanguage;
         }
         

@@ -2,16 +2,32 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class Group extends Model
 {
-    protected $fillable = ['name', 'description', 'creator_id', 'avatar', 'is_private', 'slug', 'invite_link'];
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'description',
+        'creator_id',
+        'avatar',
+        'is_private',
+        'slug',
+        'invite_link',
+    ];
 
     protected $casts = [
         'is_private' => 'boolean',
     ];
+
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
 
     protected static function boot()
     {
@@ -19,20 +35,12 @@ class Group extends Model
 
         static::creating(function ($group) {
             if (empty($group->slug)) {
-                $group->slug = Str::random(20);
+                $group->slug = Str::slug($group->name) . '-' . Str::random(5);
             }
             if (empty($group->invite_link)) {
-                $group->invite_link = Str::random(24);
+                $group->invite_link = Str::random(32);
             }
         });
-    }
-
-    /**
-     * Get the route key for the model.
-     */
-    public function getRouteKeyName()
-    {
-        return 'slug';
     }
 
     public function creator()
@@ -45,78 +53,30 @@ class Group extends Model
         return $this->hasMany(GroupMember::class);
     }
 
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'group_members')
+            ->withPivot('role', 'joined_at')
+            ->withTimestamps();
+    }
+
     public function conversation()
     {
-        return $this->hasOne(Conversation::class);
+        return $this->hasOne(Conversation::class, 'group_id')->where('is_group', true);
     }
 
-    public function admins()
-    {
-        return $this->members()->where('role', 'admin');
-    }
-
-    public function regularMembers()
-    {
-        return $this->members()->where('role', 'member');
-    }
-
-    public function hasMember(User $user): bool
+    public function isMember(User $user)
     {
         return $this->members()->where('user_id', $user->id)->exists();
     }
 
-    public function isAdmin(User $user): bool
+    public function isAdmin(User $user)
     {
         return $this->members()->where('user_id', $user->id)->where('role', 'admin')->exists();
     }
 
-    public function addMember(User $user, string $role = 'member'): GroupMember
+    public function hasMember(User $user)
     {
-        return GroupMember::create([
-            'group_id' => $this->id,
-            'user_id' => $user->id,
-            'role' => $role,
-        ]);
-    }
-
-    public function removeMember(User $user): bool
-    {
-        return $this->members()->where('user_id', $user->id)->delete() > 0;
-    }
-
-    public static function createGroup(array $data, User $creator): self
-    {
-        $group = static::create([
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-            'creator_id' => $creator->id,
-            'avatar' => $data['avatar'] ?? null,
-            'is_private' => $data['is_private'] ?? false,
-        ]);
-
-        // Add creator as admin
-        $group->addMember($creator, 'admin');
-
-        // Create conversation for the group
-        Conversation::create([
-            'user1_id' => $creator->id,
-            'is_group' => true,
-            'group_id' => $group->id,
-            'name' => $group->name,
-            'avatar' => $group->avatar,
-            'slug' => Str::random(24),
-        ]);
-
-        return $group;
-    }
-
-    public function getAvatarUrlAttribute(): string
-    {
-        if ($this->avatar) {
-            return asset('storage/' . $this->avatar);
-        }
-        
-        // Return default group avatar
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=25d366&color=fff&size=200';
+        return $this->isMember($user);
     }
 }

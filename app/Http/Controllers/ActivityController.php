@@ -158,51 +158,35 @@ class ActivityController extends Controller
     /**
      * Terminate a specific session (logout from specific device)
      */
-    public function terminateSession($id)
+    public function terminateSession($sessionId)
     {
         $user = auth()->user();
         $currentSessionId = request()->session()->getId();
-
-        // Get the activity log entry - $id is the activity_log.id from the route
-        $activity = ActivityLog::where('id', $id)
-            ->where('user_id', $user->id)
-            ->where('action', 'login')
-            ->first();
-
-        if (!$activity) {
-            return redirect()->back()->with('error', __('activity.session_not_found'));
-        }
-
-        // Get the actual session ID from the activity log
-        $sessionId = $activity->session_id;
-
-        if (!$sessionId) {
-            return redirect()->back()->with('error', __('activity.session_not_found'));
-        }
 
         // SAFETY: Don't allow terminating current session
         if ($sessionId === $currentSessionId) {
             return redirect()->back()->with('error', __('activity.cannot_terminate_current_session'));
         }
 
-        // SAFETY: Don't allow terminating if this is a recent login (within 1 minute)
-        if ($activity->logged_at->diffInMinutes(now()) < 1) {
-            return redirect()->back()->with('error', __('activity.cannot_terminate_recent_session'));
+        // Check if session exists and belongs to this user
+        $session = \DB::table('sessions')
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$session) {
+            return redirect()->back()->with('error', __('activity.session_not_found'));
         }
 
-        // Check if session still exists
-        $sessionExists = \DB::table('sessions')->where('id', $sessionId)->exists();
-        if (!$sessionExists) {
-            // Session already terminated/deleted
-            return redirect()->back()->with('info', __('activity.session_no_longer_active'));
-        }
-
-        // TERMINATE BY SESSION ID from activity_log.session_id
-        $deleted = \DB::table('sessions')->where('id', $sessionId)->delete();
+        // TERMINATE BY SESSION ID directly from sessions table
+        $deleted = \DB::table('sessions')
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->delete();
 
         if ($deleted > 0) {
-            // Log the termination
-            $this->activityService->logActivity('session_terminate_attempt', $user->id);
+            // Log the termination attempt
+            $this->activityService->logActivity('session_terminated', $user->id);
             return redirect()->back()->with('success', __('activity.session_terminated'));
         }
 

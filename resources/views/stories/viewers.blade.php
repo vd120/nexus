@@ -40,7 +40,9 @@
                     <div class="viewer-info">
                         <a href="{{ route('users.show', $viewer['user']) }}" class="viewer-name">{{ $viewer['user']->username }}</a>
                         @if($viewer['reaction'])
-                            <span class="viewer-reaction">{{ __('messages.reaction') }}: {{ $viewer['reaction'] }}</span>
+                            <span class="viewer-reaction">
+                                {{ __('messages.reaction') }}: {{ $viewer['reaction'] }}
+                            </span>
                         @endif
                         @if($viewer['user']->profile && $viewer['user']->profile->bio)
                             <span class="viewer-bio">{{ Str::limit($viewer['user']->profile->bio, 40) }}</span>
