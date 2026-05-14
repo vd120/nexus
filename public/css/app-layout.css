@@ -128,6 +128,8 @@ body {
     background: var(--bg);
     min-height: 100vh;
     overflow-x: hidden;
+    /* Eliminate touch delay on mobile */
+    touch-action: manipulation;
 }
 
 /* ============================================
@@ -357,20 +359,21 @@ html[lang="ar"] .lang-slide-bg {
     transition: opacity 0.3s ease;
 }
 
-.logo-dark {
-    display: block;
+/* Logo Visibility Logic - Unified for all views */
+.logo-dark, .logo-black, .logo-white, .logo-light {
+    display: none !important;
 }
 
-.logo-light {
-    display: none;
+/* Dark Theme: Show White Logos */
+html[data-theme="dark"] .logo-white,
+[data-theme="dark"] .logo-white {
+    display: block !important;
 }
 
-[data-theme="light"] .logo-dark {
-    display: none;
-}
-
-[data-theme="light"] .logo-light {
-    display: block;
+/* Light Theme (or default): Show Black Logos */
+html:not([data-theme="dark"]) .logo-black,
+[data-theme="light"] .logo-black {
+    display: block !important;
 }
 
 .nav-links {
@@ -2522,4 +2525,22 @@ html[dir="rtl"] .menu-pill-label {
 html[dir="rtl"] .dropdown-menu .language-switcher-pill,
 html[dir="rtl"] .dropdown-menu .theme-switcher-pill {
     transform-origin: right center;
+}
+
+/* --- ANDROID TURBO ENGINE --- */
+* {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; /* Globally optimize for tap speed */
+}
+
+/* Optimized Feed Performance */
+.post-card, .feed-item, .card {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 500px;
+    will-change: transform;
+}
+
+/* Hardware accelerated buttons */
+button, a, .btn {
+    will-change: opacity, transform;
 }

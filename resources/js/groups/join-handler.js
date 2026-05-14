@@ -1,4 +1,15 @@
-document.addEventListener('DOMContentLoaded', function() {
+// Self-healing runOnPageLoad for standalone usage
+if (!window.runOnPageLoad) {
+    window.runOnPageLoad = function(cb) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', cb);
+        } else {
+            setTimeout(cb, 0);
+        }
+    };
+}
+
+window.runOnPageLoad(function() {
     const agreeRulesCheckbox = document.getElementById('agree-rules');
     const rulesNextBtn = document.getElementById('rules-next-btn');
 

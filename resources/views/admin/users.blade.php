@@ -128,7 +128,7 @@
 <script>
 let searchTimeout;
 
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const searchInput = document.getElementById('search-input');
     const filterSelect = document.getElementById('filter-select');
     

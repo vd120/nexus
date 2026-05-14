@@ -14,18 +14,24 @@ class EmailVerificationNotificationController extends Controller
     public function store(Request $request)
     {
         if ($request->user()->hasVerifiedEmail() && !session('auth.suspicious')) {
-            // User is already verified, check if they need to set password
             if ($request->user()->password === null) {
                 return redirect()->route('password.set-password')->with('message', __('messages.please_set_password'));
             }
             return back()->with('already_verified', __('messages.email_already_verified'));
         }
 
-        // Generate and send new verification code
         $verificationCode = $request->user()->generateVerificationCode();
-
-        // Send verification code via email using the professional template
-        \Illuminate\Support\Facades\Mail::to($request->user()->email)->send(new \App\Mail\VerificationCodeMail($request->user(), $verificationCode));
+        
+        \Log::info('Resending verification code to ' . $request->user()->email);
+        try {
+            \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $verificationCode], function ($message) use ($request) {
+                $message->to($request->user()->email)
+                        ->subject(config('app.name') . ' - Verification Code');
+            });
+            \Log::info('Resending: Email sent successfully to ' . $request->user()->email);
+        } catch (\Exception $e) {
+            \Log::error('Resending: Failed to send verification email to ' . $request->user()->email . '. Error: ' . $e->getMessage());
+        }
 
         return back()->with('message', __('messages.verification_code_sent'));
     }
@@ -41,20 +47,15 @@ class EmailVerificationNotificationController extends Controller
 
         $user = $request->user();
 
-        if (!$user) {
-            return redirect()->route('login')->withErrors(['code' => __('errors.user_not_found')]);
-        }
+        if ($user && $user->verifyCode($request->code)) {
+            session()->forget('auth.suspicious');
+            $request->session()->regenerate();
 
-        if ($user->verifyCode($request->code)) {
-            // Log the user in
-            Auth::login($user);
-
-            // If user has no password (Google OAuth), redirect to set password page
             if ($user->password === null) {
                 return redirect()->route('password.set-password')->with('message', __('messages.please_set_password'));
             }
 
-            return redirect('/')->with('message', __('messages.email_verified_success'));
+            return redirect()->intended('/')->with('message', __('messages.email_verified_success'));
         }
 
         return back()->withErrors(['code' => __('auth.invalid_verification_code')]);

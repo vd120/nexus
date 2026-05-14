@@ -364,8 +364,32 @@ html[lang="ar"] .lang-slide-bg { left: 43px !important; }
 .login-sub{
     font-size:16px;
     color:var(--text-muted);
-    margin-bottom:30px;
+    margin-bottom:20px;
     line-height:1.5;
+}
+
+.verification-warning {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255, 214, 10, 0.08);
+    border: 1px solid rgba(255, 214, 10, 0.15);
+    border-radius: 12px;
+    color: var(--warning);
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+html[lang="ar"] .verification-warning {
+    text-align: right;
+}
+
+.verification-warning i {
+    font-size: 14px;
+    flex-shrink: 0;
 }
 
 /* auth icon */

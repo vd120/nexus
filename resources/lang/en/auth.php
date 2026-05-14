@@ -76,6 +76,7 @@ return [
     // Verify Email
     'verify_email_title' => 'Verify Your Email',
     'verify_email_subtitle' => 'Please enter the verification code sent to your email address to verify your account.',
+    'verify_email_warning' => 'Important: Unverified accounts are automatically deleted after 5 minutes for security.',
     'send_verification_code' => 'Send Verification Code',
     'verify_email_button' => 'Verify Email',
     'didnt_receive_code' => "Didn't receive the code?",
@@ -135,4 +136,22 @@ return [
     'page_expired_message' => 'Your session has expired. Please refresh the page and try again.',
     'go_back' => 'Go Back',
     'refresh_page' => 'Refresh Page',
+
+    // Security / Concurrent Login Handover
+    'security_alert' => 'Security Alert',
+    'new_login_detected' => 'A new login attempt was detected.',
+    'device' => 'Device',
+    'ip_address' => 'IP Address',
+    'security_warning' => 'Approving this request will allow the new device to access your account simultaneously.',
+    'deny' => 'Reject Attempt',
+    'approve_handover' => 'Grant Access',
+    'waiting_for_approval' => 'Waiting for approval',
+    'approval_required' => 'Approval Required',
+    'approve_this_login' => 'Approve this Login',
+    'challenge_sent_message' => 'We\'ve sent a request to your active session on <strong>:device</strong>. Please check your other device to continue.',
+    'cancel_and_go_back' => 'Cancel and go back',
+    'no_access_device_help' => 'If you don\'t have access to your other device, you can use your recovery email.',
+    'send_code_to_email' => 'Send code to email',
+    'verify_with_email_code' => 'Verify with email code',
+    'verify' => 'Verify',
 ];

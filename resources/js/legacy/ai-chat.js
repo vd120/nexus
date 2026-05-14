@@ -2,8 +2,19 @@
 
 (function() {
     'use strict';
+    
+    // Self-healing runOnPageLoad for standalone usage
+    if (!window.runOnPageLoad) {
+        window.runOnPageLoad = function(cb) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', cb);
+            } else {
+                setTimeout(cb, 0);
+            }
+        };
+    }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad(function() {
         const chatContainer = document.getElementById('chatContainer');
         const chatInput = document.getElementById('chatInputNative');
         const sendBtn = document.getElementById('sendBtn');

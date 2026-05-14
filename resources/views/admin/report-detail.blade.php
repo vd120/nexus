@@ -247,7 +247,7 @@
 <link rel="stylesheet" href="{{ asset('css/admin-reports.css') }}">
 <script>
 // Add click handlers for option cards to improve selection visibility
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const optionCards = document.querySelectorAll('.option-card');
     
     optionCards.forEach(card => {

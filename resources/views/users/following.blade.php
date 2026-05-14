@@ -168,7 +168,7 @@ function followingPageToggleFollow(btn, username) {
 
 // Show success message toast if exists
 @if(session('success'))
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     showToast({!! json_encode(session('success')) !!}, 'success');
 });
 @endif

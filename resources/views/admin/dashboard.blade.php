@@ -318,6 +318,6 @@ function initAdminUsernameCheck() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', initAdminUsernameCheck);
+window.runOnPageLoad( initAdminUsernameCheck);
 </script>
 @endsection

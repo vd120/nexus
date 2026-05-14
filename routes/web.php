@@ -15,6 +15,7 @@ use App\Http\Controllers\GlobalChatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Http\Request;
 
 // Define rate limiters for production
 RateLimiter::for('auth', function ($request) {
@@ -30,12 +31,16 @@ RateLimiter::for('comments', function ($request) {
 });
 
 RateLimiter::for('verification', function ($request) {
-    return Limit::perHour(3)->by($request->user()?->id ?: $request->ip())
-        ->response(function ($message, $headers) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Too many verification attempts. Please try again in an hour.',
-            ], 429, $headers);
+    return Limit::perHour(10)->by($request->user()?->id ?: $request->ip())
+        ->response(function (Request $request, array $headers) {
+            $message = 'Too many verification attempts. Please try again in an hour.';
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 429, $headers);
+            }
+            return back()->withErrors(['code' => $message])->withInput();
         });
 });
 
@@ -51,18 +56,40 @@ Route::get('/dashboard', function () {
 // Language switch route (placed early to avoid conflicts)
 Route::get('/lang/{locale}', [LanguageController::class, 'switch'])->name('language.switch')->middleware('web');
 
+Route::get('/privacy', function () {
+    return view('privacy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return view('terms');
+})->name('terms');
+
+Route::get('/cookies', function () {
+    return view('cookies');
+})->name('cookies');
+
 Route::middleware('guest')->group(function () {
     Route::get('login', function () {
+        // Aggressive cleanup for unverified users
+        \App\Models\User::whereNull('email_verified_at')
+            ->where('created_at', '<', now()->subMinutes(10))
+            ->delete();
+            
         return view('auth.login');
     })->name('login.view');
 
     Route::post('login', [LoginController::class, 'store'])->name('login')->middleware('throttle:auth');
-
+    
     Route::get('suspended', function () {
         return view('auth.suspended');
     })->name('auth.suspended');
 
     Route::get('register', function () {
+        // Aggressive cleanup for unverified users
+        \App\Models\User::whereNull('email_verified_at')
+            ->where('created_at', '<', now()->subMinutes(10))
+            ->delete();
+            
         return view('auth.register');
     })->name('register.view');
 
@@ -73,21 +100,29 @@ Route::middleware('guest')->group(function () {
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
     Route::post('reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
-
-    // Google OAuth Routes
-    Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('login.google');
-    Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
 });
 
+// Login Challenge Routes (Publicly accessible to allow session overrides)
+Route::get('login/challenge/{uuid}', [LoginController::class, 'challengeView'])->name('login.challenge');
+Route::get('login/challenge/{uuid}/status', [LoginController::class, 'challengeStatus'])->name('login.challenge.status');
+Route::post('login/challenge/{uuid}/email', [LoginController::class, 'sendEmailChallenge'])->name('login.challenge.email');
+Route::post('login/challenge/{uuid}/verify', [LoginController::class, 'verifyEmailChallenge'])->name('login.challenge.verify');
+
+// Google OAuth Routes (Out of guest to allow session flushing)
+Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('login.google');
+Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
+
+
+
 Route::middleware(['auth', 'suspended'])->group(function () {
-    Route::post('logout', function () {
-        auth()->logout();
-        return redirect('/');
-    })->name('logout');
+    Route::post('logout', [LoginController::class, 'logout'])->name('logout');
+
+    // Login Challenge Routes (Authenticated side - Approver)
+    Route::post('login/challenge/{uuid}/approve', [LoginController::class, 'approveChallenge'])->name('login.challenge.approve');
+    Route::post('login/challenge/{uuid}/deny', [LoginController::class, 'denyChallenge'])->name('login.challenge.deny');
 });
 
 // Email verification routes (6-digit code system)
-use Illuminate\Http\Request;
 
 Route::get('/email/verify', function () {
     // Allow access for both logged-in users and users with pending verification
@@ -203,9 +238,11 @@ Route::post('/email/verify-code', function (Request $request) {
 
         // If user has no password (Google OAuth), redirect to set password page
         if ($user->password === null) {
+            session()->save();
             return redirect()->route('password.set-password')->with('message', __('messages.please_set_password'));
         }
 
+        session()->save();
         return redirect('/')->with('message', __('messages.email_verified_success'));
     }
 
@@ -213,31 +250,30 @@ Route::post('/email/verify-code', function (Request $request) {
 })->middleware('throttle:verification')->name('verification.verify-code');
 
 Route::get('/', function () {
+    $isAuthed = auth()->check();
+
     // If user is not authenticated, show the landing page
-    if (!auth()->check()) {
+    if (!$isAuthed) {
         return view('home');
     }
 
     $user = auth()->user();
 
-    // Log for debugging
-    \Log::info('Home route access - User ID: ' . $user->id . ', email: ' . $user->email . ', email_verified_at: ' . ($user->email_verified_at ?? 'null') . ', is_admin: ' . ($user->is_admin ? 'true' : 'false'));
-
     // If authenticated and not verified (or suspicious login), show verification notice
-    if (!$user->hasVerifiedEmail() || session('auth.suspicious')) {
-        \Log::info('Redirecting user to verification page (unverified or suspicious)');
+    if (!$user->hasVerifiedEmail() || (session('auth.suspicious') && !$user->is_admin)) {
         return redirect()->route('verification.notice');
     }
 
     // If user has no password (Google OAuth), redirect to set password page
     if ($user->password === null) {
-        \Log::info('Redirecting user without password to set password page');
         return redirect()->route('password.set-password')->with('message', __('messages.please_set_password'));
     }
 
     // Show posts feed for authenticated and verified users
     return app(\App\Http\Controllers\PostController::class)->index(request());
 })->name('home');
+
+
 
 // Test route for debugging
 Route::get('/user/test-route', function() {

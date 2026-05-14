@@ -5,7 +5,7 @@
 @section('content')
 @if(session('success'))
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        window.runOnPageLoad( function() {
             showToast('{{ session('success') }}', 'success');
         });
     </script>

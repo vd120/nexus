@@ -30,8 +30,8 @@
 <nav>
     <div class="nav-container">
         <a href="{{ route('home') }}" class="nav-brand">
-            <img src="{{ asset('images/btman-white.png') }}" alt="Nexus" class="logo-dark">
-            <img src="{{ asset('images/btman-black.png') }}" alt="Nexus" class="logo-light">
+            <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-dark">
+            <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-light">
         </a>
         <div class="auth-header-actions">
             @include('partials.language-switcher')

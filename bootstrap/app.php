@@ -20,6 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
         __DIR__.'/../app/Listeners',
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        // Global middleware - prepend ensures environment is sanitized early
+        $middleware->prepend([
+            \App\Http\Middleware\ForceHttps::class,
+            \App\Http\Middleware\TrustCloudflare::class,
+        ]);
+
+
         $middleware->web(append: [
             \App\Http\Middleware\CompressionMiddleware::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
@@ -28,11 +35,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Trust proxies for proper header handling (Cloudflare, etc.)
         $middleware->trustProxies(at: '*');
-
-        // Trust Cloudflare IPs and use their headers
-        $middleware->web(append: [
-            \App\Http\Middleware\TrustCloudflare::class,
-        ]);
 
         // Set locale for multilingual support
         $middleware->web(append: [
@@ -44,13 +46,17 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\LogRealTimeRequests::class,
         ]);
 
-        // Force HTTPS to prevent browser security warnings
-        $middleware->web(append: [
-            \App\Http\Middleware\ForceHttps::class,
+        // Enable Sanctum's stateful API authentication for sessions
+        // $middleware->statefulApi();
+
+        // Except session cookies from encryption for handover compatibility
+        $middleware->validateCsrfTokens(except: [
+            // No exceptions needed for standard web flow
         ]);
 
-        // Enable Sanctum's stateful API authentication for sessions
-        $middleware->statefulApi();
+        $middleware->encryptCookies(except: [
+            // Standard encryption for all cookies
+        ]);
 
         // Admin middleware alias
         $middleware->alias([

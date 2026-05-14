@@ -413,7 +413,7 @@ function toggleView(view) {
 }
 
 // Load saved preference on page load
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const savedView = localStorage.getItem('activityView') || 'list';
     toggleView(savedView);
 });

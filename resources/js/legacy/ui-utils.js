@@ -2,6 +2,18 @@
 
 (function() {
     'use strict';
+    
+    // Global helper for page initialization (replacing livewire:navigated/DOMContentLoaded combo)
+    if (!window.runOnPageLoad) {
+        window.runOnPageLoad = function(callback) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback);
+            } else {
+                // If DOM is already ready, run it immediately (but asynchronously to be consistent)
+                setTimeout(callback, 0);
+            }
+        };
+    }
 
     // Theme toggle
     // Theme toggle
@@ -47,7 +59,7 @@
     };
 
     // Initialize Switchers (Pills) on page load
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad(function() {
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         const currentLocale = document.documentElement.lang || 'en';
 

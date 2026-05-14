@@ -78,6 +78,7 @@ return [
     // Verify Email
     'verify_email_title' => 'تأكيد الإيميل',
     'verify_email_subtitle' => 'اكتب كود التحقق اللي اتبعت على الإيميل عشان نأكد حسابك.',
+    'verify_email_warning' => 'هام: الحسابات غير المؤكدة بتتحذف تلقائياً بعد 5 دقايق لدواعي أمنية.',
     'send_verification_code' => 'إرسال كود التحقق',
     'verify_email_button' => 'تأكيد الإيميل',
     'didnt_receive_code' => 'موصلكش الكود؟',
@@ -137,4 +138,22 @@ return [
     'page_expired_message' => 'الجلسة انتهت. حدّث الصفحة وحاول تاني.',
     'go_back' => 'رجوع',
     'refresh_page' => 'تحديث الصفحة',
+
+    // Security / Concurrent Login Handover
+    'security_alert' => 'تنبيه أمني',
+    'new_login_detected' => 'تم اكتشاف محاولة تسجيل دخول جديدة.',
+    'device' => 'الجهاز',
+    'ip_address' => 'عنوان IP',
+    'security_warning' => 'الموافقة على هذا الطلب ستسمح للجهاز الجديد بالوصول إلى حسابك في نفس الوقت.',
+    'deny' => 'رفض المحاولة',
+    'approve_handover' => 'منح الوصول',
+    'waiting_for_approval' => 'في انتظار الموافقة',
+    'approval_required' => 'الموافقة مطلوبة',
+    'approve_this_login' => 'وافق على تسجيل الدخول ده',
+    'challenge_sent_message' => 'بعتنا طلب للجلسة النشطة بتاعتك على جهاز <strong>:device</strong>. من فضلك شيك على جهازك التاني عشان تكمل.',
+    'cancel_and_go_back' => 'إلغاء والرجوع',
+    'no_access_device_help' => 'لو مش عارف توصل لجهازك التاني، تقدر تستخدم إيميل الاسترداد.',
+    'send_code_to_email' => 'إرسال الكود للإيميل',
+    'verify_with_email_code' => 'التأكد بكود الإيميل',
+    'verify' => 'تأكيد',
 ];

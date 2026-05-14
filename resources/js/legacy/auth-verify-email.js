@@ -2,6 +2,17 @@
 
 (function() {
     'use strict';
+    
+    // Self-healing runOnPageLoad for standalone usage
+    if (!window.runOnPageLoad) {
+        window.runOnPageLoad = function(cb) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', cb);
+            } else {
+                setTimeout(cb, 0);
+            }
+        };
+    }
 
 
 
@@ -69,7 +80,7 @@
 
 
     // Code input auto-focus and combine logic
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad(function() {
         const codeInputs = document.querySelectorAll('.code-input');
         const fullCodeInput = document.getElementById('fullCode');
         const verifyForm = document.getElementById('verifyForm');

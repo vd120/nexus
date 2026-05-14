@@ -5,6 +5,7 @@ class SocketManager {
         this.config = window.SOCKET_CONFIG || {};
         this.socket = null;
         this.status = 'DISCONNECTED';
+        this.lastStatus = 'DISCONNECTED';
         this.processedMessages = new Set();
         this.notifiedPostSlugs = new Set();
         
@@ -519,6 +520,120 @@ class SocketManager {
             }
         });
 
+        // Security Challenge listener (Concurrent Login Approval)
+        this.socket.on('security:challenge', (data) => {
+            // If this challenge was triggered BY this session, don't show it here
+            if (data.except_session && data.except_session === this.config.sessionId) {
+                console.log('[SocketManager] Ignoring security challenge from current session');
+                return;
+            }
+
+            window.currentSecurityChallenge = data.uuid;
+            
+            const modal = document.getElementById('security-challenge-modal');
+            const deviceSpan = document.getElementById('security-device-name');
+            const ipSpan = document.getElementById('security-ip');
+            
+            if (modal && deviceSpan && ipSpan) {
+                deviceSpan.textContent = data.device || 'Unknown Device';
+                ipSpan.textContent = data.ip || 'Unknown IP';
+                
+                modal.classList.add('show');
+                
+                // Play a subtle alert sound if possible
+                try {
+                    const audio = new Audio('/sounds/security-alert.mp3');
+                    audio.play().catch(() => {});
+                } catch(e) {}
+            }
+        });
+        
+        // Security Approval listener (to close the modal on other devices)
+        this.socket.on('security:approved', (data) => {
+            const modal = document.getElementById('security-challenge-modal');
+            if (modal && window.currentSecurityChallenge === data.uuid) {
+                modal.classList.remove('show');
+                window.currentSecurityChallenge = null;
+                if (window.showToast) {
+                    window.showToast('Login was approved from another device.', 'success');
+                }
+            }
+        });
+
+        // Security Denial listener
+        this.socket.on('security:denied', (data) => {
+            const modal = document.getElementById('security-challenge-modal');
+            if (modal && window.currentSecurityChallenge === data.uuid) {
+                modal.classList.remove('show');
+                window.currentSecurityChallenge = null;
+            }
+        });
+
+        // Global functions for the security modal
+        window.approveSecurityChallenge = () => {
+            const uuid = window.currentSecurityChallenge;
+            if (!uuid) return;
+            
+            const btn = document.getElementById('approve-security-btn');
+            const modal = document.getElementById('security-challenge-modal');
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authorizing...';
+            }
+            
+            fetch(`/login/challenge/${uuid}/approve`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (modal) modal.classList.remove('show');
+                    if (window.showToast) {
+                        window.showToast('Access Granted to new device!', 'success');
+                    } else {
+                        alert('Access Granted!');
+                    }
+                    window.currentSecurityChallenge = null;
+                } else {
+                    alert(data.message || 'Approval failed.');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-check-circle"></i> Grant Access';
+                    }
+                }
+            })
+            .catch(() => {
+                alert('Connection error. Please try again.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Grant Access';
+                }
+            });
+        };
+
+        window.denySecurityChallenge = () => {
+            const uuid = window.currentSecurityChallenge;
+            const modal = document.getElementById('security-challenge-modal');
+            if (modal) modal.classList.remove('show');
+            
+            if (!uuid) return;
+            
+            fetch(`/login/challenge/${uuid}/deny`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            window.currentSecurityChallenge = null;
+        };
+
         // Sync conversation state (unread counts, etc.)
         this.socket.on('chat:conversation:updated', (data) => {
             const item = document.querySelector(`.conversation-item[data-conversation-id="${data.conversation_id}"]`);
@@ -617,8 +732,10 @@ class SocketManager {
         const dot = document.getElementById('connection-status-dot');
         if (dot) {
             dot.className = `status-dot ${status}`;
-            dot.title = status === 'online' ? 'Connected to real-time server' : 'Connecting to real-time server...';
+            dot.title = status === 'online' ? 'Nexus Real-time Engine: Connected' : 'Nexus Real-time Engine: Reconnecting...';
         }
+
+        this.lastStatus = status;
     }
 
     updateOnlineStatus(userId, isOnline, lastActive = null) {

@@ -157,4 +157,8 @@ return [
     'post_unpinned' => 'Post unpinned successfully',
     'posts_reordered' => 'Posts reordered successfully',
     'confirm_pin_post' => 'Pin this post to the top of your profile?',
+    'app_security' => 'App Security',
+    'app_security_desc' => 'Enhance your privacy with biometric authentication.',
+    'privacy_lock' => 'Privacy Lock',
+    'privacy_lock_desc' => 'Require Fingerprint to open the app',
 ];

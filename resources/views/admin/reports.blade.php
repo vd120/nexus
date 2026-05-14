@@ -197,7 +197,7 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const selectAll = document.getElementById('select-all');
     const checkboxes = document.querySelectorAll('.report-checkbox');
     const bulkAcceptForm = document.getElementById('bulk-accept-form');

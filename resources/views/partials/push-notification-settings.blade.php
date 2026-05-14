@@ -744,16 +744,13 @@ async function checkPushStatus() {
         notEnabled.style.display = 'none';
         enabled.style.display = 'block';
 
-        // Load current settings for when user clicks "Adjust Settings"
+        // Load current settings
         try {
             const response = await fetch('/api/push/settings', {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
             });
             const data = await response.json();
-
             if (data.success && data.settings) {
                 document.getElementById('pushLikes').checked = data.settings.likes !== false;
                 document.getElementById('pushComments').checked = data.settings.comments !== false;
@@ -765,7 +762,6 @@ async function checkPushStatus() {
             console.error('[Push] Error loading settings:', error);
         }
     } else {
-        // User has NOT enabled push notifications - show enable button only
         form.style.display = 'none';
         notEnabled.style.display = 'block';
         enabled.style.display = 'none';

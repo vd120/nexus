@@ -10,6 +10,15 @@
     <script>
         window.reactionImages = {};
         window.getReactionImage = function(emoji) { return null; };
+        
+        // Define runOnPageLoad early
+        window.runOnPageLoad = function(callback) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback);
+            } else {
+                setTimeout(callback, 0);
+            }
+        };
     </script>
 </head>
 <body>
@@ -677,7 +686,7 @@
             resumeTimer();
         }
         
-        document.addEventListener('DOMContentLoaded', () => {
+        window.runOnPageLoad( () => {
             initMessageInput();
             updateDisplay();
             startTimer();

@@ -4,17 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
     <title>{{ __('auth.verify_email_title') }} — Nexus</title>
 
 <script>
     (function() {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        // Define runOnPageLoad early to avoid reference errors in inline scripts
+        window.runOnPageLoad = function(callback) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback);
+            } else {
+                setTimeout(callback, 0);
+            }
+        };
     })();
 </script>
 <style>
     html[data-theme="dark"] { background: #0d0d0d; color: #f5f5f7; }
     html[data-theme="light"] { background: #ffffff; color: #111111; }
+
+    .verification-warning {
+        display: flex !important;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        background: rgba(255, 214, 10, 0.1);
+        border: 1px solid rgba(255, 214, 10, 0.2);
+        border-radius: 16px;
+        color: #ffd60a !important;
+        font-size: 13.5px;
+        line-height: 1.5;
+        margin: 0 auto 30px;
+        text-align: left;
+        width: 100%;
+        max-width: 100%;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    html[lang="ar"] .verification-warning {
+        text-align: right;
+        flex-direction: row-reverse;
+    }
+    
+    .verification-warning i {
+        font-size: 16px;
+        color: #ffd60a;
+        flex-shrink: 0;
+    }
 </style>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,8 +65,8 @@
 <nav>
     <div class="nav-container">
         <a href="{{ route('home') }}" class="nav-brand">
-            <img src="{{ asset('images/btman-white.png') }}" alt="Nexus" class="logo-dark">
-            <img src="{{ asset('images/btman-black.png') }}" alt="Nexus" class="logo-light">
+            <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-dark">
+            <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-light">
         </a>
         <div class="auth-header-actions">
             @include('partials.language-switcher')
@@ -58,6 +97,15 @@
 
         <h1 class="login-title">{{ __('auth.verify_email_title') }}</h1>
         <p class="login-sub" id="instruction-text">{{ __('auth.verify_email_subtitle') }}</p>
+        <p class="verification-warning">
+            <i class="fas fa-clock"></i> {{ __('auth.verify_email_warning') }}
+        </p>
+
+        @if(session('status'))
+            <div class="alert-success">
+                <i class="fas fa-check-circle"></i> {{ session('status') }}
+            </div>
+        @endif
 
         @if(session('message'))
             <div class="alert-success">
@@ -146,14 +194,14 @@
 
     // Show verification form if there's a message about code being sent
     @if(session('message') && (str_contains(session('message'), 'sent') || str_contains(session('message'), 'code')))
-        document.addEventListener('DOMContentLoaded', function() {
+        window.runOnPageLoad( function() {
             showVerificationForm();
         });
     @endif
 
     // Show verification form if there was an error with the code
     @if($errors->has('code'))
-        document.addEventListener('DOMContentLoaded', function() {
+        window.runOnPageLoad( function() {
             showVerificationForm();
         });
     @endif

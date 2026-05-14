@@ -225,7 +225,7 @@
 <link rel="stylesheet" href="{{ asset('css/admin-user-detail.css') }}">
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     
     tabButtons.forEach(btn => {

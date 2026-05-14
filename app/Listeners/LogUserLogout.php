@@ -11,6 +11,9 @@ class LogUserLogout
     {
         if ($event->user) {
             try {
+                // Mark user as offline in database
+                $event->user->update(['is_online' => false]);
+                
                 $activityService = app(ActivityService::class);
                 $activityService->logActivity('logout', $event->user->id);
             } catch (\Exception $e) {

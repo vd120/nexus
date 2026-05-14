@@ -355,6 +355,38 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Check if user is actually online (flag is set AND activity within last 5 minutes)
+     */
+    public function isActuallyOnline(): bool
+    {
+        if (!$this->is_online) {
+            return false;
+        }
+
+        // If no last_active, but is_online is true, it might be a new or legacy user
+        if (!$this->last_active) {
+            return true;
+        }
+
+        // Consider stale after 5 minutes of inactivity
+        return $this->last_active->diffInMinutes(now()) < 5;
+    }
+
+    /**
+     * Check if user has other active sessions on different devices
+     */
+    public function hasOtherActiveSessions(): bool
+    {
+        $currentSessionId = request()->session()->getId();
+
+        return \DB::table('sessions')
+            ->where('user_id', $this->id)
+            ->where('id', '!=', $currentSessionId)
+            ->where('last_activity', '>', now()->subMinutes(5)->timestamp)
+            ->exists();
+    }
+
+    /**
      * Mark user as offline (called when they logout or close browser)
      */
     public function markAsOffline(): void
@@ -464,19 +496,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'email' => $this->email,
         ], false));
 
-        \Illuminate\Support\Facades\Mail::raw(
-            "Hello,\n\n" .
-            "You requested a password reset for your " . config('app.name') . " account.\n\n" .
-            "Click the link below to reset your password:\n" .
-            $resetUrl . "\n\n" .
-            "This link expires in 60 minutes.\n\n" .
-            "If you didn't request this, you can safely ignore this email.\n\n" .
-            "© " . date('Y') . " " . config('app.name'),
-            function ($message) {
-                $message->to($this->email)
-                        ->subject(config('app.name') . ' - Password Reset Request');
-            }
-        );
+        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl], function ($message) {
+            $message->to($this->email)
+                    ->subject(config('app.name') . ' - Password Reset Request');
+        });
     }
 
     /**

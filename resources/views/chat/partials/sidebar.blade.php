@@ -604,7 +604,7 @@
     window.allConversationIds = @json($conversations->pluck('id'));
 
     // Join all sidebar rooms to get typing indicators
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad( function() {
         // Immediate unread clearing for the active conversation
         const clearActiveUnread = () => {
             const activeId = window.activeConversationId;
@@ -1002,7 +1002,7 @@
     }
 
     // User Search Logic
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad( function() {
         const userSearch = document.getElementById('userSearch');
         if (userSearch) {
             userSearch.addEventListener('input', function() {

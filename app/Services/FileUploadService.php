@@ -97,4 +97,37 @@ class FileUploadService
         
         return $mapping[$mimeType] ?? [];
     }
+
+    /**
+     * Generate a thumbnail from a video file using FFMpeg
+     */
+    public function generateVideoThumbnail(string $videoPath, string $outputPath): bool
+    {
+        try {
+            $fullVideoPath = storage_path('app/public/' . $videoPath);
+            $fullOutputPath = storage_path('app/public/' . $outputPath);
+            
+            // Ensure directory exists
+            $dir = dirname($fullOutputPath);
+            if (!file_exists($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            // Command: Capture frame at 1 second mark (usually has content)
+            // -i: input file, -ss: seek to time, -vframes 1: capture 1 frame
+            $command = "ffmpeg -i " . escapeshellarg($fullVideoPath) . " -ss 00:00:01.000 -vframes 1 " . escapeshellarg($fullOutputPath) . " 2>&1";
+            
+            exec($command, $output, $returnCode);
+            
+            if ($returnCode !== 0) {
+                \Log::error("FFMpeg thumbnail generation failed: " . implode("\n", $output));
+                return false;
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("Error generating video thumbnail: " . $e->getMessage());
+            return false;
+        }
+    }
 }

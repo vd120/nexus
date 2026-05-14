@@ -430,8 +430,19 @@ class PushNotificationManager {
 // Create global instance
 window.PushNotificationManager = PushNotificationManager;
 
+// Self-healing runOnPageLoad for standalone usage
+if (!window.runOnPageLoad) {
+    window.runOnPageLoad = function(cb) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', cb);
+        } else {
+            setTimeout(cb, 0);
+        }
+    };
+}
+
 // Auto-initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', async () => {
+window.runOnPageLoad(async () => {
     const pushManager = new PushNotificationManager();
     window.pushManager = pushManager;
     

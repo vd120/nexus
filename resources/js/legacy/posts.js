@@ -2,6 +2,17 @@
 
 (function() {
     'use strict';
+    
+    // Self-healing runOnPageLoad for standalone usage
+    if (!window.runOnPageLoad) {
+        window.runOnPageLoad = function(cb) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', cb);
+            } else {
+                setTimeout(cb, 0);
+            }
+        };
+    }
 
     if (typeof window.postFunctionsInitialized === 'undefined') {
         window.postFunctionsInitialized = true;
@@ -222,6 +233,9 @@
             const postCard = btn.closest('.post-card');
             const engagementCount = postCard?.querySelector('[data-engagement-count] span');
 
+            // Trigger haptic feedback
+            if (window.NexusHaptics) window.NexusHaptics.impact();
+
             // Immediate UI toggle
             if (isCurrentlyLiked) {
                 btn.classList.remove('liked');
@@ -296,6 +310,9 @@
         window.toggleSave = function(slug, btn) {
             const isCurrentlySaved = btn.classList.contains('saved');
             const icon = btn.querySelector('i');
+
+            // Trigger haptic feedback
+            if (window.NexusHaptics) window.NexusHaptics.impact();
 
             // Immediate UI toggle
             if (isCurrentlySaved) {
@@ -435,7 +452,7 @@
 
             const modal = document.createElement('div');
             modal.id = 'likers-modal';
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
 
             const content = document.createElement('div');
             content.style.cssText = 'background:var(--surface,#161616);border:1px solid var(--border,#2a2a2a);border-radius:16px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;padding:20px;';
@@ -658,6 +675,9 @@
         };
 
         window.quickFollow = function(username, btn) {
+            // Trigger haptic feedback
+            if (window.NexusHaptics) window.NexusHaptics.impact();
+
             const isFollowing = btn.getAttribute('data-following') === 'true';
             const span = btn.querySelector('span');
 
@@ -671,7 +691,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const nowFollowing = data.following;
+                    const nowFollowing = data.is_following;
                     
                     // Update all follow buttons for this user on the page
                     document.querySelectorAll('.quick-follow-btn[data-username="' + username + '"]').forEach(button => {
@@ -1560,7 +1580,7 @@
         };
 
         // Character count for report content
-        document.addEventListener('DOMContentLoaded', function() {
+        window.runOnPageLoad(function() {
             const contentTextarea = document.getElementById('report-content');
             const charCount = document.getElementById('char-count');
             
@@ -1668,6 +1688,9 @@
         }
 
         window.togglePostReaction = function(button, postSlug) {
+            // Trigger haptic feedback
+            if (window.NexusHaptics) window.NexusHaptics.impact();
+            
             const card = button.closest('.post-card');
             if (!card) return;
 

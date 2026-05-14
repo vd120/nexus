@@ -102,7 +102,7 @@
 <link rel="stylesheet" href="{{ asset('css/admin-comments.css') }}">
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const searchInput = document.getElementById('search-input');
     let searchTimeout;
 

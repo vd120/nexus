@@ -22,5 +22,18 @@ class LogUserLogin
         DB::table('sessions')
             ->where('id', $sessionId)
             ->update(['user_id' => $event->user->id]);
+
+        // Mark user as online in the database
+        $event->user->update([
+            'is_online' => true,
+            'last_active' => now()
+        ]);
+
+        // Log the activity
+        try {
+            app(\App\Services\ActivityService::class)->logActivity('login', $event->user->id);
+        } catch (\Exception $e) {
+            \Log::error('Failed to log login activity: ' . $e->getMessage());
+        }
     }
 }

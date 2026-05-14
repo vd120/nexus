@@ -6144,6 +6144,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.markMessagesAsRead = function() {
         if (!window.activeConversationSlug) return;
         
+        // Don't mark as read if the page is hidden (tab not active)
+        if (document.visibilityState !== 'visible') return;
+        
+        
         // Mark messages as read (server now also handles notifications)
         fetch(`/chat/${window.activeConversationSlug}/read`, {
             method: 'POST',
@@ -6170,6 +6174,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mark as read when window gains focus
     window.addEventListener('focus', () => {
         window.markMessagesAsRead();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            window.markMessagesAsRead();
+        }
     });
     setInterval(() => { if (document.hasFocus()) window.markMessagesAsRead(); }, 30000);
 

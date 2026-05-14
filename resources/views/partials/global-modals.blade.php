@@ -81,3 +81,39 @@
         <div class="media-modal-counter" id="media-modal-counter"></div>
     </div>
 </div>
+
+<!-- Security Approval Modal -->
+<div id="security-challenge-modal" class="modal security-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-shield-halved"></i> {{ __('auth.security_alert') }}</h3>
+            <button type="button" class="modal-close" onclick="denySecurityChallenge()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="security-alert-banner">
+                <i class="fas fa-user-shield"></i>
+                <p><strong>{{ __('auth.new_login_detected') }}</strong></p>
+            </div>
+            
+            <div class="security-details">
+                <p>{{ __('auth.device') }}: <span id="security-device-name">Unknown</span></p>
+                <p>{{ __('auth.ip_address') }}: <span id="security-ip">Unknown</span></p>
+            </div>
+
+            <p class="security-warning">
+                {{ __('auth.security_warning') }}
+            </p>
+        </div>
+
+        <div class="modal-footer glass-footer">
+            <button type="button" class="btn btn-ghost" onclick="denySecurityChallenge()">
+                {{ __('auth.deny') }}
+            </button>
+            <button type="button" class="btn btn-primary btn-premium" id="approve-security-btn" onclick="approveSecurityChallenge()">
+                <i class="fas fa-check-circle"></i> <span>{{ __('auth.approve_handover') }}</span>
+            </button>
+        </div>
+    </div>
+</div>

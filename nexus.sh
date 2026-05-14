@@ -11,31 +11,11 @@ G='\033[38;5;46m'; W='\033[38;5;255m'; R='\033[38;5;196m'; B='\033[38;5;21m'; D=
 function show_logo() {
     clear
     echo -e "\n"
-    local logo=(
-        "     _   _  _____  __  __ _   _  ____  "
-        "    | \ | || ____| \ \/ /| | | |/ ___| "
-        "    |  \| ||  _|    \  / | | | |\___ \ "
-        "    | |\  || |___   /  \ | |_| | ___) |"
-        "    |_| \_||_____| /_/\_\ \___/ |____/ "
-    )
-    local chars="01"
-    for line in "${logo[@]}"; do
-        # Matrix Digital Rain Reveal
-        for i in {1..5}; do
-            local rain=""
-            for (( j=0; j<${#line}; j++ )); do
-                if [[ "${line:$j:1}" == " " ]]; then
-                    rain+=" "
-                else
-                    rain+="${chars:RANDOM%2:1}"
-                fi
-            done
-            echo -ne "\r${G}${rain}${NC}"
-            sleep 0.02
-        done
-        echo -e "\r${G}${line}${NC}"
-        sleep 0.04
-    done
+    echo -e "${G}     _   _  _____  __  __ _   _  ____  "
+    echo -e "    | \ | || ____| \ \/ /| | | |/ ___| "
+    echo -e "    |  \| ||  _|    \  / | | | |\___ \ "
+    echo -e "    | |\  || |___   /  \ | |_| | ___) |"
+    echo -e "    |_| \_||_____| /_/\_\ \___/ |____/ ${NC}"
     echo -e "\n          ${W}N E X U S   S Y S T E M${NC}\n"
 }
 
@@ -125,7 +105,7 @@ else
     echo "INTERNAL_SOCKET_URL=http://127.0.0.1:3001" >> .env
 fi
 sed -i "s|^SANCTUM_STATEFUL_DOMAINS=.*|SANCTUM_STATEFUL_DOMAINS=$DOMAIN,localhost,127.0.0.1|" .env
-sed -i "s|^SESSION_DOMAIN=.*|SESSION_DOMAIN=|" .env
+# sed -i "s|^SESSION_DOMAIN=.*|SESSION_DOMAIN=$DOMAIN|" .env
 sed -i "s|^SESSION_SECURE_COOKIE=.*|SESSION_SECURE_COOKIE=true|" .env
 sed -i "s|^GOOGLE_REDIRECT_URI=.*|GOOGLE_REDIRECT_URI=$APP_URL/auth/google/callback|" .env
 
@@ -137,16 +117,14 @@ touch storage/logs/socket-server.log
 touch storage/logs/proxy.log
 touch storage/logs/octane.log
 
-# Clear config (Never cache in development to prevent session/env issues)
-php artisan config:clear >/dev/null 2>&1
-php artisan route:clear >/dev/null 2>&1
-php artisan view:clear >/dev/null 2>&1
-php artisan event:clear >/dev/null 2>&1
+# 1. Warm-up System (High Performance Optimization)
+echo -e "${G}Warming up engine...${NC}"
+php artisan nexus:warm --force
 
 # 1. Start Octane FIRST and wait for it
-( php artisan octane:start --host=0.0.0.0 --port=8000 --max-requests=100 --workers=4 --watch > storage/logs/laravel-server.log 2>&1 ) & disown
+( php artisan octane:start --host=0.0.0.0 --port=8000 --max-requests=100 --workers=8 --watch > storage/logs/laravel-server.log 2>&1 ) & disown
 PHP_PID=$!
-sleep 3
+sleep 0.5
 
 # 2. Start Socket Server
 cd socket-server
@@ -164,26 +142,35 @@ for i in {1..20}; do
         echo -e "${G}Ready.${NC}"
         break
     fi
-    printf "${D}.${NC}"
-    sleep 1
+    sleep 0.5
 done
 
 # 4. Start Tunnel (Single Ngrok tunnel for everything)
+echo -e "${G}Igniting Tunnel...${NC}"
 ( ngrok http --url=stickit-fearlessly-braiden.ngrok-free.dev 8080 > /dev/null 2>&1 ) & disown
+sleep 1 # Minimal wait for ngrok
 
-# Dashboard
-echo -e "${D}  ----------------------------${NC}"
-echo -e "  ${W}STATUS:${NC}   ${G}ONLINE${NC}"
-echo -e "  ${W}KERNEL:${NC}   ${D}Unified Proxy Tunnel${NC}\n"
-echo -e "  ${G}URL:${NC} ${W}$APP_URL${NC}\n"
-echo -e "${D}  ----------------------------${NC}"
-echo -e "  ${W}CONSOLES:${NC} ${D}Monitoring...${NC}"
-echo -e "  ${W}COMMANDS:${NC} ${G}[r]${NC} ${D}Restart${NC}  ${R}[CTRL+C]${NC} ${D}Stop${NC}\n\n"
+function show_dashboard() {
+    clear
+    show_logo
+    echo -e "  ${D}--------------------------------------------${NC}"
+    echo -e "  ${W}STATUS:${NC}   ${G}ONLINE${NC}          ${W}DOMAIN:${NC} ${D}$DOMAIN${NC}"
+    echo -e "  ${W}KERNEL:${NC}   ${D}Unified Proxy${NC}   ${W}TUNNEL:${NC} ${G}ACTIVE${NC}"
+    echo -e "  ${G}URL:${NC}      ${W}$APP_URL${NC}"
+    echo -e "  ${D}--------------------------------------------${NC}"
+    echo -e "  ${W}CONSOLES:${NC} ${D}Monitoring Logs...${NC}"
+    echo -e "  ${W}COMMANDS:${NC} ${G}[r]${NC} ${D}Restart${NC}  ${R}[CTRL+C]${NC} ${D}Stop${NC}\n"
+}
 
-# Set scrolling region (Everything above is 23 lines)
-if [ "$(tput lines)" -gt 24 ]; then
-    echo -ne "\e[24;r"
-    tput cup 23 0
+
+
+# Finalize UI
+show_dashboard
+
+# Set scrolling region (Everything above is ~17 lines)
+if [ "$(tput lines)" -gt 18 ]; then
+    echo -ne "\e[18;r"
+    tput cup 17 0
 fi
 
 # Watchdog Engine (Automatic Recovery)
@@ -202,7 +189,7 @@ fi
         # Monitor PHP/Octane
         if ! kill -0 $PHP_PID 2>/dev/null; then
             echo -e "\n${R}[SYS] Crashed! Recovering...${NC}"
-            ( php artisan octane:start --host=0.0.0.0 --port=8000 --max-requests=100 --workers=4 --watch >> storage/logs/laravel-server.log 2>&1 ) & disown
+            ( php artisan octane:start --host=0.0.0.0 --port=8000 --max-requests=100 --workers=8 --watch >> storage/logs/laravel-server.log 2>&1 ) & disown
             PHP_PID=$!
         fi
 

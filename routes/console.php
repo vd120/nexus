@@ -16,4 +16,7 @@ Schedule::command('users:remind-inactive --days=3')->dailyAt('10:00');
 Schedule::command('users:remind-inactive --days=7')->weeklyOn(1, '10:00');
 Schedule::command('users:remind-inactive --days=30 --subject="We miss you! Come back"')->monthlyOn(1, '10:00');
 
+// Schedule unverified user pruning - runs every minute
+Schedule::command('nexus:prune-unverified')->everyMinute();
+
 

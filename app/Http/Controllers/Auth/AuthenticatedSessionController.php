@@ -41,7 +41,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = Auth::user();
         Auth::guard('web')->logout();
+
+        // If unverified, cleanup
+        if ($user && is_null($user->email_verified_at)) {
+            $user->delete();
+        }
 
         $request->session()->invalidate();
 

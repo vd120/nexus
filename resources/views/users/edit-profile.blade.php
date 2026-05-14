@@ -263,6 +263,7 @@
             </div>
         </div>
 
+
         {{-- Privacy --}}
         <div class="edit-card">
             <h3><i class="fas fa-lock"></i> {{ __('users.privacy_settings') }}</h3>
@@ -444,11 +445,9 @@ function updateCooldownTimer() {
     setTimeout(updateCooldownTimer, 1000);
 }
 
-// Start the timer when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    updateCooldownTimer();
-    initUsernameCheck();
-});
+// Initialization is handled at the bottom of the script.
+
+
 
 // Real-time username availability check
 function initUsernameCheck() {
@@ -549,5 +548,12 @@ function checkUsernameAvailability(username) {
             // Silently fail - backend validation will catch it
         });
 }
+
+// Initialize profile page
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCooldownTimer();
+        initUsernameCheck();
+    });
+
 </script>
 @endsection

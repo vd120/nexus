@@ -305,18 +305,8 @@ class ActivityService
         $request = request();
         $currentSessionId = $request->session()->getId();
 
-        // Get user's login activity with session_ids for enriching data
-        $logins = ActivityLog::where('user_id', $userId)
-            ->action('login')
-            ->where('logged_at', '>=', now()->subDays(7))
-            ->orderBy('logged_at', 'desc')
-            ->get();
-
-        // Create map of session_id to login data
-        $loginBySessionId = $logins->keyBy('session_id');
-
         // Get sessions directly by user_id from sessions table
-        // The sessions table stores user_id in the payload JSON
+        // This is the source of truth for currently active browser sessions
         $activeSessions = \DB::table('sessions')
             ->where('user_id', $userId)
             ->where('last_activity', '>', now()->subHours(24)->timestamp)
@@ -324,29 +314,31 @@ class ActivityService
             ->limit(10)
             ->get();
 
-        // Enrich sessions with activity log data
-        return $activeSessions->map(function($session) use ($loginBySessionId, $currentSessionId) {
-            $loginData = $loginBySessionId->get($session->id);
+        // Map and enrich sessions
+        return $activeSessions->map(function($session) use ($currentSessionId) {
+            // Parse User Agent for better display
+            $ua = $session->user_agent ?? '';
+            
+            // Mock a request object to use our existing parser methods
+            $mockRequest = new class($ua) extends Request {
+                private $ua;
+                public function __construct($ua) { $this->ua = $ua; }
+                public function userAgent() { return $this->ua; }
+            };
 
-            if ($loginData) {
-                $session->device_type = $loginData->device_type ?? 'desktop';
-                $session->browser = $loginData->browser ?? 'Unknown';
-                $session->os = $loginData->os ?? 'Unknown';
-                $session->country = $loginData->country ?? null;
-                $session->city = $loginData->city ?? null;
-                $session->logged_at = $loginData->logged_at;
-                $session->user_agent = $loginData->user_agent ?? '';
-            } else {
-                // Fallback: parse from session payload or use defaults
-                $session->device_type = 'desktop';
-                $session->browser = 'Unknown';
-                $session->os = 'Unknown';
-                $session->country = null;
-                $session->city = null;
-                $session->logged_at = now()->timestamp($session->last_activity);
-                $session->user_agent = $session->user_agent ?? '';
-            }
+            $session->device_type = $this->getDeviceType($mockRequest);
+            $session->browser = $this->getBrowser($mockRequest);
+            $session->os = $this->getOS($mockRequest);
+            
+            // For location, we might still want to check ActivityLog as sessions table doesn't store geo data
+            $loginLog = ActivityLog::where('session_id', $session->id)
+                ->where('action', 'login')
+                ->latest()
+                ->first();
 
+            $session->country = $loginLog->country ?? null;
+            $session->city = $loginLog->city ?? null;
+            $session->logged_at = $loginLog ? $loginLog->logged_at : \Carbon\Carbon::createFromTimestamp($session->last_activity);
             $session->is_current_session = ($session->id === $currentSessionId);
 
             return $session;

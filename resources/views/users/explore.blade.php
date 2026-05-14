@@ -810,7 +810,7 @@ function exploreToggleBlock(btn, username) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     const explorePage = document.querySelector('.explore-page');
     const searchErrorText = explorePage?.getAttribute('data-search-error') || 'Search error';
     const searchingText = explorePage?.getAttribute('data-searching') || 'Searching...';

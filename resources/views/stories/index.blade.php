@@ -5,7 +5,7 @@
 @section('content')
 @if(session('success'))
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        window.runOnPageLoad( function() {
             showToast('{{ session('success') }}', 'success');
         });
     </script>
@@ -45,7 +45,7 @@
                     @elseif($latestStory->media_type === 'image')
                         <img src="{{ asset('storage/' . $latestStory->media_path) }}" alt="Story">
                     @else
-                        <video muted>
+                        <video muted preload="metadata">
                             <source src="{{ asset('storage/' . $latestStory->media_path) }}" type="video/mp4">
                         </video>
                     @endif
@@ -87,7 +87,7 @@
                     @elseif($latestStory->media_type === 'image')
                         <img src="{{ asset('storage/' . $latestStory->media_path) }}" alt="Story">
                     @else
-                        <video muted>
+                        <video muted preload="metadata">
                             <source src="{{ asset('storage/' . $latestStory->media_path) }}" type="video/mp4">
                         </video>
                     @endif
@@ -394,7 +394,7 @@ function viewStory(username, storySlug) {
 }
 
 // Check for story deleted toast
-document.addEventListener('DOMContentLoaded', function() {
+window.runOnPageLoad( function() {
     if (localStorage.getItem('story_deleted') === 'true') {
         localStorage.removeItem('story_deleted');
         if (typeof showToast === 'function') {

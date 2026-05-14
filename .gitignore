@@ -28,3 +28,18 @@ Thumbs.db
 **/caddy
 frankenphp
 frankenphp-worker.php
+.gemini
+.specify
+
+# Socket Server
+/socket-server/node_modules
+/socket-server/.env
+
+# Backups and Temporary
+*.sql
+/scratch
+
+# Project Docs and Mobile
+GEMINI.md
+jira.md
+/android-app/*

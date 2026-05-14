@@ -186,7 +186,9 @@
                         </div>
                     @elseif($media->media_type === 'video')
                         <div class="media-item video-indicator {{ $index === 3 && $remainingCount > 0 ? 'has-more' : '' }}">
-                            <video preload="none" playsinline muted style="width: 100%; height: 100%; object-fit: cover;">
+                            <video preload="metadata" 
+                                   poster="{{ $media->media_thumbnail ? asset('storage/' . $media->media_thumbnail) : '' }}"
+                                   playsinline muted style="width: 100%; height: 100%; object-fit: cover;">
                                 <source src="{{ asset('storage/' . $media->media_path) }}" type="video/mp4">
                             </video>
                             <div class="video-play-button">
@@ -360,20 +362,22 @@
         @endif
     </div>
 
-    {{-- Post Reactors Modal --}}
-    <div class="reactors-modal" id="post-reactors-modal-{{ $post->slug }}">
-        <div class="reactors-modal-overlay" onclick="closePostReactorsModal()"></div>
-        <div class="reactors-modal-content">
-            <div class="reactors-modal-header">
-                <h3>{{ __('messages.reactions') }}</h3>
-                <button type="button" class="reactors-modal-close" onclick="closePostReactorsModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="reactors-modal-body" id="post-reactors-modal-body-{{ $post->slug }}">
-                <div class="reactors-loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </div>
+
+</div>
+
+{{-- Post Reactors Modal moved outside to prevent containing block / blur issues --}}
+<div class="reactors-modal" id="post-reactors-modal-{{ $post->slug }}">
+    <div class="reactors-modal-overlay" onclick="closePostReactorsModal()"></div>
+    <div class="reactors-modal-content">
+        <div class="reactors-modal-header">
+            <h3>{{ __('messages.reactions') }}</h3>
+            <button type="button" class="reactors-modal-close" onclick="closePostReactorsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="reactors-modal-body" id="post-reactors-modal-body-{{ $post->slug }}">
+            <div class="reactors-loading">
+                <i class="fas fa-spinner fa-spin"></i>
             </div>
         </div>
     </div>
@@ -539,9 +543,7 @@
 .reactors-modal-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.6);
 }
 
 .reactors-modal-content {

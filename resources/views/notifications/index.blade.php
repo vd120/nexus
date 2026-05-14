@@ -186,6 +186,6 @@ function formatDate(dateString) {
 }
 
 // Load on page load
-document.addEventListener('DOMContentLoaded', loadNotificationsList);
+window.runOnPageLoad( loadNotificationsList);
 </script>
 @endsection

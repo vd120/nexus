@@ -132,6 +132,11 @@ return [
 
     'warm' => [
         ...Octane::defaultServicesToWarm(),
+        \App\Services\ActivityService::class,
+        \App\Services\RealtimeService::class,
+        \App\Services\PushNotificationService::class,
+        \App\Services\HashtagService::class,
+        \App\Services\SocketEmitService::class,
     ],
 
     'flush' => [

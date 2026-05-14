@@ -153,6 +153,30 @@ io.on('connection', async (socket) => {
         });
     });
 
+    socket.on('chat:delivered', async (data) => {
+        const { messageId } = data;
+        if (!messageId) return;
+
+        const secret = getActualSecret();
+        if (!secret) return;
+
+        const payload = { message_id: messageId, user_id: userId };
+        const jsonPayload = JSON.stringify(payload);
+        const signature = 'sha256=' + crypto.createHmac('sha256', secret).update(jsonPayload).digest('hex');
+
+        try {
+            await axios.post(`${INTERNAL_APP_URL}/api/internal/chat/delivered`, payload, {
+                headers: {
+                    'X-Hub-Signature-256': signature,
+                    'Content-Type': 'application/json'
+                }
+            });
+            logger.info({ userId, messageId }, 'Marked message as delivered via socket');
+        } catch (err) {
+            logger.error({ userId, messageId, err: err.message }, 'Failed to mark message as delivered via internal API');
+        }
+    });
+
     socket.on('disconnecting', () => {
         const rooms = Array.from(socket.rooms);
         rooms.forEach(roomName => {

@@ -86,6 +86,8 @@ class PasswordController extends Controller
         // Clear any pending verification session
         session()->forget('pending_verification_user_id');
 
+        session()->save();
+
         return redirect()->route('home')->with('success', __('messages.password_set_success'));
     }
 }

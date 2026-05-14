@@ -140,18 +140,29 @@ class ActivityController extends Controller
      */
     public function terminateAllSessions(Request $request)
     {
-        $user = auth()->user();
+        $user = \Auth::user();
         $currentSessionId = $request->session()->getId();
 
-        // Delete all sessions for this user except current session
+        if (!$user) {
+            return redirect()->back()->with('error', __('activity.session_not_found'));
+        }
+
+        // 1. ROTATE REMEMBER TOKEN
+        // This invalidates all "Remember Me" cookies on other devices.
+        // Even if we delete the session, "Remember Me" would otherwise re-log them in.
+        $user->forceFill([
+            'remember_token' => \Illuminate\Support\Str::random(60),
+        ])->save();
+
+        // 2. DELETE OTHER SESSIONS
         $deletedCount = \DB::table('sessions')
             ->where('user_id', $user->id)
             ->where('id', '!=', $currentSessionId)
             ->delete();
 
-        // Log the action
+        // 3. LOG ACTIVITY
         $this->activityService->logActivity('all_sessions_terminated', $user->id);
-
+        
         return redirect()->back()->with('success', __('activity.all_sessions_terminated', ['count' => $deletedCount]));
     }
 
@@ -168,29 +179,23 @@ class ActivityController extends Controller
             return redirect()->back()->with('error', __('activity.cannot_terminate_current_session'));
         }
 
-        // Check if session exists and belongs to this user
-        $session = \DB::table('sessions')
-            ->where('id', $sessionId)
-            ->where('user_id', $user->id)
-            ->first();
+        // 1. ROTATE REMEMBER TOKEN
+        // We must rotate the token to prevent the other device from re-logging in automatically via "Remember Me".
+        $user->forceFill([
+            'remember_token' => \Illuminate\Support\Str::random(60),
+        ])->save();
 
-        if (!$session) {
-            return redirect()->back()->with('error', __('activity.session_not_found'));
-        }
-
-        // TERMINATE BY SESSION ID directly from sessions table
+        // 2. TERMINATE BY SESSION ID
         $deleted = \DB::table('sessions')
             ->where('id', $sessionId)
             ->where('user_id', $user->id)
             ->delete();
 
         if ($deleted > 0) {
-            // Log the termination attempt
             $this->activityService->logActivity('session_terminated', $user->id);
             return redirect()->back()->with('success', __('activity.session_terminated'));
         }
 
-        // Delete failed
         return redirect()->back()->with('error', __('activity.session_not_found'));
     }
 

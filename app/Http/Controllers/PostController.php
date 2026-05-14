@@ -447,20 +447,27 @@ class PostController extends Controller
                     // Handle video upload
                     $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     $path = 'posts/videos/' . $filename;
+                    
+                    // Thumbnail path (always .jpg)
+                    $thumbnailPath = 'posts/thumbnails/' . time() . '_' . uniqid() . '.jpg';
 
-                    // Ensure directory exists
-                    $fullDirPath = storage_path('app/public/posts/videos');
-                    if (!file_exists($fullDirPath)) {
-                        mkdir($fullDirPath, 0755, true);
-                    }
+                    // Ensure directories exist
+                    $fullVideoDir = storage_path('app/public/posts/videos');
+                    if (!file_exists($fullVideoDir)) mkdir($fullVideoDir, 0755, true);
+                    
+                    $fullThumbDir = storage_path('app/public/posts/thumbnails');
+                    if (!file_exists($fullThumbDir)) mkdir($fullThumbDir, 0755, true);
 
-                    // Move file to storage
-                    $file->move($fullDirPath, $filename);
+                    // Move video to storage
+                    $file->move($fullVideoDir, $filename);
+
+                    // Generate thumbnail using FileUploadService
+                    $thumbnailSuccess = $fileService->generateVideoThumbnail($path, $thumbnailPath);
 
                     $post->media()->create([
                         'media_type' => 'video',
                         'media_path' => $path,
-                        'media_thumbnail' => null, // Could generate thumbnail here
+                        'media_thumbnail' => $thumbnailSuccess ? $thumbnailPath : null,
                         'sort_order' => $sortOrder++
                     ]);
                 }

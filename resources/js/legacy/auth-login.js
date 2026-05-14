@@ -2,6 +2,17 @@
 
 (function() {
     'use strict';
+    
+    // Self-healing runOnPageLoad for standalone usage
+    if (!window.runOnPageLoad) {
+        window.runOnPageLoad = function(cb) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', cb);
+            } else {
+                setTimeout(cb, 0);
+            }
+        };
+    }
 
     // Session messages translations
     const sessionMessages = {
@@ -11,7 +22,9 @@
             'account_suspended': 'Your account has been suspended.',
             'concurrent_login': 'Security alert: Concurrent login detected.',
             'account_deleted': 'Your account has been deleted.',
-            'logged_out': 'You have been logged out.'
+            'logged_out': 'You have been logged out.',
+            'denied': 'Login request was denied by the active session.',
+            'expired': 'Login request has expired.'
         },
         ar: {
             'passwords.reset': 'كلمة السر اتغيرت بنجاح! يمكنك تسجيل الدخول الآن.',
@@ -19,7 +32,9 @@
             'account_suspended': 'حسابك تم تعليقه.',
             'concurrent_login': 'تنبيه أمني: تم اكتشاف دخول متزامن.',
             'account_deleted': 'حسابك تم حذفه.',
-            'logged_out': 'تم تسجيل خروجك.'
+            'logged_out': 'تم تسجيل خروجك.',
+            'denied': 'تم رفض طلب الدخول من الجلسة النشطة.',
+            'expired': 'انتهت صلاحية طلب الدخول.'
         }
     };
 
@@ -76,7 +91,7 @@
     };
 
     // Read config from data attributes and show messages
-    document.addEventListener('DOMContentLoaded', function() {
+    window.runOnPageLoad(function() {
         const configEl = document.getElementById('login-config');
         const userLang = document.documentElement.lang || 'en';
         
@@ -107,6 +122,14 @@
                 const suspendedMsg = getSessionMessage('account_suspended', userLang);
                 showSessionToast('error', suspendedMsg);
             }
+
+            // Also check for URL parameters (fallback for client-side redirects)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlError = urlParams.get('error');
+            const urlMessage = urlParams.get('message');
+            
+            if (urlError) showSessionToast('error', getSessionMessage(urlError, userLang));
+            if (urlMessage) showSessionToast('success', getSessionMessage(urlMessage, userLang));
         }
     });
 })();

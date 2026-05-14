@@ -1,33 +1,67 @@
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
+    
+    {{-- Speed & Performance Optimization --}}
+    <link rel="preconnect" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
+    <link rel="dns-prefetch" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
         })();
+
+        window.runOnPageLoad = function(callback) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback);
+            } else {
+                setTimeout(callback, 0);
+            }
+        };
+
     </script>
+
     <style>
         /* Immediate Theme Background to prevent Flash */
         html[data-theme="dark"] { background: #0d0d0d; color: #f5f5f7; }
         html[data-theme="light"] { background: #ffffff; color: #111111; }
         body { background: inherit; color: inherit; }
     </style>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+
     <meta name="theme-color" content="#111111">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" href="data:,">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/images/nexus-logo-white.png">
+    
+    <script>
+        // Register Service Worker for PWA support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Nexus Service Worker registered'))
+                    .catch(err => console.log('Nexus Service Worker failed', err));
+            });
+        }
+    </script>
     @auth
         <script>
             window.SOCKET_CONFIG = {
                 url: '{{ config('app.socket_io_url') }}',
                 userId: {{ auth()->id() }},
+                sessionId: '{{ session()->getId() }}',
                 isAdmin: {{ auth()->user()->is_admin ? 'true' : 'false' }},
                 username: '{{ auth()->user()->username }}',
                 token: '{{ auth()->user()->createSocketToken() }}',
                 following: @json(auth()->user()->following()->pluck('followed_id'))
             };
+
+            // Synchronize with Android Native Bridge if available
         </script>
     @endauth
     <title>@yield('title', 'Nexus')</title>
@@ -52,6 +86,24 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
+    {{-- Critical CSS Fallback: Ensures branded background/text even if external CSS has a delay --}}
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --text: #f5f5f7;
+        }
+        html, body {
+            background-color: #0d0d0d !important;
+            color: #f5f5f7 !important;
+            margin: 0;
+            padding: 0;
+        }
+        [data-theme="light"], [data-theme="light"] body {
+            background-color: #ffffff !important;
+            color: #111111 !important;
+        }
+    </style>
+
     {{-- Icons --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
     
@@ -117,12 +169,11 @@
 </head>
 <body id="app-body">
 
-
     <header class="header">
         <div class="header-inner">
             <a href="{{ route('home') }}" class="logo">
-                <img src="{{ asset('images/btman-white.png') }}" alt="Nexus" class="logo-dark">
-                <img src="{{ asset('images/btman-black.png') }}" alt="Nexus" class="logo-light">
+                <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-black">
+                <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-white">
             </a>
 
             @auth
@@ -448,6 +499,8 @@
         };
 
         window.showToast = function(message, type = 'info', avatar = null, link = null, duration = 4000, extraData = null) {
+            // Native Android Integration - Mirror to System Notifications
+
             const container = document.getElementById('toast-container');
             if (!container) return;
 
@@ -725,7 +778,7 @@
                 headers: { 
                     'X-CSRF-TOKEN': getCsrfToken(), 
                     'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
                 }
             })
             .then(r => {
@@ -821,7 +874,7 @@
                 method: 'POST',
                 headers: { 
                     'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 keepalive: true
             }).then(() => {
@@ -857,7 +910,7 @@
                 method: 'POST',
                 headers: { 
                     'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 keepalive: true
             }).then(() => {
@@ -992,7 +1045,7 @@
                 method: 'DELETE',
                 headers: { 
                     'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 keepalive: true
             }).catch(() => {});
@@ -1017,7 +1070,7 @@
                 method: 'DELETE',
                 headers: { 
                     'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 keepalive: true
             }).catch(() => {});
@@ -1154,5 +1207,7 @@
         };
     </script>
     @stack('scripts')
+    
+    {{-- Predictive Pre-loading (Kills the 1-second lag) --}}
 </body>
 </html>

@@ -15,10 +15,25 @@ class ForceHttps
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Force HTTPS in production or if APP_FORCE_HTTPS is set
-        // Skip HTTPS enforcement in local development
-        if (!$request->secure() && (app()->environment('production') || config('app.force_https', false))) {
-            return redirect()->secure($request->getRequestUri());
+        $appUrl = config('app.url');
+        $isNgrok = str_contains($request->getHost(), 'ngrok-free.dev');
+        
+        // If we are on a tunnel, we must force the internal state to be consistent
+        // This ensures Session, CSRF, and Cookie handlers all agree on the environment
+        if ($isNgrok) {
+            config(['session.secure' => true]);
+            config(['session.domain' => null]);
+            $request->server->set('HTTPS', 'on');
+            $request->server->set('SERVER_PORT', 443);
+            
+            // Force the root URL to be the current host and HTTPS
+            $currentUrl = 'https://' . $request->getHost();
+            \Illuminate\Support\Facades\URL::forceRootUrl($currentUrl);
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+            
+            // Sync $_SERVER for global helpers
+            $_SERVER['HTTPS'] = 'on';
+            $_SERVER['SERVER_PORT'] = 443;
         }
 
         return $next($request);

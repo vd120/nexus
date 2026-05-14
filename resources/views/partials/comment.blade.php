@@ -104,7 +104,7 @@
                         <span class="anon-label"><i class="fas fa-user-secret"></i> {{ __('messages.post_anonymously') }}</span>
                     </label>
                     @if($isAnonDefault)
-                        <script>document.addEventListener('DOMContentLoaded', function() { toggleReplyAnon({{ $comment->id }}, '{{ auth()->user()->avatar_url }}'); });</script>
+                        <script>window.runOnPageLoad( function() { toggleReplyAnon({{ $comment->id }}, '{{ auth()->user()->avatar_url }}'); });</script>
                     @endif
                 @endif
                 <button type="button" class="cancel-reply" onclick="toggleReplyForm({{ $comment->id }})">{{ __('messages.cancel') }}</button>

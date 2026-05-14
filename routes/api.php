@@ -124,6 +124,57 @@ Route::post('/internal/user/status', function (Request $request) {
     return response()->json(['error' => 'User not found'], 404);
 });
 
+Route::post('/internal/chat/delivered', function (Request $request) {
+    $secret = config('services.socket.secret');
+    if (str_starts_with($secret, 'base64:')) {
+        $secret = base64_decode(substr($secret, 7));
+    }
+
+    $signature = $request->header('X-Hub-Signature-256');
+    $payload = $request->getContent();
+    $expectedSignature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+
+    if (!$signature || $signature !== $expectedSignature) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    $messageId = $request->input('message_id');
+    $userId = $request->input('user_id');
+
+    $message = \App\Models\Message::find($messageId);
+    if (!$message) return response()->json(['error' => 'Message not found'], 404);
+    
+    $now = now();
+    $isAllDelivered = false;
+
+    if ($message->conversation->is_group) {
+        \App\Models\MessageReceipt::updateOrCreate(
+            ['message_id' => $message->id, 'user_id' => $userId],
+            ['delivered_at' => $now]
+        );
+        $isAllDelivered = $message->updateDeliveryStatusIfAllDelivered();
+    } else {
+        if (!$message->delivered_at) {
+            $message->update(['delivered_at' => $now]);
+        }
+        $isAllDelivered = true;
+    }
+
+    $emitData = [
+        'message_id' => $message->id,
+        'user_id' => $userId,
+        'conversation_id' => $message->conversation_id,
+        'delivered_at' => $now->toISOString(),
+        'is_all_delivered' => $isAllDelivered
+    ];
+
+    $socketService = app(\App\Services\SocketEmitService::class);
+    $socketService->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
+    $socketService->emitToUser($message->sender_id, 'chat:delivered', $emitData);
+
+    return response()->json(['success' => true]);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);

@@ -30,7 +30,8 @@ class CheckEmailVerified
             $user = Auth::user();
 
             // Check if user has verified their email OR if they have a suspicious login pending verification
-            if (!$user->hasVerifiedEmail() || session('auth.suspicious')) {
+            // Admins are exempted from the suspicious check
+            if (!$user->hasVerifiedEmail() || (session('auth.suspicious') && !$user->is_admin)) {
                 // For API requests, return JSON error
                 if ($request->expectsJson()) {
                     return response()->json([
