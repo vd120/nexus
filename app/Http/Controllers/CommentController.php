@@ -104,7 +104,7 @@ class CommentController extends Controller
                         'commenter_name' => auth()->user()->username ?? auth()->user()->name ?? 'Someone',
                         'commenter_username' => auth()->user()->username ?? 'Unknown',
                         'commenter_id' => auth()->id(),
-                        'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
+                        'comment_content' => mb_substr($comment->content, 0, 50) . (mb_strlen($comment->content) > 50 ? '...' : ''),
                         'post_slug' => $comment->post->slug ?? $comment->post->id,
                         'parent_comment_id' => $comment->parent_id
                     ],
@@ -125,8 +125,8 @@ class CommentController extends Controller
                     'commenter_name' => auth()->user()->username ?? auth()->user()->name ?? 'Someone',
                     'commenter_username' => auth()->user()->username ?? 'Unknown',
                     'commenter_id' => auth()->id(),
-                    'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
-                    'post_content' => substr($comment->post->content ?? 'Image post', 0, 30),
+                    'comment_content' => mb_substr($comment->content, 0, 50) . (mb_strlen($comment->content) > 50 ? '...' : ''),
+                    'post_content' => mb_substr($comment->post->content ?? 'Image post', 0, 30) . (mb_strlen($comment->post->content ?? 'Image post') > 30 ? '...' : ''),
                     'post_slug' => $comment->post->slug ?? $comment->post->id
                 ],
                 $comment
@@ -296,7 +296,7 @@ class CommentController extends Controller
                             'liker_name' => $user->username ?? $user->name ?? 'Someone',
                             'liker_username' => $user->username ?? 'Unknown',
                             'liker_id' => $user->id,
-                            'comment_content' => substr($comment->content, 0, 50) . (strlen($comment->content) > 50 ? '...' : ''),
+                            'comment_content' => mb_substr($comment->content, 0, 50) . (mb_strlen($comment->content) > 50 ? '...' : ''),
                             'post_slug' => $comment->post->slug ?? '',
                             'comment_id' => $comment->id,
                             'is_reply' => $comment->parent_id !== null

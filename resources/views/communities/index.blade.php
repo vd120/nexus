@@ -32,7 +32,7 @@
                             <img src="{{ $group->avatar_url }}" alt="" class="mini-avatar-alt">
                             <div class="mini-info">
                                 <strong>{{ $group->name }}</strong>
-                                <span>{{ number_format($group->members_count) }} {{ __('messages.members_label') }}</span>
+                                <span data-mini-members-count="{{ $group->slug }}">{{ number_format($group->members_count) }} {{ __('messages.members_label') }}</span>
                             </div>
                         </div>
                     </a>
@@ -62,7 +62,7 @@
                             <p>{{ Str::limit($group->description, 80) }}</p>
                         </div>
                         <div class="card-footer">
-                            <span class="member-tag"><i class="fas fa-users"></i> {{ number_format($group->members_count) }}</span>
+                            <span class="member-tag" data-discovery-members-count="{{ $group->slug }}"><i class="fas fa-users"></i> {{ number_format($group->members_count) }}</span>
                             @if(in_array($group->id, $joinedIds))
                                 <span class="joined-badge"><i class="fas fa-check-circle"></i> {{ __('messages.joined') }}</span>
                             @else

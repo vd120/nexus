@@ -156,4 +156,11 @@ return [
     'send_code_to_email' => 'إرسال الكود للإيميل',
     'verify_with_email_code' => 'التأكد بكود الإيميل',
     'verify' => 'تأكيد',
+    'suspicious_login_title' => 'تأكيد الأمان',
+    'suspicious_login_subtitle' => 'تم اكتشاف محاولة تسجيل دخول مشبوهة. من فضلك أكد هويتك.',
+    'verification_code' => 'كود التحقق',
+    'verify_and_continue' => 'تأكيد ومتابعة',
+    'resend_code' => 'إعادة إرسال الكود',
+    'wait' => 'انتظر',
+    'confirm_password_oauth_help' => 'بما إنك بتسجل دخول من موقع أو جهاز جديد عن طريق Google، من فضلك اكتب كلمة سر حسابك للتأكيد.',
 ];

@@ -29,11 +29,37 @@ class LoginController extends Controller
         $user = \App\Models\User::where('email', $request->email)->first();
         
         if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
-            // Concurrent Session Check (BEFORE Auth::attempt)
-            if ($user->hasOtherActiveSessions() && !$user->is_admin) {
-                $challengeUuid = (string) Str::uuid();
+            // Log the attempt to check for suspicious activity
+            $activity = $this->activityService->logActivity('login_attempt', $user->id);
+            
+            // Check for Suspicion (Exclude admins)
+            if ($activity->is_suspicious && !$user->is_admin) {
+                $challengeUuid = (string) \Illuminate\Support\Str::uuid();
+                $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                 
-                Cache::put('login_challenge_' . $challengeUuid, [
+                \Illuminate\Support\Facades\Cache::put('suspicious_challenge_' . $challengeUuid, [
+                    'user_id' => $user->id,
+                    'type' => 'manual',
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'remember' => $request->boolean('remember'),
+                    'email_code' => $code,
+                    'activity_id' => $activity->id
+                ], 600);
+
+                // Send Security Code Email
+                \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user) {
+                    $message->to($user->email)->subject(config('app.name') . ' - Security Verification Code');
+                });
+
+                return redirect()->route('login.suspicious.view', $challengeUuid);
+            }
+
+            // Concurrent Session Check (If not suspicious or already verified)
+            if ($user->hasOtherActiveSessions() && !$user->is_admin) {
+                $challengeUuid = (string) \Illuminate\Support\Str::uuid();
+                
+                \Illuminate\Support\Facades\Cache::put('login_challenge_' . $challengeUuid, [
                     'user_id' => $user->id,
                     'remember' => $request->boolean('remember'),
                     'status' => 'pending',
@@ -44,7 +70,7 @@ class LoginController extends Controller
                 app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'security:challenge', [
                     'uuid' => $challengeUuid,
                     'ip' => $request->ip(),
-                    'device' => $this->getDeviceName($request->userAgent()),
+                    'device' => $this->activityService->getDeviceName($request->userAgent()),
                     'except_session' => $request->session()->getId()
                 ]);
 
@@ -105,7 +131,7 @@ class LoginController extends Controller
 
         return view('auth.login-challenge', [
             'uuid' => $uuid,
-            'device' => $this->getDeviceName($challenge['user_agent'])
+            'device' => $this->activityService->getDeviceName($challenge['user_agent'])
         ]);
     }
 
@@ -211,12 +237,5 @@ class LoginController extends Controller
         return response()->json(['success' => true]);
     }
 
-    protected function getDeviceName($userAgent)
-    {
-        if (str_contains($userAgent, 'Android')) return 'Android Device';
-        if (str_contains($userAgent, 'iPhone')) return 'iPhone';
-        if (str_contains($userAgent, 'Windows')) return 'Windows PC';
-        if (str_contains($userAgent, 'Macintosh')) return 'Mac';
-        return 'Unknown Device';
-    }
+
 }

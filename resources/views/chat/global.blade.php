@@ -128,6 +128,58 @@
         overflow: visible !important;
         margin-bottom: 25px;
     }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .clear-chat-btn {
+        padding: 8px 14px;
+        border-radius: 980px;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        backdrop-filter: blur(10px);
+        white-space: nowrap;
+    }
+    .clear-chat-btn i { font-size: 14px; }
+    .clear-chat-btn:hover {
+        background: #ef4444;
+        color: white;
+        border-color: #ef4444;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    }
+    .clear-chat-btn:active { transform: scale(0.95); }
+    
+    [lang="ar"] .header-actions { margin-left: 0; margin-right: auto; flex-direction: row-reverse; }
+    [lang="ar"] .clear-chat-btn { flex-direction: row-reverse; }
+
+    @media (max-width: 580px) {
+        .clear-chat-btn { 
+            padding: 6px 10px; 
+            height: auto; 
+            width: auto;
+            border-radius: 12px; 
+            font-size: 10px;
+            gap: 4px;
+        }
+        .clear-chat-btn span { display: inline; }
+        .clear-chat-btn i { font-size: 11px; }
+        .header-actions { gap: 6px; }
+    }
 </style>
 @endpush
 
@@ -143,8 +195,16 @@
 
             </div>
         </div>
-        <div class="online-stats">
-            <div id="online-count" class="online-count">[ ONLINE: 1 ]</div>
+        <div class="header-actions">
+            @if(auth()->user()->is_admin)
+                <button class="clear-chat-btn" onclick="confirmClearChat()" title="Clear All Messages">
+                    <i class="fas fa-trash-sweep"></i>
+                    <span>Clear Chat</span>
+                </button>
+            @endif
+            <div class="online-stats">
+                <div id="online-count" class="online-count">[ ONLINE: 1 ]</div>
+            </div>
         </div>
     </div>
 

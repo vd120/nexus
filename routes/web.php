@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialAuthController;
+use App\Http\Controllers\Auth\SuspiciousLoginController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\PostController;
@@ -79,6 +80,11 @@ Route::middleware('guest')->group(function () {
     })->name('login.view');
 
     Route::post('login', [LoginController::class, 'store'])->name('login')->middleware('throttle:auth');
+    
+    // Suspicious Login Routes
+    Route::get('login/suspicious/{uuid}', [SuspiciousLoginController::class, 'show'])->name('login.suspicious.view');
+    Route::post('login/suspicious/{uuid}/verify', [SuspiciousLoginController::class, 'verify'])->name('login.suspicious.verify');
+    Route::post('login/suspicious/{uuid}/resend', [SuspiciousLoginController::class, 'resend'])->name('login.suspicious.resend');
     
     Route::get('suspended', function () {
         return view('auth.suspended');
@@ -367,6 +373,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::post('/global-chat/react/{message}', [GlobalChatController::class, 'react'])->name('global-chat.react');
     Route::get('/global-chat/message/{message}/reactions', [GlobalChatController::class, 'getReactions'])->name('global-chat.message.reactions');
     Route::delete('/global-chat/message/{message}', [GlobalChatController::class, 'destroy'])->name('global-chat.message.destroy');
+    Route::post('/global-chat/admin-clear-all', [GlobalChatController::class, 'clear'])->name('global-chat.clear');
 
     Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
     Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');

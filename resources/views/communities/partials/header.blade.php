@@ -29,13 +29,16 @@
                         {{ __('messages.' . $group->privacy_level) }}
                     </span>
                     <span class="meta-dot"></span>
-                    <span class="member-count"><strong>{{ number_format($group->members_count) }}</strong> {{ __('messages.members_label') }}</span>
+                    <span class="member-count" data-community-members-count="{{ $group->slug }}"><strong>{{ number_format($group->members_count) }}</strong> {{ __('messages.members_label') }}</span>
                 </div>
             </div>
             <div class="header-actions">
                 @php 
                     $userMember = auth()->check() ? $group->members()->where('user_id', auth()->id())->first() : null;
                 @endphp
+                <script>
+                    window.COMMUNITY_ROLE = "{{ $userMember && $userMember->status === 'approved' ? $userMember->role : '' }}";
+                </script>
 
                 @if(!$userMember)
                     <button class="btn-action-primary" onclick="joinGroup('{{ $group->slug }}')">

@@ -33,9 +33,9 @@ class SocketManager {
             });
             
             // Proactively update the local notification count if the global counter exists
-            const counter = document.getElementById('notification-badge');
-            if (counter && window.getNotifications) {
-                window.getNotifications(); // Refresh the list and count
+            const counter = document.getElementById('notif-badge');
+            if (window.loadNotifications) {
+                window.loadNotifications(); // Refresh the list and count
             }
         } catch (e) {
             console.error('[SocketManager] Failed to clear notifications for conversation:', e);
@@ -262,6 +262,11 @@ class SocketManager {
             if (isActiveChat && window.loadNotifications) {
                 window.loadNotifications();
             }
+
+            // Sync global message badges on all pages
+            if (isChatRelated && window.updateMobileBadge) {
+                window.updateMobileBadge();
+            }
         });
 
         this.socket.on('notification:count', (data) => {
@@ -428,6 +433,49 @@ class SocketManager {
                 if (window.initializePostComponents) {
                     window.initializePostComponents(document.getElementById(`post-${data.id}`));
                 }
+            }
+        });
+
+        // Real-time community member counts
+        this.socket.on('community:member_count', (data) => {
+            const slug = data.slug;
+            const count = data.members_count;
+            if (!slug || count === undefined) return;
+
+            // 1. Update header on community page
+            const headerEl = document.querySelector(`[data-community-members-count="${slug}"]`);
+            if (headerEl) {
+                const strongEl = headerEl.querySelector('strong');
+                if (strongEl) {
+                    strongEl.textContent = Number(count).toLocaleString();
+                }
+            }
+
+            // 2. Update Your Communities mini card list
+            const miniEl = document.querySelector(`[data-mini-members-count="${slug}"]`);
+            if (miniEl) {
+                const label = window.layoutTranslations?.members || 'members';
+                miniEl.textContent = `${Number(count).toLocaleString()} ${label}`;
+            }
+
+            // 3. Update Discovery Grid card
+            const discoveryEl = document.querySelector(`[data-discovery-members-count="${slug}"]`);
+            if (discoveryEl) {
+                discoveryEl.innerHTML = `<i class="fas fa-users"></i> ${Number(count).toLocaleString()}`;
+            }
+        });
+
+        // Real-time new stories
+        this.socket.on('story:new', (data) => {
+            if (window.addStoryToSection) {
+                window.addStoryToSection(data);
+            }
+        });
+
+        // Real-time deleted stories
+        this.socket.on('story:deleted', (data) => {
+            if (window.removeStoryFromSection) {
+                window.removeStoryFromSection(data.username);
             }
         });
 
@@ -711,9 +759,6 @@ class SocketManager {
                     if (previewEl) previewEl.classList.remove('unread-text');
                 }
 
-                // Sync global badges
-                if (window.updateMobileBadge) window.updateMobileBadge();
-
                 // Move to top if it's a new message update (unless no_reorder is set)
                 const sidebar = document.getElementById('sidebarConvList');
                 if (sidebar && data.last_message && !data.no_reorder) {
@@ -725,6 +770,9 @@ class SocketManager {
                     window.addNewConversationItem(data);
                 }
             }
+
+            // Sync global badges on all pages
+            if (window.updateMobileBadge) window.updateMobileBadge();
         });
     }
 

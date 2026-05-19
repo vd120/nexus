@@ -12,6 +12,13 @@ use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
+    protected \App\Services\ActivityService $activityService;
+
+    public function __construct(\App\Services\ActivityService $activityService)
+    {
+        $this->activityService = $activityService;
+    }
+
     /**
      * Redirect to Google
      */
@@ -53,6 +60,30 @@ class SocialAuthController extends Controller
                 ]);
             }
 
+            // Log the attempt to check for suspicious activity
+            $activity = $this->activityService->logActivity('login_attempt', $user->id);
+
+            // Check for Suspicion (Exclude admins)
+            if ($activity->is_suspicious && !$user->is_admin) {
+                $challengeUuid = (string) Str::uuid();
+                
+                Cache::put('suspicious_challenge_' . $challengeUuid, [
+                    'user_id' => $user->id,
+                    'type' => 'oauth',
+                    'ip' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'remember' => true,
+                    'activity_id' => $activity->id
+                ], 600);
+
+                // Send Security Alert Email
+                \Illuminate\Support\Facades\Mail::send('emails.login-security-alert', ['activity' => $activity, 'user' => $user], function ($message) use ($user) {
+                    $message->to($user->email)->subject(config('app.name') . ' - Suspicious Login Detected');
+                });
+
+                return redirect()->route('login.suspicious.view', $challengeUuid);
+            }
+
             // Concurrent Session Check (BEFORE Login)
             if ($user->hasOtherActiveSessions() && !$user->is_admin) {
                 $challengeUuid = (string) Str::uuid();
@@ -68,7 +99,7 @@ class SocialAuthController extends Controller
                 app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'security:challenge', [
                     'uuid' => $challengeUuid,
                     'ip' => request()->ip(),
-                    'device' => $this->getDeviceName(request()->userAgent()),
+                    'device' => $this->activityService->getDeviceName(request()->userAgent()),
                     'except_session' => request()->session()->getId()
                 ]);
 
@@ -86,16 +117,5 @@ class SocialAuthController extends Controller
         }
     }
 
-    /**
-     * Helper to get device name from user agent
-     */
-    protected function getDeviceName($userAgent)
-    {
-        if (str_contains($userAgent, 'Android')) return 'Android Device';
-        if (str_contains($userAgent, 'iPhone')) return 'iPhone';
-        if (str_contains($userAgent, 'iPad')) return 'iPad';
-        if (str_contains($userAgent, 'Windows')) return 'Windows PC';
-        if (str_contains($userAgent, 'Macintosh')) return 'Mac';
-        return 'Unknown Device';
-    }
+
 }

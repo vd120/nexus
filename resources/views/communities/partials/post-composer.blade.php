@@ -260,6 +260,14 @@
 
                         // Prepend the new post
                         feedList.insertAdjacentHTML('afterbegin', data.post_html);
+
+                        // Initialize post components to resolve owner/admin dropdown permissions and state
+                        if (window.initializePostComponents && data.post && data.post.id) {
+                            const newPostEl = document.getElementById(`post-${data.post.id}`);
+                            if (newPostEl) {
+                                window.initializePostComponents(newPostEl);
+                            }
+                        }
                         
                         // Clear composer
                         document.getElementById('post-content').value = '';

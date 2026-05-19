@@ -38,7 +38,7 @@ class StoryController extends Controller
             ]);
 
             // Create text-only story with background color
-            Story::create([
+            $story = Story::create([
                 'user_id' => auth()->id(),
                 'media_type' => 'text',
                 'media_path' => null,
@@ -51,6 +51,26 @@ class StoryController extends Controller
 
             // Clear stories cache for the current user to ensure it updates on feed
             cache()->forget('user_stories_' . auth()->id());
+
+            // Broadcast to followers in real time
+            try {
+                $socketService = app(\App\Services\SocketEmitService::class);
+                $user = auth()->user();
+                foreach ($user->followers as $follower) {
+                    $socketService->emitToUser($follower->follower_id, 'story:new', [
+                        'username' => $user->username,
+                        'storySlug' => $story->slug,
+                        'avatarUrl' => $user->avatar_url,
+                        'mediaType' => $story->media_type,
+                        'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
+                        'content' => $story->content,
+                        'bgColor' => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        'timeAgo' => $story->created_at->diffForHumans(),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
+            }
 
             return redirect()->route('stories.index')->with('success', __('messages.story_posted'));
         }
@@ -169,7 +189,7 @@ class StoryController extends Controller
         }
 
         // Create story with 24-hour expiration
-        Story::create([
+        $story = Story::create([
             'user_id' => auth()->id(),
             'media_type' => $mediaType,
             'media_path' => $path,
@@ -179,6 +199,26 @@ class StoryController extends Controller
 
         // Clear stories cache for the current user to ensure it updates on feed
         cache()->forget('user_stories_' . auth()->id());
+
+        // Broadcast to followers in real time
+        try {
+            $socketService = app(\App\Services\SocketEmitService::class);
+            $user = auth()->user();
+            foreach ($user->followers as $follower) {
+                $socketService->emitToUser($follower->follower_id, 'story:new', [
+                    'username' => $user->username,
+                    'storySlug' => $story->slug,
+                    'avatarUrl' => $user->avatar_url,
+                    'mediaType' => $story->media_type,
+                    'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
+                    'content' => $story->content,
+                    'bgColor' => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    'timeAgo' => $story->created_at->diffForHumans(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
+        }
 
         return redirect()->route('stories.index')->with('success', __('messages.story_posted'));
     }
@@ -394,6 +434,34 @@ class StoryController extends Controller
 
         // Clear stories cache for the current user
         cache()->forget('user_stories_' . auth()->id());
+
+        // Broadcast story deletion or update to followers in real time
+        try {
+            $userModel = auth()->user();
+            $remainingStories = $userModel->activeStories()->orderBy('created_at', 'desc')->get();
+            $socketService = app(\App\Services\SocketEmitService::class);
+            
+            if ($remainingStories->count() > 0) {
+                // If there are other active stories, update the click handler to target the next latest story
+                $nextStory = $remainingStories->first();
+                foreach ($userModel->followers as $follower) {
+                    $socketService->emitToUser($follower->follower_id, 'story:new', [
+                        'username' => $userModel->username,
+                        'storySlug' => $nextStory->slug,
+                        'avatarUrl' => $userModel->avatar_url,
+                    ]);
+                }
+            } else {
+                // If no active stories are left, completely remove the story avatar from followers' feeds
+                foreach ($userModel->followers as $follower) {
+                    $socketService->emitToUser($follower->follower_id, 'story:deleted', [
+                        'username' => $userModel->username,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Real-time story delete broadcast failed: ' . $e->getMessage());
+        }
 
         // Log for debugging
         \Log::info('Story deleted', [

@@ -221,10 +221,9 @@
 .action-btn b {
     font-size: 14px;
     font-weight: 700;
-    color: #ffffff !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    color: var(--text);
+    display: block;
+    margin-top: 8px;
 }
 
 .activity-grid {

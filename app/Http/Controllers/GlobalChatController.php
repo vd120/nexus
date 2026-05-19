@@ -216,4 +216,19 @@ class GlobalChatController extends Controller
 
         return response()->json(['success' => true]);
     }
+    public function clear()
+    {
+        Log::info('Clear chat method reached by user: ' . auth()->id());
+        if (!auth()->user()->is_admin) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        GlobalMessage::query()->delete();
+
+        $this->socketService->emit('conversation:global-chat', 'chat:cleared', [
+            'conversation_id' => 'global-chat'
+        ]);
+
+        return response()->json(['success' => true]);
+    }
 }

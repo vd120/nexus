@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" class="no-transition">
 <head>
+    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#000000':'#ffffff'})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
@@ -8,10 +9,9 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t)})();</script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+
     <style>
         :root {
             --bg: #000000;
@@ -23,6 +23,10 @@
             --border: rgba(255, 255, 255, 0.08);
             --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        
+        html { background-color: #000000; }
+        html[data-theme="light"] { background-color: #ffffff; }
+        html[data-theme="dark"] { background-color: #000000; }
 
         [data-theme="light"] {
             --bg: #ffffff;
@@ -34,7 +38,7 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
         body { 
             background: var(--bg); 
             color: var(--text); 
@@ -46,13 +50,13 @@
         }
 
         /* Cinema-Grade Smooth Transitions */
-        body:not(.switching-theme), 
-        nav:not(.switching-theme), 
-        .hero:not(.switching-theme), 
-        .section-focus:not(.switching-theme), 
-        .grid-section:not(.switching-theme), 
-        footer:not(.switching-theme),
-        .simple-btn:not(.switching-theme), 
+        html:not(.no-transition) body:not(.switching-theme), 
+        html:not(.no-transition) nav:not(.switching-theme), 
+        html:not(.no-transition) .hero:not(.switching-theme), 
+        html:not(.no-transition) .section-focus:not(.switching-theme), 
+        html:not(.no-transition) .grid-section:not(.switching-theme), 
+        html:not(.no-transition) footer:not(.switching-theme),
+        html:not(.no-transition) .simple-btn:not(.switching-theme), 
         .theme-switcher-pill, .language-switcher-pill {
             transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
                         color 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
@@ -216,8 +220,6 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
         /* Hero - Full Screen Viewport */
-        html { scroll-behavior: smooth; }
-
         .hero { 
             min-height: 100vh;
             min-height: 100dvh;
@@ -229,29 +231,51 @@
             justify-content: center;
             align-items: center;
             position: relative;
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        .hero .container {
+            position: relative;
             z-index: 10;
-            background: radial-gradient(circle at 50% 30%, rgba(0, 113, 227, 0.12) 0%, var(--bg) 60%);
         }
         .hero h1 { 
-            font-size: clamp(56px, 10vw, 120px); 
-            font-weight: 800; 
-            letter-spacing: -0.05em; 
-            line-height: 1.05; 
+            font-size: clamp(18px, 3vw, 24px); 
+            font-weight: 700; 
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: var(--primary);
             margin-bottom: 32px;
+            opacity: 0.9;
+        }
+        .hero p { 
+            font-size: clamp(32px, 5.5vw, 62px); 
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.15; 
+            max-width: 1100px; 
+            margin: 0 auto 64px; 
             padding: 10px 0;
-            background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+            background: linear-gradient(180deg, var(--text) 50%, var(--text-dim) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 30px rgba(0, 113, 227, 0.2));
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15));
         }
-        .hero p { font-size: clamp(18px, 3vw, 24px); color: var(--text-dim); max-width: 700px; margin: 0 auto 56px; line-height: 1.5; }
         
         .btn { 
             padding: 14px 32px; border-radius: 980px; font-size: 18px; font-weight: 600; 
             text-decoration: none; display: inline-block; transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
         }
-        .btn-blue { background: var(--primary); color: #fff !important; border: none; cursor: pointer; }
+        .btn-blue { 
+            background: var(--primary); 
+            color: #fff !important; 
+            border: none; 
+            cursor: pointer;
+            padding: 18px 64px;
+            font-size: 22px;
+            letter-spacing: -0.01em;
+        }
         .btn-blue:hover { transform: scale(1.02); filter: brightness(1.1); }
         .btn-glass { 
             background: rgba(255, 255, 255, 0.05); 
@@ -301,57 +325,68 @@
             border: 1px solid var(--border); color: var(--text);
         }
         .simple-btn.primary { background: var(--primary); color: #fff !important; border: none; backdrop-filter: none; }
-        .simple-btn:not(.primary):hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .simple-btn:not(.primary):hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
         [data-theme="light"] .simple-btn:not(.primary) { background: rgba(0,0,0,0.03); }
         [data-theme="light"] .simple-btn:not(.primary):hover { background: rgba(0,0,0,0.05); }
-        .simple-btn.primary:hover { background: var(--primary); color: #fff !important; transform: translateY(-2px); box-shadow: 0 4px 15px var(--primary-glow); opacity: 0.95; }
-
-        @media (max-width: 480px) {
-            .simple-reveal { gap: 10px; }
-            .simple-btn { flex: 1; padding: 12px 10px; font-size: 13px; text-align: center; }
-        }
+        .simple-btn.primary:hover { background: var(--primary); color: #fff !important; transform: translateY(-2px); opacity: 0.95; }
 
         @media (max-width: 480px) {
             .arrows-row { width: 100%; justify-content: center; gap: 40px; }
-            .directed-options { flex-direction: row; width: calc(100vw - 40px); gap: 12px; }
-            .directed-btn { flex: 1; text-align: center; white-space: nowrap; padding: 14px 10px; font-size: 14px; border-radius: 16px; }
-            .directed-container.active .directed-reveal { transform: translateX(-50%) translateY(10px); }
         }
 
-        /* Large Focus Sections */
-        .section-focus { padding: 140px 0; background: var(--bg); overflow: hidden; }
-        .focus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-        .focus-grid.flipped { direction: rtl; }
-        .focus-grid.flipped > div { direction: ltr; }
-        
-        .focus-text h2 { font-size: clamp(36px, 6vw, 56px); font-weight: 700; margin-bottom: 24px; letter-spacing: -0.02em; }
-        .focus-text p { font-size: 20px; color: var(--text-dim); margin-bottom: 40px; line-height: 1.5; }
-        
-        .focus-list { list-style: none; color: var(--text-dim); font-size: 17px; padding: 0; }
-        .focus-list li { margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+        /* Focus Sections Redesign */
+        .section-focus { 
+            padding: 100px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .focus-grid { 
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .focus-text h2 { 
+            font-size: clamp(32px, 5vw, 48px); 
+            font-weight: 700; 
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+        .focus-text p { 
+            font-size: 19px; 
+            color: var(--text-dim); 
+            margin-bottom: 40px; 
+            line-height: 1.6;
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+        .focus-visual { display: none; }
+        .focus-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .focus-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: var(--text);
+        }
         .focus-list li i { color: var(--primary); font-size: 14px; }
 
-        .focus-visual { 
-            background: rgba(255, 255, 255, 0.02); 
-            border-radius: 48px; 
-            aspect-ratio: 16/10; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 100px; 
-            border: 1px solid var(--border);
-            box-shadow: 0 40px 100px rgba(0,0,0,0.3);
-            position: relative;
-            overflow: hidden;
+        .privacy-subgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            text-align: left;
+            margin-top: 40px;
         }
-        .focus-visual::after {
-            content: ''; position: absolute; inset: 0;
-            background: radial-gradient(circle at center, rgba(0, 113, 227, 0.2), transparent 70%);
-            pointer-events: none;
-        }
-        .focus-visual::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        html[lang="ar"] .privacy-subgrid { text-align: right; }
+        @media (max-width: 768px) {
+            .privacy-subgrid { grid-template-columns: 1fr; text-align: center; }
         }
 
         /* Grid Sections */
@@ -581,10 +616,16 @@
             .focus-grid.flipped { direction: ltr; }
             .focus-list { display: inline-block; text-align: left; margin: 0 auto; }
             .section-focus { padding: 80px 0; }
-            .feature-grid, .tech-grid, .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .feature-grid, .tech-grid, .footer-grid { grid-template-columns: 1fr; gap: 48px; text-align: center; }
+            .footer-brand { align-items: center; margin-bottom: 24px; }
+            .footer-col { align-items: center; display: flex; flex-direction: column; }
+            .footer-col a { width: 100%; text-align: center; padding: 8px 0; }
+            .footer-bottom { flex-direction: column; gap: 24px; text-align: center; }
+            .footer-legal { justify-content: center; flex-wrap: wrap; gap: 16px; }
         }
 
         @media (max-width: 768px) {
+            html { scroll-behavior: auto !important; }
             html, body { overflow-x: hidden; width: 100%; position: relative; }
             .container { padding: 0 20px; }
             
@@ -600,9 +641,9 @@
             .theme-switcher-pill { width: 64px; height: 32px; }
 
             .hero { padding: 0 20px; min-height: 100vh; min-height: 100dvh; }
-            .hero h1 { font-size: clamp(32px, 10vw, 48px); margin-bottom: 16px; }
-            .hero p { font-size: 16px; line-height: 1.6; margin-bottom: 32px; }
-            .btn { width: 100%; max-width: 300px; font-size: 16px; }
+            .hero h1 { font-size: 12px; letter-spacing: 0.3em; margin-bottom: 16px; }
+            .hero p { font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin-bottom: 40px; max-width: 100%; }
+            .btn, .btn-blue { width: 100%; max-width: 260px; font-size: 16px; padding: 12px 20px; }
 
             .section-focus, .grid-section { padding: 100px 0; }
             .focus-text h2 { font-size: 28px; margin-bottom: 12px; }
@@ -626,13 +667,16 @@
         }
 
         @media (max-width: 480px) {
-            .hero h1 { font-size: 30px; }
-            .hero p { font-size: 15px; }
+            .hero h1 { font-size: 11px; letter-spacing: 0.25em; }
+            .hero p { font-size: 24px; }
             .nav-actions { gap: 6px; }
             .focus-text h2 { font-size: 24px; }
             .focus-text p { font-size: 14px; }
-            .focus-visual { min-height: 180px; font-size: 40px; }
             .section-header h2 { font-size: 24px; }
+            
+            /* Get Started Reveal Buttons */
+            .simple-reveal { gap: 10px; width: 100%; max-width: 300px; }
+            .simple-btn { flex: 1; padding: 12px 10px; font-size: 13px; text-align: center; white-space: nowrap; }
         }
             
             footer { padding: 60px 0 40px; }
@@ -650,6 +694,58 @@
             [data-theme="dark"] .theme-switcher-pill .slide-bg { transform: translateX(25px); }
             .option-btn { width: 25px; font-size: 8px; }
         }
+
+        /* Typing Effect Styles */
+        .waiting-for-typing {
+            opacity: 0 !important;
+            pointer-events: none;
+            transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        
+        .typing-complete .waiting-for-typing {
+            opacity: 1 !important;
+            pointer-events: auto;
+            transform: translate(0) !important;
+        }
+        
+        nav.waiting-for-typing {
+            transform: translate(-50%, -20px) !important;
+        }
+        .typing-complete nav.waiting-for-typing {
+            transform: translate(-50%, 0) !important;
+        }
+
+        #typing-text {
+            display: block;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #typing-text::after {
+            content: '|';
+            animation: blink 0.8s steps(2, start) infinite;
+            margin-left: 6px;
+            color: var(--primary);
+            background: none;
+            -webkit-text-fill-color: var(--primary); /* Overrides parent transparent fill */
+            -webkit-background-clip: initial;        /* Overrides parent background clipping */
+            font-weight: 300;
+            transition: opacity 0.5s ease;
+            opacity: 1;
+        }
+
+        .cursor-fade #typing-text::after {
+            animation: none;
+            opacity: 0;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -659,7 +755,7 @@
     <div class="bloom bloom-2"></div>
 </div>
 
-<nav>
+<nav class="waiting-for-typing">
     <div class="nav-inner">
         <a href="/" class="nav-logo">
             <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-white" loading="eager" fetchpriority="high">
@@ -695,7 +791,9 @@
 
 <!-- Mobile Menu Overlay -->
 <div class="mobile-menu" id="mobileMenu">
-    <a href="/privacy" onclick="toggleMobileMenu()" data-t="home.privacy_nav">{{ __('home.privacy_nav') }}</a>
+    <a href="{{ route('privacy') }}" onclick="toggleMobileMenu()" data-t="home.privacy_nav">{{ __('home.privacy_nav') }}</a>
+    <a href="{{ route('terms') }}" onclick="toggleMobileMenu()" data-t="home.terms_of_service">{{ __('home.terms_of_service') }}</a>
+    <a href="{{ route('cookies') }}" onclick="toggleMobileMenu()" data-t="home.cookies_policy">{{ __('home.cookies_policy') }}</a>
     <a href="#features" onclick="toggleMobileMenu()" data-t="home.features_nav">{{ __('home.features_nav') }}</a>
     <a href="#technology" onclick="toggleMobileMenu()" data-t="home.architecture_nav">{{ __('home.architecture_nav') }}</a>
     
@@ -716,9 +814,9 @@
 
 <section class="hero" id="hero">
     <div class="container reveal">
-        <h1 data-t="home.nexus" class="stagger-1">Nexus</h1>
-        <p data-t="home.connect_share_belong" class="stagger-2">{{ __('home.connect_share_belong') }}</p>
-        <div class="simple-cta-container stagger-3" id="simpleCta">
+        <h1 data-t="home.nexus" class="stagger-1 waiting-for-typing">Nexus</h1>
+        <p id="typing-text" data-t="home.connect_share_belong" class="stagger-2" style="opacity: 0;">{{ __('home.connect_share_belong') }}</p>
+        <div class="simple-cta-container stagger-3 waiting-for-typing" id="simpleCta">
             <button class="btn btn-blue" id="getStartedSimple" data-t="home.get_started_free">{{ __('home.get_started_free') }}</button>
             <div class="simple-reveal">
                 <a href="/register" class="simple-btn primary" data-t="home.join_nexus">{{ __('home.join_nexus') }}</a>
@@ -734,7 +832,7 @@
         <div class="focus-grid">
             <div class="focus-text reveal">
                 <h2 data-t="home.privacy_section_title">{{ __('home.privacy_section_title') }}</h2>
-                <p data-t="home.privacy_section_desc">{{ __('home.privacy_section_desc') }}</p>
+                <p data-t="home.nexus_mission">{{ __('home.nexus_mission') }}</p>
                 <div class="privacy-subgrid">
                     <div><h4 data-t="home.no_ads_title" style="font-size: 18px; margin-bottom: 8px;">{{ __('home.no_ads_title') }}</h4><p data-t="home.no_ads_desc" style="font-size: 14px; color: var(--text-dim);">{{ __('home.no_ads_desc') }}</p></div>
                     <div><h4 data-t="home.no_tracking_title" style="font-size: 18px; margin-bottom: 8px;">{{ __('home.no_tracking_title') }}</h4><p data-t="home.no_tracking_desc" style="font-size: 14px; color: var(--text-dim);">{{ __('home.no_tracking_desc') }}</p></div>
@@ -742,19 +840,17 @@
                 <div style="margin-top: 32px;">
                     <a href="/privacy" class="btn btn-outline" style="padding: 12px 24px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 10px; transition: all 0.3s ease;">
                         <i class="fas fa-book-open"></i>
-                        <span>Read Full Policy</span>
+                        <span data-t="home.read_full_policy">{{ __('home.read_full_policy') }}</span>
                     </a>
                 </div>
             </div>
-            <div class="focus-visual reveal">🛡️</div>
-        </div>
     </div>
 </section>
 
 <!-- Communities Pillar -->
 <section class="section-focus">
     <div class="container">
-        <div class="focus-grid flipped">
+        <div class="focus-grid">
             <div class="focus-text reveal">
                 <h2 data-t="home.communities_title">Communities</h2>
                 <p data-t="home.communities_desc">{{ __('home.communities_desc') }}</p>
@@ -764,8 +860,6 @@
                     <li><i class="fas fa-check-circle"></i> <span data-t="home.private_groups">{{ __('home.private_groups') }}</span></li>
                 </ul>
             </div>
-            <div class="focus-visual reveal">👥</div>
-        </div>
     </div>
 </section>
 
@@ -817,11 +911,8 @@
                 <p data-t="home.pwa_desc">{{ __('home.pwa_desc') }}</p>
             </div>
             <div class="tech-item reveal">
-                <h4 data-t="home.android_app">{{ __('home.android_app') }}</h4>
-                <p data-t="home.android_app_desc">{{ __('home.android_app_desc') }}</p>
-                <a href="{{ asset('apk/nexus.apk') }}" class="download-btn" id="downloadApkBtn" download>
-                    <span>📲</span> <span data-t="home.download_apk">{{ __('home.download_apk') }}</span>
-                </a>
+                <h4 data-t="home.platform_security">{{ __('home.platform_security') }}</h4>
+                <p data-t="home.platform_security_desc">{{ __('home.platform_security_desc') }}</p>
             </div>
             <div class="tech-item reveal">
                 <h4 data-t="home.realtime">Real-Time Core</h4>
@@ -847,16 +938,12 @@
             <div class="pwa-pills">
                 <div class="pill" data-t="home.websockets">{{ __('home.websockets') }}</div>
                 <div class="pill" data-t="home.push_notifications">{{ __('home.push_notifications') }}</div>
-                <div class="pill" data-t="home.biometric_lock">{{ __('home.biometric_lock') }}</div>
+                <div class="pill" data-t="home.encrypted_storage">{{ __('home.encrypted_storage') }}</div>
             </div>
         </div>
     </div>
 </section>
 
-<div class="toast-container" id="downloadToast">
-    <div class="toast-icon">✓</div>
-    <span id="toastMessage" data-t="home.download_thanks">{{ __('home.download_thanks') }}</span>
-</div>
 
 <footer>
     <div class="container">
@@ -1005,21 +1092,6 @@
         });
     });
 
-    // Toast Logic
-    function showToast(msg) {
-        const toast = document.getElementById('downloadToast');
-        document.getElementById('toastMessage').innerText = msg;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 4000);
-    }
-
-    document.getElementById('downloadApkBtn').addEventListener('click', () => {
-        const locale = document.documentElement.lang;
-        const msg = translations[locale] && translations[locale]['download_thanks'] 
-                    ? translations[locale]['download_thanks'] 
-                    : "Thanks for downloading Nexus!";
-        showToast(msg);
-    });
 
     // Pristine Simple Logic
     const simpleCta = document.getElementById('simpleCta');
@@ -1052,6 +1124,51 @@
             }
         });
     });
+
+    // Typing Effect Implementation
+    function initTypingEffect() {
+        const textElement = document.getElementById('typing-text');
+        if (!textElement) return;
+
+        // Store original text if not already stored
+        if (!textElement.dataset.fullText) {
+            textElement.dataset.fullText = textElement.innerText.trim();
+        }
+        
+        const fullText = textElement.dataset.fullText;
+        textElement.innerText = '';
+        textElement.style.opacity = '1';
+        
+        let i = 0;
+        const speed = 35; // Perfect balanced typing sweet spot!
+
+        function type() {
+            if (i < fullText.length) {
+                textElement.textContent += fullText.charAt(i);
+                i++;
+                setTimeout(type, speed);
+            } else {
+                // Instantly trigger staggered reveal
+                document.body.classList.add('typing-complete');
+                
+                // Fade out the cursor smoothly
+                setTimeout(() => {
+                    document.body.classList.add('cursor-fade');
+                }, 1000);
+            }
+        }
+
+        // Snappy but premium initial start delay
+        setTimeout(type, 600);
+    }
+
+    // Initialize on load
+    window.addEventListener('load', () => {
+        document.documentElement.classList.remove('no-transition');
+        initTypingEffect();
+    });
+
+
 </script>
 
 </body>

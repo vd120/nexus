@@ -133,6 +133,17 @@ class SocialGroupAdminController extends Controller
         $member = $group->members()->where('user_id', $userId)->where('status', 'pending')->firstOrFail();
         $member->update(['status' => 'approved']);
 
+        try {
+            $memberCount = $group->members()->where('status', 'approved')->count();
+            app(\App\Services\SocketEmitService::class)->emit('global', 'community:member_count', [
+                'group_id' => $group->id,
+                'slug' => $group->slug,
+                'members_count' => $memberCount,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to emit community:member_count: ' . $e->getMessage());
+        }
+
         NotificationController::createNotification(
             $member->user_id,
             'group_join_accepted',
@@ -243,6 +254,17 @@ class SocialGroupAdminController extends Controller
         }
 
         $group->members()->where('user_id', $userId)->delete();
+
+        try {
+            $memberCount = $group->members()->where('status', 'approved')->count();
+            app(\App\Services\SocketEmitService::class)->emit('global', 'community:member_count', [
+                'group_id' => $group->id,
+                'slug' => $group->slug,
+                'members_count' => $memberCount,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to emit community:member_count: ' . $e->getMessage());
+        }
 
         return response()->json(['message' => 'Member removed successfully.']);
     }

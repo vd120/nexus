@@ -9,8 +9,7 @@
     {{-- Speed & Performance Optimization --}}
     <link rel="preconnect" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
     <link rel="dns-prefetch" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+
     
     <script>
         (function() {
@@ -66,8 +65,33 @@
     @endauth
     <title>@yield('title', 'Nexus')</title>
     
-    {{-- Performance: System Font Stacks (Zero Load Time) --}}
+    {{-- Performance: Local & System Font Stacks --}}
     <style>
+        @font-face {
+            font-family: 'Cairo';
+            font-style: normal;
+            font-weight: 200 1000;
+            font-display: swap;
+            src: url('{{ asset("fonts/cairo/cairo-arabic.woff2") }}') format('woff2');
+            unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
+        }
+        @font-face {
+            font-family: 'Cairo';
+            font-style: normal;
+            font-weight: 200 1000;
+            font-display: swap;
+            src: url('{{ asset("fonts/cairo/cairo-latin-ext.woff2") }}') format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Cairo';
+            font-style: normal;
+            font-weight: 200 1000;
+            font-display: swap;
+            src: url('{{ asset("fonts/cairo/cairo-latin.woff2") }}') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
         :root {
             --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
             --font-arabic: "Cairo", "Segoe UI", Tahoma, sans-serif;
@@ -79,12 +103,6 @@
     {{-- Performance: Critical CSS Preloading --}}
     <link rel="preload" href="{{ asset('css/app-layout.css') }}" as="style">
     <link rel="preload" href="{{ asset('css/mobile-header.css') }}" as="style">
-    
-    {{-- Cairo only for Arabic - loaded efficiently --}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
     {{-- Critical CSS Fallback: Ensures branded background/text even if external CSS has a delay --}}
     <style>
@@ -105,7 +123,7 @@
     </style>
 
     {{-- Icons --}}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
     
     {{-- Main Styles --}}
     <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
@@ -128,19 +146,66 @@
         color: white;
         font-size: 11px;
         font-weight: 800;
+        font-family: var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.3px;
         min-width: 20px;
         height: 20px;
-        border-radius: 8px;
-        display: flex;
+        border-radius: 9999px;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0 4px;
-        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
-        border: 1.5px solid var(--bg);
+        padding: 0 4.5px;
+        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
+        border: 2px solid var(--bg);
         z-index: 10;
+        line-height: 1;
+        text-align: center;
     }
     .mobile-nav-inner a {
         position: relative;
+    }
+    /* Desktop message badge */
+    .desktop-msg-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: linear-gradient(135deg, #ff4b2b 0%, #ef4444 100%);
+        color: white;
+        font-size: 11px;
+        font-weight: 800;
+        font-family: var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.3px;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4.5px;
+        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
+        border: 2px solid var(--bg);
+        z-index: 10;
+        line-height: 1;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .desktop-msg-badge.pulse,
+    .mobile-msg-badge.pulse {
+        animation: badgePulse 0.5s ease-in-out;
+    }
+    
+    html[dir="rtl"] .desktop-msg-badge {
+        right: auto;
+        left: -6px;
+    }
+
+    /* Light Theme Badges */
+    [data-theme="light"] .desktop-msg-badge {
+        border: 2px solid var(--bg);
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
     }
     .notif-reaction {
         background: rgba(244, 63, 94, 0.1) !important;
@@ -177,11 +242,29 @@
             </a>
 
             @auth
+            @php 
+                $unreadMessages = \App\Models\Message::where('sender_id', '!=', auth()->id())
+                    ->whereNull('read_at')
+                    ->whereHas('conversation', function($q) {
+                        $q->where('user1_id', auth()->id())
+                          ->orWhere('user2_id', auth()->id())
+                          ->orWhereHas('group.members', function($q2) {
+                              $q2->where('user_id', auth()->id());
+                          });
+                    })
+                    ->count();
+            @endphp
             <nav class="nav-links">
                 <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}"><i class="fas fa-home"></i> {{ __('navigation.home') }}</a>
                 <a href="{{ route('stories.index') }}" class="{{ request()->routeIs('stories.*') ? 'active' : '' }}"><i class="fas fa-circle-play"></i> {{ __('navigation.stories') }}</a>
                 <a href="{{ route('communities.index') }}" class="{{ request()->routeIs('communities.*') ? 'active' : '' }}"><i class="fas fa-users"></i> {{ __('navigation.groups') }}</a>
-                <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}"><i class="fas fa-message"></i> {{ __('navigation.messages') }}</a>
+                <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}" style="position: relative;">
+                    <i class="fas fa-message"></i> 
+                    {{ __('navigation.messages') }}
+                    <span class="desktop-msg-badge" id="desktopMsgBadge" style="{{ $unreadMessages > 0 ? 'display: flex !important;' : 'display: none !important;' }}">
+                        {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
+                    </span>
+                </a>
                 <a href="{{ route('global-chat.index') }}" class="{{ request()->routeIs('global-chat.index') ? 'active' : '' }}"><i class="fas fa-globe-americas"></i> {{ __('navigation.global_chat') }}</a>
                 <a href="{{ route('ai.index') }}" class="{{ request()->routeIs('ai.*') ? 'active' : '' }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
             </nav>
@@ -358,18 +441,6 @@
             </a>
             <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}">
                 <i class="{{ request()->routeIs('chat.*') ? 'fa-solid' : 'fa-regular' }} fa-comment"></i>
-                @php 
-                    $unreadMessages = \App\Models\Message::where('sender_id', '!=', auth()->id())
-                        ->whereNull('read_at')
-                        ->whereHas('conversation', function($q) {
-                            $q->where('user1_id', auth()->id())
-                              ->orWhere('user2_id', auth()->id())
-                              ->orWhereHas('group.members', function($q2) {
-                                  $q2->where('user_id', auth()->id());
-                              });
-                        })
-                        ->count();
-                @endphp
                 <span class="mobile-msg-badge" id="mobileMsgBadge" style="{{ $unreadMessages > 0 ? 'display: flex !important;' : 'display: none !important;' }}">
                     {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
                 </span>
@@ -467,7 +538,8 @@
             window.currentUserId = {{ auth()->id() }};
             window.currentUserUsername = "{{ auth()->user()->username }}";
             window.layoutTranslations = {
-                failed_to_join_group: "{{ __('messages.failed_to_join_group') }}"
+                failed_to_join_group: "{{ __('messages.failed_to_join_group') }}",
+                members: "{{ __('messages.members_label') }}"
             };
         </script>
     @endauth
@@ -737,8 +809,8 @@
             })
             .then(r => r.json())
             .then(data => {
-                const badge = document.getElementById('mobileMsgBadge');
-                if (!badge) return;
+                const mobileBadge = document.getElementById('mobileMsgBadge');
+                const desktopBadge = document.getElementById('desktopMsgBadge');
                 
                 let totalUnread = 0;
                 if (data.conversations) {
@@ -750,15 +822,33 @@
                     totalUnread = parseInt(data.unread_count || 0);
                 }
 
-                if (totalUnread > 0) {
-                    badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-                    badge.style.setProperty('display', 'flex', 'important');
-                } else {
-                    badge.style.setProperty('display', 'none', 'important');
-                    badge.textContent = '';
+                const displayStyle = totalUnread > 0 ? 'flex' : 'none';
+                const displayText = totalUnread > 0 ? (totalUnread > 99 ? '99+' : totalUnread) : '';
+
+                if (mobileBadge) {
+                    const oldCount = parseInt(mobileBadge.textContent) || 0;
+                    mobileBadge.textContent = displayText;
+                    mobileBadge.style.setProperty('display', displayStyle, 'important');
+                    
+                    if (totalUnread > oldCount && displayStyle === 'flex') {
+                        mobileBadge.classList.remove('pulse');
+                        void mobileBadge.offsetWidth; // trigger reflow
+                        mobileBadge.classList.add('pulse');
+                    }
+                }
+                if (desktopBadge) {
+                    const oldCount = parseInt(desktopBadge.textContent) || 0;
+                    desktopBadge.textContent = displayText;
+                    desktopBadge.style.setProperty('display', displayStyle, 'important');
+
+                    if (totalUnread > oldCount && displayStyle === 'flex') {
+                        desktopBadge.classList.remove('pulse');
+                        void desktopBadge.offsetWidth; // trigger reflow
+                        desktopBadge.classList.add('pulse');
+                    }
                 }
             })
-            .catch(err => console.warn('Failed to update mobile badge:', err));
+            .catch(err => console.warn('Failed to update badges:', err));
         };
 
         function escapeHtml(text) {
@@ -772,7 +862,7 @@
             return document.querySelector('meta[name="csrf-token"]')?.content || '';
         }
 
-        function loadNotifications() {
+        window.loadNotifications = function loadNotifications() {
             fetch('/notifications', {
                 credentials: 'include',
                 headers: { 

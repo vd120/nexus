@@ -189,6 +189,26 @@ class ActivityService
     }
 
     /**
+     * Get a human-readable device/platform name
+     */
+    public function getDeviceName(?string $userAgent = null): string
+    {
+        $ua = strtolower($userAgent ?? request()->userAgent() ?? '');
+        
+        if (str_contains($ua, 'android')) return 'Android Device';
+        if (str_contains($ua, 'iphone')) return 'iPhone';
+        if (str_contains($ua, 'ipad')) return 'iPad';
+        if (str_contains($ua, 'windows')) return 'Windows PC';
+        if (str_contains($ua, 'macintosh') || str_contains($ua, 'mac os x')) return 'Mac';
+        if (str_contains($ua, 'linux')) return 'Linux PC';
+        
+        if (str_contains($ua, 'mobile')) return 'Mobile Device';
+        if (str_contains($ua, 'tablet')) return 'Tablet Device';
+        
+        return 'Unknown Device';
+    }
+
+    /**
      * Detect browser from user agent
      */
     private function getBrowser(Request $request): string

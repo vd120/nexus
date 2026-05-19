@@ -5,6 +5,7 @@
     const messageInput = document.getElementById('messageInput');
     const emojiPicker = document.getElementById('emojiPicker');
     let currentEmojiMessageId = null;
+    let scrollObserver = null;
 
     // 1. Scroll to bottom on load
     const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
@@ -21,7 +22,7 @@
         // Scroll Sensing using IntersectionObserver (The most reliable way for mobile)
         const scrollSentinel = document.getElementById('scrollSentinel');
         if (scrollSentinel && scrollToBottomBtn) {
-            const observer = new IntersectionObserver((entries) => {
+            scrollObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         // Bottom is visible
@@ -39,7 +40,7 @@
                 threshold: 0.1
             });
 
-            observer.observe(scrollSentinel);
+            scrollObserver.observe(scrollSentinel);
         }
     }
 
@@ -132,6 +133,20 @@
                         }
                         const reactBtn = msgEl.querySelector('.quick-react-btn');
                         if (reactBtn) reactBtn.remove();
+                    }
+                }
+            });
+
+            socket.on('chat:cleared', (data) => {
+                if (data.conversation_id === 'global-chat') {
+                    console.log('%c [Chat] Chat cleared by admin ', 'color: #ff4757; font-weight: bold;');
+                    if (messagesWrapper) {
+                        messagesWrapper.innerHTML = '<div id="scrollSentinel" style="height: 1px; width: 100%;"></div>';
+                        // Re-observe the new sentinel
+                        const scrollSentinel = document.getElementById('scrollSentinel');
+                        if (scrollSentinel && scrollObserver) {
+                            scrollObserver.observe(scrollSentinel);
+                        }
                     }
                 }
             });
@@ -709,6 +724,27 @@
         // Implement report logic or redirect
         alert('Reported message ' + id);
         window.closeAllMenus();
+    };
+
+    window.confirmClearChat = async function() {
+        if (!confirm('Are you sure you want to CLEAR the entire global chat? This cannot be undone.')) return;
+        
+        try {
+            const response = await fetch('/global-chat/admin-clear-all', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await response.json();
+            if (!data.success) {
+                alert(data.message || 'Error clearing chat');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred while clearing chat.');
+        }
     };
 
     document.addEventListener('click', (e) => {

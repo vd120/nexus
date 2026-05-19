@@ -124,35 +124,35 @@
         <div class="actions-row">
             <a href="{{ route('admin.users') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-users-cog"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.users') }}</b>
+                <b>{{ __('admin.users') }}</b>
             </a>
             <a href="{{ route('admin.posts') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-images"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.posts') }}</b>
+                <b>{{ __('admin.posts') }}</b>
             </a>
             <a href="{{ route('admin.comments') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-comments"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.comments') }}</b>
+                <b>{{ __('admin.comments') }}</b>
             </a>
             <a href="{{ route('admin.stories') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-camera"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.stories') }}</b>
+                <b>{{ __('admin.stories') }}</b>
             </a>
             @if($stats['pending_reports'] > 0)
             <a href="{{ route('admin.reports') }}" class="action-btn highlight" style="position: relative;">
                 <div class="action-icon"><i class="fas fa-flag"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.reports') }}</b>
+                <b>{{ __('admin.reports') }}</b>
                 <span class="notification-badge">{{ $stats['pending_reports'] }}</span>
             </a>
             @else
             <a href="{{ route('admin.reports') }}" class="action-btn">
                 <div class="action-icon"><i class="fas fa-flag"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.reports') }}</b>
+                <b>{{ __('admin.reports') }}</b>
             </a>
             @endif
             <a href="#" onclick="showCreateAdminModal()" class="action-btn highlight">
                 <div class="action-icon"><i class="fas fa-user-plus"></i></div>
-                <b style="color: #ffffff !important; display: block; margin-top: 8px;">{{ __('admin.new_admin') }}</b>
+                <b>{{ __('admin.new_admin') }}</b>
             </a>
         </div>
     </div>
@@ -176,8 +176,8 @@
                             <img src="{{ $user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name" style="color: #ffffff !important; font-weight: bold;">{{ $user->username }}</span>
-                            <span class="activity-time" style="color: #86868b !important;">{{ $user->created_at->diffForHumans() }}</span>
+                            <span class="activity-name">{{ $user->username }}</span>
+                            <span class="activity-time">{{ $user->created_at->diffForHumans() }}</span>
                         </div>
                         <a href="{{ route('admin.users.show', $user) }}" class="activity-link">
                             <i class="fas fa-arrow-right"></i>
@@ -201,8 +201,8 @@
                             <img src="{{ $post->user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name" style="color: #ffffff !important; font-weight: bold;">{{ $post->user->username }}</span>
-                            <span class="activity-time" style="color: #86868b !important;">{{ Str::limit($post->content ?? __('admin.media_post'), 30) }}</span>
+                            <span class="activity-name">{{ $post->user->username }}</span>
+                            <span class="activity-time">{{ Str::limit($post->content ?? __('admin.media_post'), 30) }}</span>
                         </div>
                         <a href="{{ route('admin.posts') }}" class="activity-link">
                             <i class="fas fa-arrow-right"></i>

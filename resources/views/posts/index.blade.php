@@ -57,7 +57,7 @@
                 $latestStory = $user->activeStories->sortByDesc('created_at')->first();
                 @endphp
                 @if($latestStory)
-                <div class="story-item" onclick="viewStoryFromHome('{{ $user->username }}', '{{ $latestStory->slug }}')">
+                <div class="story-item" data-username="{{ $user->username }}" onclick="viewStoryFromHome('{{ $user->username }}', '{{ $latestStory->slug }}')">
                     <div class="story-avatar-wrapper">
                         <div class="story-avatar">
                             <img src="{{ $user->avatar_url }}" alt="{{ $user->username }}">
@@ -177,7 +177,17 @@ function addStoryToSection(user) {
     
     // Check if story already exists
     const existingStory = storiesScroll.querySelector(`[data-username="${user.username}"]`);
-    if (existingStory) return; // Already exists
+    if (existingStory) {
+        // Update click handler to point to the newest story
+        existingStory.onclick = function() { viewStoryFromHome(user.username, user.storySlug); };
+        
+        // Move it to the front of the list (after Your Story/Create Story button)
+        const firstStory = storiesScroll.querySelector('.story-item:not([data-username])');
+        if (firstStory && firstStory.nextElementSibling && firstStory.nextElementSibling !== existingStory) {
+            storiesScroll.insertBefore(existingStory, firstStory.nextElementSibling);
+        }
+        return;
+    }
     
     // Create story item
     const storyItem = document.createElement('div');
@@ -209,13 +219,18 @@ function addStoryToSection(user) {
     }
 }
 
-// Remove story from section when unfollowing
+// Bind to window for global access
+window.addStoryToSection = addStoryToSection;
+
 function removeStoryFromSection(username) {
     const storyItem = document.querySelector(`.story-item[data-username="${username}"]`);
     if (storyItem) {
         storyItem.remove();
     }
 }
+
+// Bind to window for global access
+window.removeStoryFromSection = removeStoryFromSection;
 
 function togglePrivacy() {
     const btn = document.getElementById('privacy-btn');
@@ -403,6 +418,14 @@ function submitPost() {
                 }
                 
                 container.insertAdjacentHTML('afterbegin', data.post_html);
+
+                // Initialize post components to resolve owner/admin dropdown permissions and state
+                if (window.initializePostComponents && data.post && data.post.id) {
+                    const newPostEl = document.getElementById(`post-${data.post.id}`);
+                    if (newPostEl) {
+                        window.initializePostComponents(newPostEl);
+                    }
+                }
             }
             
             // Clear form

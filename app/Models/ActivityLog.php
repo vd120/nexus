@@ -143,7 +143,7 @@ class ActivityLog extends Model
      */
     public function getIsSuspiciousAttribute(): bool
     {
-        if ($this->action !== 'login' && $this->action !== 'failed_login') {
+        if (!in_array($this->action, ['login', 'failed_login', 'login_attempt'])) {
             return false;
         }
 

@@ -145,6 +145,19 @@ class SocialGroupController extends Controller
             'status' => $status,
         ]);
 
+        if ($status === 'approved') {
+            try {
+                $memberCount = $group->members()->where('status', 'approved')->count();
+                app(\App\Services\SocketEmitService::class)->emit('global', 'community:member_count', [
+                    'group_id' => $group->id,
+                    'slug' => $group->slug,
+                    'members_count' => $memberCount,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to emit community:member_count: ' . $e->getMessage());
+            }
+        }
+
         if ($status === 'pending') {
             $admins = $group->members()
                 ->whereIn('role', ['admin', 'moderator'])
@@ -197,6 +210,17 @@ class SocialGroupController extends Controller
         }
 
         $group->members()->where('user_id', $user->id)->delete();
+
+        try {
+            $memberCount = $group->members()->where('status', 'approved')->count();
+            app(\App\Services\SocketEmitService::class)->emit('global', 'community:member_count', [
+                'group_id' => $group->id,
+                'slug' => $group->slug,
+                'members_count' => $memberCount,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to emit community:member_count: ' . $e->getMessage());
+        }
 
         return response()->json(null, 204);
     }

@@ -655,7 +655,7 @@ class PostController extends Controller
             $reason = $request->input('reason', 'No reason provided');
             
             // Log this action for audit
-            $actionStr = "admin_delete_post:#{$post->id}_reason:" . substr($reason, 0, 100);
+            $actionStr = "admin_delete_post:#{$post->id}_reason:" . mb_substr($reason, 0, 100);
             app(\App\Services\ActivityService::class)->logActivity($actionStr, $user->id);
             
             // Also log to standard Laravel logs for safety
@@ -703,7 +703,7 @@ class PostController extends Controller
                         'liker_name' => $user->username ?? $user->name ?? 'Someone',
                         'liker_username' => $user->username ?? 'Unknown',
                         'liker_id' => $user->id,
-                        'post_content' => substr($post->content ?? 'Image post', 0, 50),
+                        'post_content' => mb_substr($post->content ?? 'Image post', 0, 50) . (mb_strlen($post->content ?? 'Image post') > 50 ? '...' : ''),
                         'post_slug' => $post->slug,
                     ],
                     $post

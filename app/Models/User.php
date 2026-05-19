@@ -377,6 +377,12 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function hasOtherActiveSessions(): bool
     {
+        // If the user isn't even marked as online via our socket heartbeat/presence,
+        // they likely won't be able to approve a real-time challenge anyway.
+        if (!$this->isActuallyOnline()) {
+            return false;
+        }
+
         $currentSessionId = request()->session()->getId();
 
         return \DB::table('sessions')
@@ -496,8 +502,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'email' => $this->email,
         ], false));
 
-        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl], function ($message) {
-            $message->to($this->email)
+        $email = $this->email;
+        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl, 'url' => $resetUrl], function ($message) use ($email) {
+            $message->to($email)
                     ->subject(config('app.name') . ' - Password Reset Request');
         });
     }

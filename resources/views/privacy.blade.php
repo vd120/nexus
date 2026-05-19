@@ -205,14 +205,12 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
         
         .section-focus {
-            padding: 100px 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 80px;
-            align-items: center;
+            padding: 80px 0;
+            max-width: 800px;
+            margin: 0 auto;
         }
-        .section-focus.flipped { direction: rtl; }
-        .section-focus.flipped > * { direction: ltr; }
+        .focus-text { text-align: left; }
+        html[lang="ar"] .focus-text { text-align: right; }
 
         .focus-text h2 {
             font-size: clamp(32px, 5vw, 48px);
@@ -229,66 +227,29 @@
 
         .focus-features {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
+            grid-template-columns: 1fr;
+            gap: 48px;
+            margin-top: 32px;
         }
         .feature-box {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 24px;
-            transition: var(--transition);
-        }
-        .feature-box:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-5px);
-        }
-        .feature-box i {
-            font-size: 20px;
-            color: var(--primary);
-            margin-bottom: 16px;
-            display: block;
+            background: transparent;
+            border: none;
+            padding: 0;
+            transition: none;
         }
         .feature-box h3 {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 700;
             margin-bottom: 8px;
+            color: var(--text);
         }
         .feature-box p {
-            font-size: 14px;
+            font-size: 16px;
             color: var(--text-dim);
-            margin-bottom: 0;
-            line-height: 1.4;
+            line-height: 1.6;
         }
-
         .focus-visual {
-            position: relative;
-            aspect-ratio: 1;
-            background: radial-gradient(circle at center, rgba(0, 113, 227, 0.1) 0%, transparent 70%);
-            border-radius: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .focus-visual::before {
-            content: ''; position: absolute; width: 150%; height: 150%;
-            background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--primary) 60deg, transparent 120deg);
-            opacity: 0.1; animation: rotate 10s linear infinite;
-        }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .visual-icon {
-            font-size: 120px;
-            color: var(--primary);
-            filter: drop-shadow(0 0 30px var(--primary-glow));
-            z-index: 1;
-            animation: pulse 4s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.05); opacity: 1; }
+            display: none;
         }
 
         /* --- FOOTER --- */
@@ -385,6 +346,12 @@
             .hero { padding-top: 140px; min-height: 100dvh; padding-bottom: 60px; }
         }
 
+        @media (max-width: 768px) {
+            .footer-grid { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+            .footer-brand { align-items: center; }
+            .footer-legal { flex-direction: column; gap: 16px; align-items: center; }
+        }
+
         @media (max-width: 480px) {
             nav { top: 12px; height: 56px; width: calc(100% - 24px); }
             .nav-logo img { height: 26px; }
@@ -456,31 +423,25 @@
                 </div>
             </div>
         </div>
-        <div class="focus-visual">
-            <i class="fas fa-shield-halved visual-icon"></i>
-        </div>
     </section>
 
     <!-- Section 2: App Security (Flipped) -->
-    <section class="section-focus flipped reveal">
+    <section class="section-focus reveal">
         <div class="focus-text">
             <h2 data-t="home.app_security">{{ __('home.app_security') }}</h2>
             <p data-t="home.app_security_desc">{{ __('home.app_security_desc') }}</p>
             <div class="focus-features">
                 <div class="feature-box">
-                    <i class="fas fa-fingerprint"></i>
+                    <i class="fas fa-user-lock"></i>
                     <h3 data-t="home.biometric_lock_item">{{ __('home.biometric_lock_item') }}</h3>
                     <p data-t="home.biometric_lock_item_desc">{{ __('home.biometric_lock_item_desc') }}</p>
                 </div>
                 <div class="feature-box">
-                    <i class="fas fa-camera-slash"></i>
+                    <i class="fas fa-server"></i>
                     <h3 data-t="home.screenshot_protection">{{ __('home.screenshot_protection') }}</h3>
                     <p data-t="home.screenshot_protection_desc">{{ __('home.screenshot_protection_desc') }}</p>
                 </div>
             </div>
-        </div>
-        <div class="focus-visual">
-            <i class="fas fa-mobile-screen-button visual-icon"></i>
         </div>
     </section>
 
@@ -502,13 +463,10 @@
                 </div>
             </div>
         </div>
-        <div class="focus-visual">
-            <i class="fas fa-user-secret visual-icon"></i>
-        </div>
     </section>
 
     <!-- Section 4: Data Rights (Flipped) -->
-    <section class="section-focus flipped reveal">
+    <section class="section-focus reveal">
         <div class="focus-text">
             <h2 data-t="home.data_rights">{{ __('home.data_rights') }}</h2>
             <p data-t="home.data_rights_desc">{{ __('home.data_rights_desc') }}</p>
@@ -524,9 +482,6 @@
                     <p data-t="home.activity_logs_item_desc">{{ __('home.activity_logs_item_desc') }}</p>
                 </div>
             </div>
-        </div>
-        <div class="focus-visual">
-            <i class="fas fa-file-export visual-icon"></i>
         </div>
     </section>
 </main>

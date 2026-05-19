@@ -53,6 +53,9 @@
                 const timestamp = new Date(timestampStr);
                 const diffSeconds = Math.floor((now - timestamp) / 1000);
                 
+                // Ignore future timestamps (more than 60 seconds) due to timezone or clock sync issues
+                if (diffSeconds < -60) return;
+                
                 let text = '';
                 // Handle slight clock drift (up to 5 seconds ahead) or very recent
                 if (diffSeconds < 60) {
@@ -114,8 +117,10 @@
                     el.style.display = isOwner ? 'none' : 'block';
                 });
                 
+                // Show admin delete only if viewer is admin (platform or community) and is NOT the owner
+                const isGroupAdminOrMod = window.COMMUNITY_ROLE === 'admin' || window.COMMUNITY_ROLE === 'moderator';
                 postElement.querySelectorAll('.context-admin').forEach(el => {
-                    el.style.display = isAdmin ? 'block' : 'none';
+                    el.style.display = ((isAdmin || isGroupAdminOrMod) && !isOwner) ? 'block' : 'none';
                 });
                 
                 // Special case for follow button which might be inline-flex
@@ -136,11 +141,19 @@
                     followBtn.style.display = isOwner ? 'none' : 'inline-flex';
                 }
                 
-                // Finalize dropdown visibility
+                // Finalize dropdown visibility (e.g., Pin vs Unpin toggling)
                 const dropdown = postElement.querySelector('.post-menu-dropdown');
                 if (dropdown) {
-                    // Reset all items display except those we explicitly set
-                    // This handles things like Pin/Unpin logic inside context-owner
+                    const isPinned = postElement.classList.contains('pinned-post');
+                    const pinItem = postElement.querySelector(`#pin-menu-item-${postElement.dataset.postId}`);
+                    const unpinItem = postElement.querySelector(`#unpin-menu-item-${postElement.dataset.postId}`);
+                    
+                    if (pinItem) {
+                        pinItem.style.display = (isOwner && !isPinned) ? 'block' : 'none';
+                    }
+                    if (unpinItem) {
+                        unpinItem.style.display = (isOwner && isPinned) ? 'block' : 'none';
+                    }
                 }
             }
             

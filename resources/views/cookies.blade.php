@@ -205,14 +205,12 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
         
         .section-focus {
-            padding: 100px 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 80px;
-            align-items: center;
+            padding: 80px 0;
+            max-width: 800px;
+            margin: 0 auto;
         }
-        .section-focus.flipped { direction: rtl; }
-        .section-focus.flipped > * { direction: ltr; }
+        .focus-text { text-align: left; }
+        html[lang="ar"] .focus-text { text-align: right; }
 
         .focus-text h2 {
             font-size: clamp(32px, 5vw, 48px);
@@ -232,63 +230,32 @@
             grid-template-columns: 1fr 1fr;
             gap: 24px;
         }
+        .focus-features {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 48px;
+            margin-top: 32px;
+        }
         .feature-box {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 24px;
-            transition: var(--transition);
-        }
-        .feature-box:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-5px);
-        }
-        .feature-box i {
-            font-size: 20px;
-            color: var(--primary);
-            margin-bottom: 16px;
-            display: block;
+            background: transparent;
+            border: none;
+            padding: 0;
+            transition: none;
         }
         .feature-box h3 {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 700;
             margin-bottom: 8px;
+            color: var(--text);
         }
         .feature-box p {
-            font-size: 14px;
+            font-size: 16px;
             color: var(--text-dim);
-            margin-bottom: 0;
-            line-height: 1.4;
+            line-height: 1.6;
         }
 
         .focus-visual {
-            position: relative;
-            aspect-ratio: 1;
-            background: radial-gradient(circle at center, rgba(0, 113, 227, 0.1) 0%, transparent 70%);
-            border-radius: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .focus-visual::before {
-            content: ''; position: absolute; width: 150%; height: 150%;
-            background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--primary) 60deg, transparent 120deg);
-            opacity: 0.1; animation: rotate 10s linear infinite;
-        }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .visual-icon {
-            font-size: 120px;
-            color: var(--primary);
-            filter: drop-shadow(0 0 30px var(--primary-glow));
-            z-index: 1;
-            animation: pulse 4s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.05); opacity: 1; }
+            display: none;
         }
 
         /* --- FOOTER --- */
@@ -333,11 +300,10 @@
         .reveal { opacity: 0; transform: translateY(40px); transition: 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
         .reveal.visible { opacity: 1; transform: translateY(0); }
 
-        @media (max-width: 900px) {
-            .section-focus { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-            .section-focus.flipped { direction: ltr; }
-            .focus-visual { order: -1; aspect-ratio: 16/9; }
-            .hero { padding-top: 140px; min-height: 100dvh; padding-bottom: 60px; }
+        @media (max-width: 768px) {
+            .footer-grid { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+            .footer-brand { align-items: center; }
+            .footer-legal { flex-direction: column; gap: 16px; align-items: center; }
         }
 
         @media (max-width: 480px) {
@@ -398,18 +364,12 @@
             <h2 data-t="home.essential_cookies">{{ __('home.essential_cookies') }}</h2>
             <p data-t="home.essential_cookies_desc">{{ __('home.essential_cookies_desc') }}</p>
         </div>
-        <div class="focus-visual">
-            <i class="fas fa-cookie-bite visual-icon"></i>
-        </div>
     </section>
 
-    <section class="section-focus flipped reveal">
+    <section class="section-focus reveal">
         <div class="focus-text">
             <h2 data-t="home.no_tracking_cookies">{{ __('home.no_tracking_cookies') }}</h2>
             <p data-t="home.no_tracking_cookies_desc">{{ __('home.no_tracking_cookies_desc') }}</p>
-        </div>
-        <div class="focus-visual">
-            <i class="fas fa-eye-slash visual-icon"></i>
         </div>
     </section>
 
@@ -418,18 +378,12 @@
             <h2 data-t="home.pref_cookies">{{ __('home.pref_cookies') }}</h2>
             <p data-t="home.pref_cookies_desc">{{ __('home.pref_cookies_desc') }}</p>
         </div>
-        <div class="focus-visual">
-            <i class="fas fa-adjust visual-icon"></i>
-        </div>
     </section>
 
-    <section class="section-focus flipped reveal">
+    <section class="section-focus reveal">
         <div class="focus-text">
             <h2 data-t="home.how_to_manage">{{ __('home.how_to_manage') }}</h2>
             <p data-t="home.how_to_manage_desc">{{ __('home.how_to_manage_desc') }}</p>
-        </div>
-        <div class="focus-visual">
-            <i class="fas fa-tools visual-icon"></i>
         </div>
     </section>
 </main>

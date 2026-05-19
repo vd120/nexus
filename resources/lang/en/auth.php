@@ -154,4 +154,11 @@ return [
     'send_code_to_email' => 'Send code to email',
     'verify_with_email_code' => 'Verify with email code',
     'verify' => 'Verify',
+    'suspicious_login_title' => 'Security Verification',
+    'suspicious_login_subtitle' => 'Suspicious login attempt detected. Please verify your identity.',
+    'verification_code' => 'Verification Code',
+    'verify_and_continue' => 'Verify & Continue',
+    'resend_code' => 'Resend Code',
+    'wait' => 'Wait',
+    'confirm_password_oauth_help' => 'Since you are logging in from a new location/device via Google, please confirm your account password.',
 ];
