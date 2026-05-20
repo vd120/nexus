@@ -8,8 +8,6 @@
 
         
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link rel="preconnect" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
-        <link rel="dns-prefetch" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
 

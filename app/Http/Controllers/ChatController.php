@@ -166,7 +166,39 @@ class ChatController extends Controller
             ->get()
             ->reverse();
 
+        if (request()->wantsJson() || request()->header('X-Mini-Chat')) {
+            return view('chat.partials.messages', compact('conversation', 'messages'))->render();
+        }
+
         return view('chat.show', compact('conversation', 'messages'));
+    }
+
+    /**
+     * Display mini-view for chat
+     */
+    public function miniShow($slug)
+    {
+        $conversation = Conversation::where('slug', $slug)->firstOrFail();
+        
+        if (!$conversation->isMember(auth()->id())) {
+            abort(403);
+        }
+
+        $userId = auth()->id();
+
+        // Load messages
+        $messages = Message::where('conversation_id', $conversation->id)
+            ->with(['sender'])
+            ->where(function($q) use ($userId) {
+                $q->whereNull('visible_to')
+                  ->orWhere('visible_to', $userId);
+            })
+            ->orderBy('id', 'desc')
+            ->limit(50)
+            ->get()
+            ->reverse();
+
+        return view('chat.mini-show', compact('conversation', 'messages'));
     }
 
     /**

@@ -3,6 +3,7 @@
 return [
     // Main Navigation
     'home' => 'الرئيسية',
+    'menu' => 'القائمة',
     'dashboard' => 'لوحة التحكم',
     'profile' => 'البروفايل',
     'settings' => 'الإعدادات',

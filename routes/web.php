@@ -526,3 +526,4 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
 
     });
 });
+require __DIR__.'/mini-chat.php';

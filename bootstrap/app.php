@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Global middleware - prepend ensures environment is sanitized early
         $middleware->prepend([
+            \App\Http\Middleware\CorsMiddleware::class,
             \App\Http\Middleware\ForceHttps::class,
             \App\Http\Middleware\TrustCloudflare::class,
         ]);

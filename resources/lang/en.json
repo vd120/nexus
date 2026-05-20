@@ -107,5 +107,10 @@
     "Error": "Error",
     "Warning": "Warning",
     "Info": "Info",
-    "Attention": "Attention"
+    "Attention": "Attention",
+    "messages.top_communities": "Top Communities",
+    "messages.members": "members",
+    "hashtags.trending": "Trending",
+    "navigation.global_chat": "Global Chat",
+    "messages.enter_global_chat": "Enter Global Chat"
 }

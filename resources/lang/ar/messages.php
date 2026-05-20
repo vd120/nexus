@@ -32,6 +32,7 @@ return [
     'less' => 'أقل',
     'view_all' => 'عرض الكل',
     'all' => 'الكل',
+    'profile' => 'الملف الشخصي',
     'reactions' => 'التفاعلات',
     'preview' => 'معاينة',
     'show_more' => 'عرض المزيد',

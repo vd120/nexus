@@ -2544,3 +2544,96 @@ html[dir="rtl"] .dropdown-menu .theme-switcher-pill {
 button, a, .btn {
     will-change: opacity, transform;
 }
+
+/* --- IFRAME SUPPORT OVERRIDES --- */
+html.in-iframe header.header,
+html.in-iframe nav.mobile-bottom-nav,
+html.in-iframe footer,
+html.in-iframe .dropdown-menu,
+html.in-iframe .dropdown-overlay {
+    display: none !important;
+}
+
+html.in-iframe body {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    background: var(--bg) !important;
+}
+
+html.in-iframe .app-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 100vh !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+html.in-iframe .main-content {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+html.in-iframe .chat-page {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    top: 0 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+html.in-iframe .chat-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+html.in-iframe .chat-main,
+html.in-iframe .chat-main-content {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+html.in-iframe .chat-header {
+    margin-top: 0 !important;
+    top: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+html.in-iframe .chat-input-area {
+    margin-bottom: 0 !important;
+    bottom: 0 !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 100 !important;
+}

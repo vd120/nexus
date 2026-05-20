@@ -622,6 +622,10 @@ class SocketManager {
             const uuid = window.currentSecurityChallenge;
             if (!uuid) return;
             
+            // Clear immediately to prevent the socket listener (security:approved) 
+            // from showing a duplicate "approved from another device" toast.
+            window.currentSecurityChallenge = null;
+            
             const btn = document.getElementById('approve-security-btn');
             const modal = document.getElementById('security-challenge-modal');
 
@@ -646,8 +650,9 @@ class SocketManager {
                     } else {
                         alert('Access Granted!');
                     }
-                    window.currentSecurityChallenge = null;
                 } else {
+                    // Restore UUID if failed so user can try again? 
+                    // Actually, better to just let them refresh or wait for new challenge.
                     alert(data.message || 'Approval failed.');
                     if (btn) {
                         btn.disabled = false;
@@ -666,10 +671,12 @@ class SocketManager {
 
         window.denySecurityChallenge = () => {
             const uuid = window.currentSecurityChallenge;
+            if (!uuid) return;
+            
+            window.currentSecurityChallenge = null;
+            
             const modal = document.getElementById('security-challenge-modal');
             if (modal) modal.classList.remove('show');
-            
-            if (!uuid) return;
             
             fetch(`/login/challenge/${uuid}/deny`, {
                 method: 'POST',
@@ -678,8 +685,6 @@ class SocketManager {
                     'Accept': 'application/json'
                 }
             });
-            
-            window.currentSecurityChallenge = null;
         };
 
         // Sync conversation state (unread counts, etc.)

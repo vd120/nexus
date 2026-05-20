@@ -7,14 +7,15 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
     
     {{-- Speed & Performance Optimization --}}
-    <link rel="preconnect" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
-    <link rel="dns-prefetch" href="https://stickit-fearlessly-braiden.ngrok-free.dev">
 
     
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            if (window.self !== window.top) {
+                document.documentElement.classList.add('in-iframe');
+            }
         })();
 
         window.runOnPageLoad = function(callback) {
@@ -51,7 +52,7 @@
     @auth
         <script>
             window.SOCKET_CONFIG = {
-                url: '{{ config('app.socket_io_url') }}',
+                url: window.location.origin,
                 userId: {{ auth()->id() }},
                 sessionId: '{{ session()->getId() }}',
                 isAdmin: {{ auth()->user()->is_admin ? 'true' : 'false' }},
@@ -126,11 +127,11 @@
     <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
     
     {{-- Main Styles --}}
-    <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/comments.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/partial-posts.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/mobile-header.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/modals.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/comments.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/partial-posts.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/mobile-header.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/modals.css') }}?v={{ time() }}">
 
     {{-- Page-specific styles --}}
     @stack('styles')
@@ -265,7 +266,6 @@
                         {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
                     </span>
                 </a>
-                <a href="{{ route('global-chat.index') }}" class="{{ request()->routeIs('global-chat.index') ? 'active' : '' }}"><i class="fas fa-globe-americas"></i> {{ __('navigation.global_chat') }}</a>
                 <a href="{{ route('ai.index') }}" class="{{ request()->routeIs('ai.*') ? 'active' : '' }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
             </nav>
             @endauth
@@ -287,10 +287,6 @@
                 @endguest
 
                 @auth
-                <div class="status-indicator">
-                    <span id="connection-status-dot" class="status-dot pending" title="{{ __('notifications.connecting') }}"></span>
-                </div>
-
                 <div style="position: relative;">
                     @php $unreadCount = auth()->user()->notifications()->unread()->count(); @endphp
                     <button class="nav-action-btn" id="notifBtn" onclick="toggleNotifications(event)">
@@ -846,6 +842,11 @@
                         void desktopBadge.offsetWidth; // trigger reflow
                         desktopBadge.classList.add('pulse');
                     }
+                }
+                const drawerBadge = document.getElementById('chat-drawer-badge');
+                if (drawerBadge) {
+                    drawerBadge.textContent = displayText;
+                    drawerBadge.style.display = displayStyle;
                 }
             })
             .catch(err => console.warn('Failed to update badges:', err));

@@ -32,6 +32,7 @@ return [
     'less' => 'Less',
     'view_all' => 'View All',
     'all' => 'All',
+    'profile' => 'Profile',
     'reactions' => 'Reactions',
     'preview' => 'Preview',
     'show_more' => 'Show More',

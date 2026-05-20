@@ -43,18 +43,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Skip service worker for sensitive routes (Auth, API, dynamic views, etc.)
+  // Skip service worker for sensitive routes (Auth, API, dynamic views, socket.io)
   if (url.pathname.startsWith('/login') || 
       url.pathname.startsWith('/register') || 
       url.pathname.startsWith('/logout') || 
       url.pathname.startsWith('/auth/') || 
       url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/chat') ||
+      url.pathname.startsWith('/socket.io/') ||
       url.pathname.match(/\.(mp4|webm|ogg|wav|mp3)$/i)) {
     return;
   }
 
-  // Cache-First strategy for local static files (CSS, JS, Fonts, Images)
+  // Cache-First strategy for local static files
   const isStaticAsset = url.origin === self.location.origin && 
     (url.pathname.match(/\.(woff2|woff|ttf|css|js|png|jpg|jpeg|gif|svg|ico)$/i) || 
      STATIC_ASSETS.includes(url.pathname));
@@ -63,7 +64,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
-          return cachedResponse; // Instant 0ms load
+          return cachedResponse;
         }
         return fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
@@ -73,13 +74,16 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
+        }).catch((err) => {
+           // Fallback for failed network requests
+           return new Response('Network error', { status: 500 });
         });
       })
     );
   } else {
-    // Network-First strategy for dynamic pages/HTML documents
+    // Network-First strategy
     event.respondWith(
-      fetch(event.request).catch(() => {
+      fetch(event.request).catch((err) => {
         return caches.match(event.request);
       })
     );

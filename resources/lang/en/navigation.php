@@ -3,6 +3,7 @@
 return [
     // Main Navigation
     'home' => 'Home',
+    'menu' => 'Menu',
     'dashboard' => 'Dashboard',
     'profile' => 'Profile',
     'settings' => 'Settings',

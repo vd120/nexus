@@ -15,26 +15,19 @@ class ForceHttps
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $appUrl = config('app.url');
-        $isNgrok = str_contains($request->getHost(), 'ngrok-free.dev');
+        // Enforce HTTPS and secure configuration for all requests
+        config(['session.secure' => true]);
+        config(['session.domain' => null]);
         
-        // If we are on a tunnel, we must force the internal state to be consistent
-        // This ensures Session, CSRF, and Cookie handlers all agree on the environment
-        if ($isNgrok) {
-            config(['session.secure' => true]);
-            config(['session.domain' => null]);
-            $request->server->set('HTTPS', 'on');
-            $request->server->set('SERVER_PORT', 443);
-            
-            // Force the root URL to be the current host and HTTPS
-            $currentUrl = 'https://' . $request->getHost();
-            \Illuminate\Support\Facades\URL::forceRootUrl($currentUrl);
-            \Illuminate\Support\Facades\URL::forceScheme('https');
-            
-            // Sync $_SERVER for global helpers
-            $_SERVER['HTTPS'] = 'on';
-            $_SERVER['SERVER_PORT'] = 443;
-        }
+        $request->server->set('HTTPS', 'on');
+        $request->server->set('SERVER_PORT', 443);
+        
+        $currentUrl = 'https://' . $request->getHost();
+        \Illuminate\Support\Facades\URL::forceRootUrl($currentUrl);
+        \Illuminate\Support\Facades\URL::forceScheme('https');
+        
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['SERVER_PORT'] = 443;
 
         return $next($request);
     }
