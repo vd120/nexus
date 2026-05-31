@@ -2,6 +2,10 @@
 
 @section('title', __('messages.my_reports'))
 
+@push('styles')
+@vite('resources/css/my-reports.css')
+@endpush
+
 @section('content')
 <div class="my-reports-page">
     {{-- Header --}}
@@ -297,7 +301,6 @@
         border: 1px solid rgba(255, 255, 255, 0.05) !important; 
     }
 </style>
-<link rel="stylesheet" href="{{ asset('css/my-reports.css') }}?v={{ time() }}">
 <script>
 function deleteReport(reportSlug) {
     if (!confirm('{{ __('messages.delete_report_confirm') }}')) {

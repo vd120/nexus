@@ -409,67 +409,57 @@
 .msg-dropdown {
     position: absolute;
     top: 26px;
-    right: 0;
-    background: #233138;
-    /* Standard Nexus dark panel color */
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    inset-inline-end: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--elev-3);
     min-width: 170px;
     display: none;
     z-index: 1000;
     overflow: hidden;
-    animation: msgDropdownIn 0.2s ease-out;
-}
-
-[data-theme="light"] .msg-dropdown {
-    background: #ffffff;
-    border-color: #e9edef;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    animation: msgDropdownIn var(--dur-fast) var(--ease-default);
 }
 
 .msg-dropdown button.menu-item {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     background: transparent;
     border: none;
-    color: #e9edef;
-    text-align: left;
+    color: var(--text);
+    text-align: start;
     font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: all 0.2s;
-}
-
-[data-theme="light"] .msg-dropdown button.menu-item {
-    color: #111b21;
+    transition: background var(--dur-fast) var(--ease-default), color var(--dur-fast) var(--ease-default);
 }
 
 .msg-dropdown button.menu-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="light"] .msg-dropdown button.menu-item:hover {
-    background: #f5f6f6;
+    background: var(--surface-hover);
 }
 
 .msg-dropdown button.menu-item i {
-    font-size: 16px;
+    font-size: 15px;
     opacity: 0.8;
+    width: 18px;
+    text-align: center;
 }
 
 .msg-dropdown button.menu-item.danger {
-    color: #ff5c5c;
+    color: var(--danger, #ef4444);
 }
 
-/* RTL Support: When in Arabic, we might want it on the left if "top right" implies "start of bubble" 
-   but user said "top right" which is physical. We'll stick to physical right unless specified. 
-   However, we should ensure the text inside is correctly aligned. */
-[dir="rtl"] .msg-dropdown button.menu-item {
-    text-align: right;
-    flex-direction: row-reverse;
+.msg-dropdown button.menu-item.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* RTL: flip icons that have direction (chevron, arrows). text-align already
+   uses `start` so it follows the document direction automatically. */
+html[dir="rtl"] .msg-dropdown button.menu-item .fa-chevron-right,
+html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
+    transform: scaleX(-1);
 }
 
 .msg-action-trigger {

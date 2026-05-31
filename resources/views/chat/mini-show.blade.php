@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/chat-show.css') }}">
+    @vite(['resources/css/app-layout.css', 'resources/css/chat-show.css'])
     <style>
         body { background: var(--surface, #111b21); padding: 0; margin: 0; }
         .chat-messages { height: 260px; overflow-y: auto; background: var(--bg, #111b21); padding: 10px; }

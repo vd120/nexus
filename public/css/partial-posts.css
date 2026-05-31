@@ -6,7 +6,7 @@
     border: 1px solid var(--border, #dbdbdb);
     overflow: hidden;
     width: 100%;
-    max-width: 680px;
+    max-width: 800px;
     margin-left: auto;
     margin-right: auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -85,27 +85,29 @@
     font-size: 11px;
     font-weight: 600;
     border: none;
-    border-radius: 6px;
-    background: var(--primary);
+    border-radius: var(--radius-sm);
+    background: var(--gradient-brand);
     color: white;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
     flex-shrink: 0;
     white-space: nowrap;
+    box-shadow: var(--elev-1);
 }
 
 .quick-follow-btn:hover {
-    background: var(--primary-hover);
+    box-shadow: var(--elev-glow);
 }
 
 .quick-follow-btn.following {
     background: var(--surface-hover);
     color: var(--text);
+    box-shadow: none;
 }
 
 .quick-follow-btn.following:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    background: var(--accent-glow);
+    color: var(--accent-500);
 }
 
 .post-time {
@@ -140,7 +142,7 @@
 
 .delete-post-btn:hover {
     background: var(--surface-hover, #f3f4f6);
-    color: #ef4444;
+    color: var(--accent-500);
 }
 
 .post-content {
@@ -530,7 +532,7 @@
 }
 
 .action-btn.liked {
-    color: #ef4444;
+    color: var(--accent-500);
 }
 
 .action-btn.liked i {
@@ -663,7 +665,7 @@
     .post-card {
         padding: 0;
         margin-bottom: 12px;
-        border-radius: 24px;
+        border-radius: 0;
         width: 100%;
         max-width: 100%;
         margin-left: 0;
@@ -1078,18 +1080,18 @@
 .delete-comment-btn {
     background: none;
     border: none;
-    color: #ef4444;
+    color: var(--accent-500);
     cursor: pointer;
     padding: 6px;
     border-radius: 50%;
     font-size: 12px;
     opacity: 0.7;
-    transition: all 0.2s ease;
+    transition: opacity var(--dur-fast) var(--ease-default), background var(--dur-fast) var(--ease-default);
 }
 
 .delete-comment-btn:hover {
     opacity: 1;
-    background: rgba(239, 68, 68, 0.1);
+    background: var(--accent-glow);
 }
 
 .comment-content {
@@ -1148,8 +1150,8 @@
 }
 
 .comment-action-btn.liked {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-500);
+    background: var(--accent-glow);
 }
 
 .replies-container {
@@ -1476,7 +1478,7 @@ html[dir="rtl"] .cancel-reply {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--elev-2);
     z-index: 100;
     min-width: 180px;
     overflow: hidden;
@@ -1527,15 +1529,15 @@ html[dir="rtl"] .cancel-reply {
 
 .menu-item.danger,
 .menu-item.admin-delete {
-    color: #ef4444;
+    color: var(--accent-500);
 }
 
 .menu-item.admin-delete i {
-    color: #ef4444;
+    color: var(--accent-500);
 }
 
 .menu-item.admin-delete:hover {
-    background: rgba(239, 68, 68, 0.08);
+    background: var(--accent-glow);
 }
 
 .delete-post-btn {
@@ -1672,19 +1674,16 @@ html[dir="rtl"] .cancel-reply {
 }
 
 .reaction-picker {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    z-index: 100;
-    margin-bottom: 8px;
+    position: fixed;
+    z-index: 10000;
 }
 
 .reaction-picker-popup {
     background: var(--surface, #ffffff);
     border: 1px solid var(--border, #e5e7eb);
-    border-radius: 24px;
+    border-radius: var(--radius-2xl);
     padding: 3px 6px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--elev-3);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
 }
@@ -1748,10 +1747,6 @@ html[dir="rtl"] .cancel-reply {
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-    .reaction-picker {
-        margin-bottom: 6px;
-    }
-
     .reaction-picker-popup {
         padding: 4px;
     }
@@ -1793,7 +1788,7 @@ html[dir="rtl"] .cancel-reply {
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 11000;
+    z-index: 9100;
     align-items: center;
     justify-content: center;
 }
@@ -1805,28 +1800,28 @@ html[dir="rtl"] .cancel-reply {
 .reactors-modal-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .reactors-modal-content {
     position: relative;
-    background: #1a1a1a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
     width: 95%;
     max-width: 480px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: var(--elev-3);
+    animation: modalPop var(--dur-fast) var(--ease-default);
     overflow: hidden;
 }
 
 @keyframes modalPop {
-    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    from { opacity: 0; transform: scale(0.97) translateY(6px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -1834,24 +1829,21 @@ html[dir="rtl"] .cancel-reply {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
 }
 
 .reactors-modal-header h3 {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
 }
 
 .reactors-modal-close {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-hover);
     border: none;
-    color: #a1a1aa;
+    color: var(--text-muted);
     width: 32px;
     height: 32px;
     border-radius: 10px;
@@ -1859,28 +1851,27 @@ html[dir="rtl"] .cancel-reply {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--dur-fast) var(--ease-default), color var(--dur-fast) var(--ease-default);
 }
 
 .reactors-modal-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    transform: rotate(90deg);
+    background: var(--border);
+    color: var(--text);
 }
 
 .reactors-modal-body {
     flex: 1;
     overflow-y: auto;
     padding: 0;
-    background: #1a1a1a;
+    background: var(--surface);
 }
 
 /* Tabs */
 .reactors-tabs {
     display: flex;
-    gap: 8px;
-    padding: 12px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 6px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
     overflow-x: auto;
     scrollbar-width: none;
 }
@@ -1890,14 +1881,14 @@ html[dir="rtl"] .cancel-reply {
 .reactor-tab {
     background: transparent;
     border: none;
-    color: #71717a;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: background var(--dur-fast) var(--ease-default), color var(--dur-fast) var(--ease-default);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1905,159 +1896,88 @@ html[dir="rtl"] .cancel-reply {
 
 .reactor-tab span {
     font-size: 0.75rem;
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 .reactor-tab:hover {
-    background: rgba(255, 255, 255, 0.03);
-    color: #e4e4e7;
+    background: var(--surface-hover);
+    color: var(--text);
 }
 
 .reactor-tab.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: var(--primary-glow);
+    color: var(--primary);
 }
 
 /* List */
 .reactors-list {
-    padding: 8px 12px;
+    padding: 6px 10px;
 }
 
 .reactor-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    border-radius: 16px;
-    transition: background 0.2s;
-    margin-bottom: 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition: background var(--dur-fast) var(--ease-default);
+    margin-bottom: 2px;
 }
 
 .reactor-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
 }
 
 .reactor-user-info {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
 }
 
 .reactor-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 15px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     object-fit: cover;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .reactor-avatar-placeholder {
-    width: 44px;
-    height: 44px;
-    border-radius: 15px;
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--gradient-brand, linear-gradient(135deg, #5e60ce 0%, #7400b8 100%));
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
 }
 
 .reactor-name {
     font-weight: 600;
-    color: #e4e4e7;
+    color: var(--text);
     text-decoration: none;
-    font-size: 0.95rem;
-    transition: color 0.2s;
+    font-size: 0.9rem;
+    transition: color var(--dur-fast) var(--ease-default);
 }
 
 .reactor-name:hover {
-    color: #fff;
+    color: var(--primary);
 }
 
 .reactor-emoji-badge {
-    font-size: 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
+    font-size: 1.4rem;
+    background: var(--surface-hover);
     padding: 6px;
-    border-radius: 12px;
+    border-radius: 10px;
     line-height: 1;
 }
 
 .reactors-empty {
-    padding: 60px 20px;
+    padding: 48px 20px;
     text-align: center;
-    color: #52525b;
-}
-
-/* Light Theme Overrides for Reactors Modal */
-[data-theme="light"] .reactors-modal-content {
-    background: #ffffff;
-    border-color: rgba(0, 0, 0, 0.1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .reactors-modal-header {
-    background: rgba(0, 0, 0, 0.02);
-    border-bottom-color: rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .reactors-modal-header h3 {
-    background: linear-gradient(135deg, #111b21 0%, #3b4a54 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-[data-theme="light"] .reactors-modal-close {
-    background: rgba(0, 0, 0, 0.05);
-    color: #54656f;
-}
-
-[data-theme="light"] .reactors-modal-close:hover {
-    background: rgba(0, 0, 0, 0.1);
-    color: #111b21;
-}
-
-[data-theme="light"] .reactors-modal-body {
-    background: #ffffff;
-}
-
-[data-theme="light"] .reactors-tabs {
-    border-bottom-color: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme="light"] .reactor-tab {
-    color: #54656f;
-}
-
-[data-theme="light"] .reactor-tab:hover {
-    background: rgba(0, 0, 0, 0.03);
-    color: #111b21;
-}
-
-[data-theme="light"] .reactor-tab.active {
-    background: rgba(0, 0, 0, 0.08);
-    color: #111b21;
-}
-
-[data-theme="light"] .reactor-item:hover {
-    background: rgba(0, 0, 0, 0.03);
-}
-
-[data-theme="light"] .reactor-name {
-    color: #111b21;
-}
-
-[data-theme="light"] .reactor-name:hover {
-    color: #000;
-}
-
-[data-theme="light"] .reactor-emoji-badge {
-    background: rgba(0, 0, 0, 0.03);
-}
-
-[data-theme="light"] .reactors-empty {
-    color: #8696a0;
+    color: var(--text-muted);
 }
 
 .reactors-empty i {
@@ -2167,232 +2087,7 @@ html[dir="rtl"] .cancel-reply {
     }
 }
 
-/* Reactors Modal */
-.reactors-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 11000;
-    align-items: center;
-    justify-content: center;
-}
-
-.reactors-modal.active {
-    display: flex;
-}
-
-.reactors-modal-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.reactors-modal-content {
-    position: relative;
-    background: #1a1a1a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    width: 95%;
-    max-width: 480px;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    overflow: hidden;
-}
-
-@keyframes modalPop {
-    from { opacity: 0; transform: scale(0.95) translateY(10px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.reactors-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.reactors-modal-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.reactors-modal-close {
-    background: rgba(255, 255, 255, 0.05);
-    border: none;
-    color: #a1a1aa;
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.reactors-modal-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    transform: rotate(90deg);
-}
-
-.reactors-modal-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0;
-    background: #1a1a1a;
-}
-
-/* Tabs */
-.reactors-tabs {
-    display: flex;
-    gap: 8px;
-    padding: 12px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.reactors-tabs::-webkit-scrollbar { display: none; }
-
-.reactor-tab {
-    background: transparent;
-    border: none;
-    color: #71717a;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.reactor-tab span {
-    font-size: 0.75rem;
-    opacity: 0.6;
-}
-
-.reactor-tab:hover {
-    background: rgba(255, 255, 255, 0.03);
-    color: #e4e4e7;
-}
-
-.reactor-tab.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
-/* List */
-.reactors-list {
-    padding: 8px 12px;
-}
-
-.reactor-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-radius: 16px;
-    transition: background 0.2s;
-    margin-bottom: 4px;
-}
-
-.reactor-item:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-
-.reactor-user-info {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.reactor-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 15px;
-    object-fit: cover;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.reactor-avatar-placeholder {
-    width: 44px;
-    height: 44px;
-    border-radius: 15px;
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-weight: 700;
-    font-size: 1.2rem;
-}
-
-.reactor-name {
-    font-weight: 600;
-    color: #e4e4e7;
-    text-decoration: none;
-    font-size: 0.95rem;
-    transition: color 0.2s;
-}
-
-.reactor-name:hover {
-    color: #fff;
-}
-
-.reactor-emoji-badge {
-    font-size: 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 6px;
-    border-radius: 12px;
-    line-height: 1;
-}
-
-.reactors-empty {
-    padding: 60px 20px;
-    text-align: center;
-    color: #52525b;
-}
-
-.reactors-empty i {
-    font-size: 3rem;
-    margin-bottom: 16px;
-    opacity: 0.3;
-}
-
-.reactors-empty p {
-    font-weight: 500;
-    margin: 0;
-}
-
-.reactors-loading {
-    display: flex;
-    justify-content: center;
-    padding: 60px;
-    color: #3b82f6;
-    font-size: 2rem;
-}
-
 /* RTL support for reactions */
-html[dir="rtl"] .reaction-picker {
-    left: auto;
-    right: 0;
-}
 
 html[dir="rtl"] .reactor-user-info {
     flex-direction: row-reverse; /* Just to be safe, though flex does this automatically */

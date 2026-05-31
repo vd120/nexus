@@ -3,7 +3,7 @@
 @section('title', __('ai.title') . ' - Nexus')
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('css/ai-chat.css') }}">
+@vite('resources/css/ai-chat.css')
 <style>
     body {
         overflow: hidden !important;

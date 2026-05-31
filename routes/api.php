@@ -43,11 +43,25 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/members/{userId}/reject', [SocialGroupAdminController::class, 'rejectMember']);
             Route::post('/members/{userId}/mute', [SocialGroupAdminController::class, 'muteMember']);
             Route::get('/reports', [SocialGroupAdminController::class, 'reports']);
-            
-            // Meta Management (Rules, Topics, Badges)
-            Route::apiResource('rules', SocialGroupAdminController::class . '@rules'); // Custom implementation likely
-            Route::apiResource('topics', SocialGroupAdminController::class . '@topics');
-            Route::apiResource('badges', SocialGroupAdminController::class . '@badges');
+
+            // Meta Management (Rules, Topics, Badges) — explicit CRUD
+            Route::get('/rules',                [SocialGroupAdminController::class, 'apiIndexRules']);
+            Route::post('/rules',               [SocialGroupAdminController::class, 'apiStoreRule']);
+            Route::put('/rules/{id}',           [SocialGroupAdminController::class, 'apiUpdateRule']);
+            Route::patch('/rules/{id}',         [SocialGroupAdminController::class, 'apiUpdateRule']);
+            Route::delete('/rules/{id}',        [SocialGroupAdminController::class, 'apiDestroyRule']);
+
+            Route::get('/topics',               [SocialGroupAdminController::class, 'apiIndexTopics']);
+            Route::post('/topics',              [SocialGroupAdminController::class, 'apiStoreTopic']);
+            Route::put('/topics/{id}',          [SocialGroupAdminController::class, 'apiUpdateTopic']);
+            Route::patch('/topics/{id}',        [SocialGroupAdminController::class, 'apiUpdateTopic']);
+            Route::delete('/topics/{id}',       [SocialGroupAdminController::class, 'apiDestroyTopic']);
+
+            Route::get('/badges',               [SocialGroupAdminController::class, 'apiIndexBadges']);
+            Route::post('/badges',              [SocialGroupAdminController::class, 'apiStoreBadge']);
+            Route::put('/badges/{id}',          [SocialGroupAdminController::class, 'apiUpdateBadge']);
+            Route::patch('/badges/{id}',        [SocialGroupAdminController::class, 'apiUpdateBadge']);
+            Route::delete('/badges/{id}',       [SocialGroupAdminController::class, 'apiDestroyBadge']);
         });
 
         // Invites

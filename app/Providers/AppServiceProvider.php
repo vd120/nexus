@@ -35,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Register rate limiters
         $this->registerRateLimiters();
+
+        // Register model observers (auto-tag Life Chapter on Post/PulseAnswer creation)
+        \App\Models\Post::observe(\App\Observers\PostObserver::class);
+        \App\Models\PulseAnswer::observe(\App\Observers\PulseAnswerObserver::class);
     }
 
     /**

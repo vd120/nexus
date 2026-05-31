@@ -241,6 +241,15 @@ class SocketManager {
             const isDND = localStorage.getItem('nexus_dnd_enabled') === 'true';
             
             if (!isActiveChat && !isDND) {
+                // Audible + tactile arrival (respects user's nexus_sound preference)
+                if (window.NexusSoul) window.NexusSoul.feedback.notification();
+                // Bell shake — purely visual, communicates "something happened"
+                const bell = document.getElementById('notif-bell-icon');
+                if (bell) {
+                    bell.classList.remove('nx-bell-ring'); // restart animation
+                    void bell.offsetWidth;
+                    bell.classList.add('nx-bell-ring');
+                }
                 // TRACKING: If this is a post-related notification, track the slug to prevent double-toast from post:new
                 if (notif.data && notif.data.post_slug) {
                     this.notifiedPostSlugs.add(notif.data.post_slug);

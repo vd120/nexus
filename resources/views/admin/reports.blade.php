@@ -2,6 +2,10 @@
 
 @section('title', __('admin.reports') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-reports.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -247,5 +251,4 @@ window.runOnPageLoad( function() {
 });
 </script>
 
-<link rel="stylesheet" href="{{ asset('css/admin-reports.css') }}">
 @endsection

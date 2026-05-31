@@ -92,7 +92,7 @@
     right: 15px;
     width: 24px;
     height: 24px;
-    border: 3px solid rgba(94, 96, 206, 0.1);
+    border: 3px solid rgba(99, 102, 241, 0.1);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: post-spinner 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
@@ -120,5 +120,16 @@
 
 .pinned-post {
     animation: pin-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Disable sticky hover effects on touch devices */
+.touch-device *:hover {
+    background-color: inherit !important;
+    border-color: inherit !important;
+    color: inherit !important;
+    box-shadow: inherit !important;
+    transform: inherit !important;
+    opacity: inherit !important;
+    text-decoration: inherit !important;
 }
 

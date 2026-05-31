@@ -23,7 +23,7 @@
                          <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name">{{ $group->name }}</a>
                          <span class="header-separator">•</span>
                     @endif
-                    <a href="{{ route('users.show', $post->user) }}" class="author-name">{{ $post->user->username }}</a>
+                    <a href="{{ route('users.show', $post->user) }}" class="author-name">{{ $post->user->name ?: $post->user->username }}</a>
                     <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="margin-left: 6px; font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
                     
                     {{-- Role Badges (Facebook-style) --}}
@@ -53,7 +53,9 @@
                     @endif
                 </div>
                 <span class="post-time" data-timestamp="{{ $post->created_at->toIso8601String() }}">
-                    {{ $post->created_at->diffInMinutes() < 1 ? __('messages.just_now') : $post->created_at->diffForHumans(null, true, true) }}
+                    <a href="{{ route('users.show', $post->user) }}" class="author-handle">{{ '@' . $post->user->username }}</a>
+                    <span class="time-sep" aria-hidden="true">·</span>
+                    <span class="time-text">{{ $post->created_at->diffInMinutes() < 1 ? __('messages.just_now') : $post->created_at->diffForHumans(null, true, true) }}</span>
                     @if($post->is_private)
                         <span class="privacy-badge"><i class="fas fa-lock"></i></span>
                     @else

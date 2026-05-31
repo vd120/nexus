@@ -390,16 +390,16 @@
         width: 13px;
         height: 13px;
         border-radius: 50%;
-        background-color: #8696a0; /* Offline color */
+        background-color: #25d366; /* Online color */
         border: 2.5px solid var(--wa-panel, #202c33);
-        transition: background-color 0.3s ease, box-shadow 0.3s ease;
         z-index: 10;
+        display: none;
     }
     .result-user:hover .online-indicator {
         border-color: var(--wa-panel-hover, #2a3942);
     }
     .online-indicator.online {
-        background-color: #25d366; /* Online color */
+        display: block;
         box-shadow: 0 0 5px rgba(37, 211, 102, 0.4);
     }
 

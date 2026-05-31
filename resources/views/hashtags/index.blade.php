@@ -2,6 +2,10 @@
 
 @section('title', __('hashtags.hashtags'))
 
+@push('styles')
+@vite('resources/css/hashtag-index.css')
+@endpush
+
 @section('content')
 <div class="hashtags-index-page">
     {{-- Header --}}
@@ -114,7 +118,6 @@
     @endif
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/hashtag-index.css') }}">
 <script>
 function toggleAllHashtags() {
     const allSection = document.getElementById('all-hashtags-section');

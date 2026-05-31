@@ -2,6 +2,10 @@
 
 @section('title', __('admin.user_profile') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-user-detail.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -221,8 +225,6 @@
         </div>
     </div>
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-user-detail.css') }}">
 
 <script>
 window.runOnPageLoad( function() {

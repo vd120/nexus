@@ -26,11 +26,16 @@
             }
         };
 
+        // Fix sticky hover on touch devices
+        if ('ontouchstart' in window) {
+            document.documentElement.classList.add('touch-device');
+        }
+
     </script>
 
     <style>
         /* Immediate Theme Background to prevent Flash */
-        html[data-theme="dark"] { background: #0d0d0d; color: #f5f5f7; }
+        html[data-theme="dark"] { background: #0a0a0b; color: #f5f5f7; }
         html[data-theme="light"] { background: #ffffff; color: #111111; }
         body { background: inherit; color: inherit; }
     </style>
@@ -66,53 +71,31 @@
     @endauth
     <title>@yield('title', 'Nexus')</title>
     
-    {{-- Performance: Local & System Font Stacks --}}
+    {{-- Performance: System font stacks. Actual @font-face declarations for
+         Cairo + Inter + Plus Jakarta Sans + Bricolage Grotesque live in
+         /fonts/all.css (self-hosted, cached once across the whole site). --}}
     <style>
-        @font-face {
-            font-family: 'Cairo';
-            font-style: normal;
-            font-weight: 200 1000;
-            font-display: swap;
-            src: url('{{ asset("fonts/cairo/cairo-arabic.woff2") }}') format('woff2');
-            unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1;
-        }
-        @font-face {
-            font-family: 'Cairo';
-            font-style: normal;
-            font-weight: 200 1000;
-            font-display: swap;
-            src: url('{{ asset("fonts/cairo/cairo-latin-ext.woff2") }}') format('woff2');
-            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-        }
-        @font-face {
-            font-family: 'Cairo';
-            font-style: normal;
-            font-weight: 200 1000;
-            font-display: swap;
-            src: url('{{ asset("fonts/cairo/cairo-latin.woff2") }}') format('woff2');
-            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-        }
-
         :root {
-            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            --font-sans: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
             --font-arabic: "Cairo", "Segoe UI", Tahoma, sans-serif;
         }
-        body { font-family: var(--font-sans); }
+        body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.005em; }
         [lang="ar"] body { font-family: var(--font-arabic); }
     </style>
-    
-    {{-- Performance: Critical CSS Preloading --}}
-    <link rel="preload" href="{{ asset('css/app-layout.css') }}" as="style">
-    <link rel="preload" href="{{ asset('css/mobile-header.css') }}" as="style">
+
+    {{-- Self-hosted font bundle — Cairo (Arabic) + Inter (body) + Plus Jakarta Sans + Bricolage Grotesque (display).
+         No external CDN, no DNS handshake, no third-party tracking. Served from
+         the same origin so the browser reuses an open HTTP/2 connection. --}}
+    <link rel="stylesheet" href="{{ asset('fonts/all.css') }}">
     
     {{-- Critical CSS Fallback: Ensures branded background/text even if external CSS has a delay --}}
     <style>
         :root {
-            --bg: #0d0d0d;
+            --bg: #0a0a0b;
             --text: #f5f5f7;
         }
         html, body {
-            background-color: #0d0d0d !important;
+            background-color: #0a0a0b !important;
             color: #f5f5f7 !important;
             margin: 0;
             padding: 0;
@@ -127,11 +110,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
     
     {{-- Main Styles --}}
-    <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/comments.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/partial-posts.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/mobile-header.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/modals.css') }}?v={{ time() }}">
+    @vite(['resources/css/app-layout.css', 'resources/css/mobile-header.css', 'resources/css/comments.css', 'resources/css/partial-posts.css', 'resources/css/modals.css'])
 
     {{-- Page-specific styles --}}
     @stack('styles')
@@ -143,7 +122,7 @@
         top: -6px;
         left: 50%;
         margin-left: 10px;
-        background: linear-gradient(135deg, #ff4b2b 0%, #ef4444 100%);
+        background: var(--accent-500);
         color: white;
         font-size: 11px;
         font-weight: 800;
@@ -157,7 +136,7 @@
         align-items: center;
         justify-content: center;
         padding: 0 4.5px;
-        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
+        box-shadow: 0 3px 10px var(--accent-glow);
         border: 2px solid var(--bg);
         z-index: 10;
         line-height: 1;
@@ -171,7 +150,7 @@
         position: absolute;
         top: -6px;
         right: -6px;
-        background: linear-gradient(135deg, #ff4b2b 0%, #ef4444 100%);
+        background: var(--accent-500);
         color: white;
         font-size: 11px;
         font-weight: 800;
@@ -185,19 +164,19 @@
         align-items: center;
         justify-content: center;
         padding: 0 4.5px;
-        box-shadow: 0 3px 10px rgba(239, 68, 68, 0.4);
+        box-shadow: 0 3px 10px var(--accent-glow);
         border: 2px solid var(--bg);
         z-index: 10;
         line-height: 1;
         text-align: center;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: transform var(--dur) var(--ease-spring), box-shadow var(--dur) var(--ease-default);
     }
-    
+
     .desktop-msg-badge.pulse,
     .mobile-msg-badge.pulse {
         animation: badgePulse 0.5s ease-in-out;
     }
-    
+
     html[dir="rtl"] .desktop-msg-badge {
         right: auto;
         left: -6px;
@@ -206,14 +185,14 @@
     /* Light Theme Badges */
     [data-theme="light"] .desktop-msg-badge {
         border: 2px solid var(--bg);
-        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        box-shadow: 0 2px 8px var(--accent-glow);
     }
     .notif-reaction {
-        background: rgba(244, 63, 94, 0.1) !important;
-        color: #f43f5e !important;
+        background: var(--accent-glow) !important;
+        color: var(--accent-500) !important;
     }
     .notif-reaction i {
-        color: #f43f5e !important;
+        color: var(--accent-500) !important;
     }
     .notif-item .notif-icon img {
         border-radius: 4px;
@@ -223,13 +202,13 @@
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
     }
 
-    /* Ultra-Simple Fade-In Entrance */
+    /* Page entrance fade-in — no transform/filter to avoid trapping position:fixed descendants */
     @keyframes fadeIn {
         from { opacity: 0; }
-        to { opacity: 1; }
+        to   { opacity: 1; }
     }
     .main-content {
-        animation: fadeIn 0.3s ease-out forwards;
+        animation: fadeIn 0.5s ease both;
     }
     </style>
 </head>
@@ -245,6 +224,8 @@
             @auth
             @php 
                 $unreadMessages = \App\Models\Message::where('sender_id', '!=', auth()->id())
+                    ->where('type', '!=', 'system')
+                    ->where('content', '!=', 'system_cleared')
                     ->whereNull('read_at')
                     ->whereHas('conversation', function($q) {
                         $q->where('user1_id', auth()->id())
@@ -262,9 +243,7 @@
                 <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}" style="position: relative;">
                     <i class="fas fa-message"></i> 
                     {{ __('navigation.messages') }}
-                    <span class="desktop-msg-badge" id="desktopMsgBadge" style="{{ $unreadMessages > 0 ? 'display: flex !important;' : 'display: none !important;' }}">
-                        {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
-                    </span>
+                    <span class="desktop-msg-badge" id="desktopMsgBadge" style="display: none !important;"></span>
                 </a>
                 <a href="{{ route('ai.index') }}" class="{{ request()->routeIs('ai.*') ? 'active' : '' }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
             </nav>
@@ -347,7 +326,7 @@
                 <p>{{ __('notifications.no_notifications') }}</p>
             </div>
         </div>
-        <div class="notif-footer" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div class="notif-footer" style="padding: 12px 16px; border-top: 1px solid var(--border);">
             <a href="{{ route('notifications.index') }}" style="display: block; text-align: center; color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 600;">
                 <i class="fas fa-th-list"></i> {{ __('notifications.view_all') }}
             </a>
@@ -357,8 +336,10 @@
     <!-- User Menu Dropdown - outside header for proper z-index -->
     <div class="dropdown-menu" id="userMenu">
         <a href="{{ route('users.show', auth()->user()) }}"><i class="fas fa-user"></i> {{ __('navigation.profile') }}</a>
-        <a href="{{ route('communities.index') }}"><i class="fas fa-users"></i> {{ __('navigation.groups') }}</a>
         <a href="{{ route('users.saved-posts') }}"><i class="fas fa-bookmark"></i> {{ __('navigation.saved_posts') }}</a>
+        <a href="{{ route('pulse.index') }}"><i class="fas fa-heart-pulse"></i> {{ __('messages.pulse') }}</a>
+        <a href="{{ route('memories.index') }}"><i class="fas fa-book-open"></i> {{ __('messages.memories') }}</a>
+        <div class="divider"></div>
         <a href="{{ route('explore') }}"><i class="fas fa-compass"></i> {{ __('navigation.explore') }}</a>
         <a href="{{ route('hashtags.index') }}"><i class="fas fa-hashtag"></i> {{ __('hashtags.hashtags') }}</a>
         <a href="{{ route('global-chat.index') }}"><i class="fas fa-globe-americas"></i> {{ __('navigation.global_chat') }}</a>
@@ -437,9 +418,7 @@
             </a>
             <a href="{{ route('chat.index') }}" class="{{ request()->routeIs('chat.*') ? 'active' : '' }}">
                 <i class="{{ request()->routeIs('chat.*') ? 'fa-solid' : 'fa-regular' }} fa-comment"></i>
-                <span class="mobile-msg-badge" id="mobileMsgBadge" style="{{ $unreadMessages > 0 ? 'display: flex !important;' : 'display: none !important;' }}">
-                    {{ $unreadMessages > 0 ? ($unreadMessages > 99 ? '99+' : $unreadMessages) : '' }}
-                </span>
+                <span class="mobile-msg-badge" id="mobileMsgBadge" style="display: none !important;"></span>
                 <span>{{ __('navigation.messages') }}</span>
             </a>
             <a href="{{ route('users.show', auth()->user()) }}" class="{{ request()->routeIs('users.show') && request()->route('user') && (is_object(request()->route('user')) ? request()->route('user')->id : request()->route('user')) == auth()->id() ? 'active' : '' }}">
@@ -617,9 +596,19 @@
                 setTimeout(() => toast.remove(), 250);
             }, duration);
         };
+
+        // Guest action prompt: redirects to login with return URL.
+        // Called from inline onclick handlers on post/comment buttons when user is not authenticated.
+        window.showLoginModal = function(action, message) {
+            if (window.showToast && message) {
+                window.showToast(message, 'info');
+            }
+            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            setTimeout(() => { window.location.href = '/login?return=' + returnUrl; }, 600);
+        };
     </script>
 
-    @vite(['resources/js/app.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js'])
+    @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js'])
     @auth
         @vite(['resources/js/socket-manager.js'])
     @endauth
@@ -799,7 +788,16 @@
             }
         }
 
-        window.updateMobileBadge = function() {
+        // Debounce helper — collapses rapid repeated calls into a single execution.
+        function debounce(fn, delay) {
+            let timer;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        const _updateMobileBadgeRaw = function() {
             fetch('/chat/conversations', {
                 headers: { 'Accept': 'application/json' }
             })
@@ -851,6 +849,7 @@
             })
             .catch(err => console.warn('Failed to update badges:', err));
         };
+        window.updateMobileBadge = debounce(_updateMobileBadgeRaw, 300);
 
         function escapeHtml(text) {
             if (!text) return '';
@@ -863,7 +862,7 @@
             return document.querySelector('meta[name="csrf-token"]')?.content || '';
         }
 
-        window.loadNotifications = function loadNotifications() {
+        const _loadNotificationsRaw = function loadNotifications() {
             fetch('/notifications', {
                 credentials: 'include',
                 headers: { 
@@ -927,6 +926,7 @@
                 // Silently fail - don't show error to user for notification loading issues
             });
         }
+        window.loadNotifications = debounce(_loadNotificationsRaw, 300);
 
         function markAsRead(id) {
             if (event) {
@@ -1286,7 +1286,7 @@
         window.closeReactorsModal = function(event) {
             const overlay = document.getElementById('reactorsModalOverlay');
             if (!overlay) return;
-            
+
             // If event exists, only close if clicking overlay itself or the close button
             if (event) {
                 if (event.target === overlay || event.target.closest('.global-reactors-close')) {
@@ -1297,8 +1297,17 @@
             }
         };
     </script>
+
+    {{-- Chat Mini Container --}}
+    @include("partials.chat.mini-chat-container")
+
+    {{-- Floating chat button + drawer moved to posts/index.blade.php (feed page only) --}}
+
+    {{-- Global modal a11y: Escape to close, focus trap, backdrop click --}}
+    <script src="{{ asset('js/modal-a11y.js') }}?v={{ time() }}" defer></script>
+
     @stack('scripts')
-    
+
     {{-- Predictive Pre-loading (Kills the 1-second lag) --}}
 </body>
 </html>

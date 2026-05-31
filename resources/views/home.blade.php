@@ -6,10 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <title data-t="home.nexus" data-t-type="title">Nexus — {{ __('home.your_social_platform') }}</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/fonts/all.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
 
     <style>
@@ -18,7 +15,7 @@
             --bg-rgb: 0, 0, 0;
             --bg-secondary: #0a0a0b;
             --text: #f5f5f7;
-            --text-dim: #86868b;
+            --text-dim: rgba(255,255,255,0.55);
             --primary: #0071e3;
             --border: rgba(255, 255, 255, 0.08);
             --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -98,7 +95,7 @@
             opacity: 0.15; transition: all 1s ease;
         }
         .bloom-1 { top: -10%; left: 20%; width: 40%; height: 40%; background: var(--primary); }
-        .bloom-2 { bottom: 10%; right: 10%; width: 30%; height: 30%; background: #5e60ce; }
+        .bloom-2 { bottom: 10%; right: 10%; width: 30%; height: 30%; background: #6366f1; }
         [data-theme="light"] .bloom { opacity: 0.05; }
 
         /* Nav Glassmorphism Enhancement */

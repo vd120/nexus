@@ -163,13 +163,13 @@ i, svg, .fas, .fab, .far {
 }
 
 .language-option.active {
-    background: rgba(94, 96, 206, 0.1) !important;
-    color: var(--primary, #5e60ce) !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+    color: var(--primary, #6366f1) !important;
     font-weight: 600 !important;
 }
 
 .language-option.active:hover {
-    background: rgba(94, 96, 206, 0.15) !important;
+    background: rgba(99, 102, 241, 0.15) !important;
 }
 
 /* Language Switcher Button */
@@ -292,7 +292,7 @@ i, svg, .fas, .fab, .far {
     {{-- Loading Overlay --}}
     <div id="language-loading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9999; align-items: center; justify-content: center;">
         <div style="background: rgba(22, 22, 22, 0.98); backdrop-filter: blur(20px); padding: 30px 50px; border-radius: 16px; text-align: center;">
-            <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #5e60ce; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px;"></div>
+            <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px;"></div>
             <p style="color: #fff; font-size: 14px; margin: 0;">{{ __('messages.loading') }}</p>
         </div>
     </div>

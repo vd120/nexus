@@ -6,22 +6,36 @@ cd "$SCRIPT_DIR"
 
 # Cleanup function to kill all background services
 kill_services() {
-    echo -e "
-> Stopping services..."
-    pkill -9 -f "php artisan octane"
-    pkill -9 -f "node src/index.js"
-    pkill -9 -f "cloudflared"
-    pkill -9 -f "node proxy.cjs"
-    pkill -P $$ # Kill remaining child processes
+    # Remove the trap to prevent recursion or double-firing
+    trap - INT TERM EXIT
+    
+    echo -e "\n> Stopping services..."
+    pkill -f "php artisan octane"
+    pkill -f "node src/index.js"
+    pkill -f "cloudflared"
+    pkill -f "node proxy.cjs"
+    pkill -f "frankenphp"
+    pkill -P $$ 2>/dev/null
     exit 0
 }
+# Only trap specific termination signals to avoid double-firing with EXIT
 trap kill_services INT TERM EXIT
+
+# Pre-start check: Kill any lingering processes to prevent duplicates
+echo "● Cleaning up existing processes..."
+pkill -f "php artisan octane"
+pkill -f "node src/index.js"
+pkill -f "node proxy.cjs"
+pkill -f "frankenphp"
 
 echo "● Starting Services for https://nexusocial.qzz.io/"
 mkdir -p storage/logs
 
+# Set Node to ignore deprecation warnings from libraries
+export NODE_NO_WARNINGS=1
+
 # 1. Start Octane
-php artisan octane:start --host=127.0.0.1 --port=8000 --max-requests=100 --workers=4 > octane.log 2>&1 &
+php artisan octane:start --host=127.0.0.1 --port=8000 --max-requests=100 --workers=8 > octane.log 2>&1 &
 echo "  > Started Octane (8000)"
 
 # 2. Start Socket Server

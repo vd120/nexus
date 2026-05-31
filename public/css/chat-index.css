@@ -139,15 +139,17 @@
     width: auto;
     height: 44px;
     padding: 0 20px;
-    border-radius: 22px;
-    background: var(--wa-accent);
+    border-radius: var(--radius-xl);
+    background: var(--gradient-brand);
     color: white;
     gap: 8px;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
 }
 
 .icon-btn.large:hover {
-    background: var(--wa-accent);
-    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: var(--elev-glow);
 }
 
 /* Search */
@@ -173,15 +175,17 @@
     width: 100%;
     padding: 10px 14px 10px 44px;
     background: var(--wa-bg);
-    border: none;
-    border-radius: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     color: var(--wa-text);
     font-size: 14px;
     outline: none;
+    transition: border-color var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
 }
 
 .search-input-wrapper input:focus {
-    box-shadow: 0 0 0 2px var(--wa-accent);
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 /* Stories Section */
@@ -310,11 +314,16 @@
 }
 
 .conversation-item:hover {
-    background: var(--wa-panel-hover);
+    background: rgba(94, 96, 206, 0.10);
+}
+
+.conversation-item.active {
+    background: rgba(94, 96, 206, 0.12);
+    border-left: 3px solid var(--brand-500);
 }
 
 .conversation-item.unread {
-    background: rgba(0, 168, 132, 0.08);
+    background: rgba(94, 96, 206, 0.10);
 }
 
 .conv-avatar {
@@ -445,12 +454,12 @@
 }
 
 .unread-pill {
-    background: var(--wa-accent, #00a884);
+    background: var(--accent-500);
     color: white;
     font-size: 11px;
     font-weight: 600;
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     min-width: 20px;
     height: 20px;
     display: flex;
@@ -486,24 +495,24 @@
 }
 
 .start-chat-btn {
-    background: var(--wa-accent);
+    background: var(--gradient-brand);
     color: white;
     border: none;
     padding: 12px 24px;
-    border-radius: 24px;
+    border-radius: var(--radius-xl);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.2s;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur) var(--ease-default), box-shadow var(--dur) var(--ease-default);
 }
 
 .start-chat-btn:hover {
-    background: var(--wa-accent);
-    opacity: 0.9;
     transform: translateY(-2px);
+    box-shadow: var(--elev-glow);
 }
 
 /* Welcome Screen */
@@ -552,25 +561,14 @@
     margin-top: 40px;
 }
 
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
+/* Modal — overlay base styles come from app-layout.css */
 .modal-container {
     background: var(--wa-panel);
     width: 100%;
     max-width: 450px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--elev-3);
 }
 
 .modal-header {
@@ -624,15 +622,17 @@
     width: 100%;
     padding: 12px 14px 12px 44px;
     background: var(--wa-bg);
-    border: none;
-    border-radius: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     color: var(--wa-text);
     font-size: 14px;
     outline: none;
+    transition: border-color var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
 }
 
 .search-field:focus {
-    box-shadow: 0 0 0 2px var(--wa-accent);
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .search-results {

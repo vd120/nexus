@@ -222,14 +222,15 @@
     resize: none;
     height: 36px;
     line-height: 20px;
-    transition: all 0.2s ease;
+    transition: border-color var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default), background var(--dur-fast) var(--ease-default);
     overflow: hidden;
 }
 
 .reply-input-wrapper textarea:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--brand-500);
     background: var(--surface-hover);
+    box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .reply-input-wrapper textarea::placeholder {
@@ -241,20 +242,21 @@
     height: 36px;
     border: none;
     border-radius: 50%;
-    background: var(--primary);
+    background: var(--gradient-brand);
     color: white;
     cursor: pointer;
     font-size: 12px;
-    transition: all 0.2s ease;
+    transition: transform var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    box-shadow: var(--elev-1);
 }
 
 .reply-input-wrapper button:hover {
-    background: var(--primary-hover);
     transform: scale(1.05);
+    box-shadow: var(--elev-glow);
 }
 
 .reply-input-wrapper button:active {
@@ -453,8 +455,7 @@
 .highlight-comment {
     animation: highlight-fade 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     border-radius: 12px;
-    padding: 14px 12px !important;
-    margin-left: -12px !important;
-    margin-right: -12px !important;
+    padding-left: 12px;
+    padding-right: 12px;
     scroll-margin-top: 100px; /* Space for sticky headers */
 }

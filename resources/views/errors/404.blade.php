@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title data-t="home.page_not_found">{{ __('home.page_not_found') }} | Nexus</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/fonts/all.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -15,7 +12,7 @@
             --bg: #000000;
             --bg-rgb: 0, 0, 0;
             --text: #f5f5f7;
-            --text-dim: #86868b;
+            --text-dim: rgba(255,255,255,0.55);
             --primary: #0071e3;
             --primary-glow: rgba(0, 113, 227, 0.4);
             --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -54,7 +51,7 @@
             opacity: 0.15; transition: all 1s ease;
         }
         .bloom-1 { top: -10%; left: 20%; width: 40%; height: 40%; background: var(--primary); }
-        .bloom-2 { bottom: 10%; right: 10%; width: 30%; height: 30%; background: #5e60ce; }
+        .bloom-2 { bottom: 10%; right: 10%; width: 30%; height: 30%; background: #6366f1; }
 
         .container { position: relative; z-index: 10; padding: 24px; }
 

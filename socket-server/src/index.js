@@ -115,6 +115,14 @@ io.on('connection', async (socket) => {
         }
     });
 
+    socket.on('pulse:join', () => {
+        socket.join('pulse');
+    });
+
+    socket.on('memory:join', () => {
+        socket.join('memory');
+    });
+
     socket.on('conversation:join', ({ conversationId }) => {
         if (!conversationId) return;
         const roomName = `conversation:${conversationId}`;

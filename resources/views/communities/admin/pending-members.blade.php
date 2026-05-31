@@ -56,44 +56,6 @@
     @endif
 </div>
 
-<style>
-    .moderation-page { max-width: 1100px; margin: 0 auto; }
-    
-    .member-requests-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-    
-    .request-card { border-radius: 24px; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid var(--border); }
-    .request-card:hover { border-color: var(--admin-accent); transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
-    
-    .request-card-inner { display: flex; flex-direction: column; gap: 24px; padding: 28px; }
-    
-    .request-user-box { display: flex; align-items: center; gap: 18px; }
-    .request-avatar { width: 64px; height: 64px; border-radius: 18px; object-fit: cover; border: 1px solid var(--border); }
-    
-    .request-text { display: flex; flex-direction: column; gap: 4px; }
-    .request-name { font-size: 17px; font-weight: 800; color: var(--text); margin: 0; }
-    .request-handle { font-size: 13px; color: var(--admin-accent); font-weight: 700; }
-    .request-meta-badge { font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-
-    .request-actions { display: flex; gap: 12px; }
-    
-    .mod-btn { flex: 1; height: 48px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-hover); display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: 0.2s; font-size: 14px; font-weight: 700; color: var(--text); }
-    
-    .approve-btn:hover { background: #10b981; color: white; border-color: #10b981; }
-    .reject-btn { color: var(--text-muted); }
-    .reject-btn:hover { background: #ef4444; color: white; border-color: #ef4444; }
-
-    /* Empty State */
-    .admin-empty-state { padding: 80px 40px; text-align: center; background: var(--surface); border-radius: 32px; border: 1px solid var(--border); }
-    .empty-icon-wrap { width: 80px; height: 80px; background: var(--admin-accent-glow); color: var(--admin-accent); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 24px; }
-    .admin-empty-state h3 { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
-    .admin-empty-state p { color: var(--text-muted); margin-bottom: 24px; }
-    .btn-link { color: var(--admin-accent); text-decoration: none; font-weight: 700; font-size: 14px; }
-
-    @media (max-width: 900px) {
-        .member-requests-grid { grid-template-columns: 1fr; }
-    }
-</style>
-
 <script>
     function approveMember(userId) {
         fetch(`/communities/{{ $group->slug }}/admin/members/${userId}/approve`, {

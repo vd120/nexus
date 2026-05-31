@@ -102,7 +102,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: #fff !important;
         font-size: 0 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        box-shadow: var(--elev-2);
         transition: all 0.2s ease;
         text-decoration: none !important;
     }
@@ -154,7 +154,7 @@
                 <div class="profile-username"><span dir="ltr">@ {{ $user->username }}</span></div>
                 <div class="profile-badges">
                     @if(auth()->check() && $isBlocking)
-                        <span class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"><i class="fas fa-ban"></i> {{ __('users.blocked') }}</span>
+                        <span class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);"><i class="fas fa-ban"></i> {{ __('users.blocked') }}</span>
                     @endif
                     @if($user->profile && $user->profile->is_private)
                         <span class="private-badge"><i class="fas fa-lock"></i> {{ __('users.private') }}</span>
@@ -163,7 +163,7 @@
                         <span class="private-badge" style="background: rgba(139, 92, 246, 0.1); color: var(--primary);"><i class="fas fa-shield-alt"></i> {{ __('users.admin') }}</span>
                     @endif
                     @if($user->is_suspended)
-                        <span class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"><i class="fas fa-ban"></i> {{ __('users.suspended') }}</span>
+                        <span class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);"><i class="fas fa-ban"></i> {{ __('users.suspended') }}</span>
                     @endif
                     @if($user->hasVerifiedEmail())
                         <span class="private-badge" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;"><i class="fas fa-check-circle"></i> {{ __('users.email_verified') }}</span>
@@ -187,13 +187,14 @@
             @if(auth()->check() && auth()->id() === $user->id)
                 <a href="{{ route('profile.edit', $user) }}" class="btn"><i class="fas fa-edit"></i> {{ __('users.edit_profile') }}</a>
                 <a href="{{ route('activity.index') }}" class="btn"><i class="fas fa-history"></i> {{ __('activity.activity_logs') }}</a>
+                <a href="{{ route('users.memories', $user) }}" class="btn"><i class="fas fa-book-open"></i> {{ __('messages.my_memories') }}</a>
                 <button class="btn" onclick="showQrCodeModal()"><i class="fas fa-qrcode"></i> {{ __('users.qr_code') }}</button>
             @elseif(auth()->check() && $isBlockedBy)
                 <div style="color: var(--text-muted); font-size: 14px;">
                     <i class="fas fa-ban"></i> {{ __('users.blocked_you') }}
                 </div>
             @elseif(auth()->check() && $isBlocking)
-                <button class="btn" onclick="profileUnblockUser('{{ $user->username }}')" style="background: #dc3545; color: white;">
+                <button class="btn" onclick="profileUnblockUser('{{ $user->username }}')" style="background: var(--danger); color: white;">
                     <i class="fas fa-unlock"></i> <span>{{ __('users.unblock') }}</span>
                 </button>
             @elseif(auth()->check())
@@ -201,7 +202,7 @@
                     <i class="fas fa-user-{{ $isFollowing ? 'check' : 'plus' }}"></i> <span>{{ $isFollowing ? __('users.following') : __('users.follow') }}</span>
                 </button>
                 <a href="{{ route('chat.start', $user->id) }}" class="btn"><i class="fas fa-envelope"></i> {{ __('users.message') }}</a>
-                <button class="btn" onclick="profileBlockUser('{{ $user->username }}')" style="background: #dc3545; color: white;">
+                <button class="btn" onclick="profileBlockUser('{{ $user->username }}')" style="background: var(--danger); color: white;">
                     <i class="fas fa-ban"></i> <span>{{ __('users.block') }}</span>
                 </button>
             @else
@@ -232,6 +233,8 @@
     </div>
 
     <div class="profile-content" style="max-width: 680px; margin: 0 auto;">
+        @include('users.partials.chapters-section', ['chaptersUser' => $user, 'chaptersIsOwner' => $isOwner])
+
         {{-- Pinned Posts Section --}}
         <div class="pinned-posts-section" style="margin-bottom: 30px; {{ $pinnedPosts->count() === 0 ? 'display: none;' : '' }}">
             <div class="pinned-posts-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 0 4px;">

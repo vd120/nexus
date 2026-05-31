@@ -201,12 +201,12 @@
     color: var(--twitter-dark);
     outline: none;
     font-family: inherit;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: var(--elev-1);
 }
 
 .search-input:focus {
-    border-color: var(--twitter-blue);
-    box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .search-clear {
@@ -235,8 +235,8 @@
     right: 0;
     background: var(--card-bg);
     border: 2px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 4px 16px rgba(29, 161, 242, 0.1);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elev-3);
     max-height: 320px;
     overflow-y: auto;
     z-index: 100;
@@ -403,24 +403,24 @@
 }
 
 .privacy-badge.private {
-    background: #dc3545;
+    background: var(--danger);
     color: white;
     font-size: 10px;
     padding: 2px 6px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    flex-shrink: 0; /* Prevent badge from shrinking */
+    flex-shrink: 0;
     font-weight: 500;
 }
 
 .privacy-badge.verified {
-    background: #3b82f6;
+    background: var(--brand-500);
     color: white;
     font-size: 10px;
     padding: 2px 6px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     display: inline-flex;
     align-items: center;
     gap: 4px;

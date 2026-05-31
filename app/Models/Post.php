@@ -243,6 +243,14 @@ class Post extends Model
         return $this->belongsTo(SocialGroup::class);
     }
 
+    /**
+     * The Life Chapter this post was tagged to when created.
+     */
+    public function lifeChapter()
+    {
+        return $this->belongsTo(LifeChapter::class, 'life_chapter_id');
+    }
+
     public function socialGroupTopic()
     {
         return $this->belongsTo(SocialGroupTopic::class);

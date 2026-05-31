@@ -96,54 +96,6 @@
         @endif
     </div>
 </div>
-
-<style>
-    .community-about-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-    
-    .description-content { font-size: 16px; line-height: 1.8; color: var(--text); white-space: pre-wrap; font-weight: 500; }
-
-    .rules-stack { display: flex; flex-direction: column; gap: 20px; }
-    .rule-box { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
-    .rule-box:last-child { border-bottom: none; padding-bottom: 0; }
-    
-    .rule-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .rule-index { width: 28px; height: 28px; background: var(--community-accent-soft); color: var(--community-accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
-    .rule-title { font-size: 16px; font-weight: 800; color: var(--text); margin: 0; }
-    .rule-text { color: var(--text-muted); font-size: 14px; line-height: 1.6; padding-left: 40px; font-weight: 500; }
-
-    .details-list { display: flex; flex-direction: column; gap: 20px; }
-    .detail-row { display: flex; align-items: center; gap: 16px; }
-    .icon-circle { width: 44px; height: 44px; background: var(--surface-hover); color: var(--community-accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid var(--border); }
-    
-    .detail-row .info { display: flex; flex-direction: column; }
-    .detail-row label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .detail-row strong { font-size: 14px; font-weight: 700; color: var(--text); }
-
-    .topics-cloud { display: flex; flex-wrap: wrap; gap: 10px; }
-    .topic-pill { background: var(--surface-hover); color: var(--community-accent); padding: 8px 16px; border-radius: 100px; font-weight: 800; font-size: 13px; border: 1px solid var(--border); transition: 0.2s; cursor: default; }
-    .topic-pill:hover { background: var(--community-accent); color: white; transform: translateY(-2px); }
-
-    .empty-state-mini { text-align: center; padding: 32px 20px; color: var(--text-muted); }
-    .empty-state-mini i { font-size: 24px; margin-bottom: 12px; opacity: 0.5; }
-    .empty-state-mini p { font-size: 14px; font-weight: 600; margin: 0; }
-
-    @media (max-width: 900px) {
-        .community-about-grid { grid-template-columns: 1fr; gap: 16px; }
-        .about-side-col { order: 2; }
-        .about-main-col { order: 1; }
-
-        .about-card { border-radius: 16px; }
-        .panel-header { padding: 16px 20px; }
-        .panel-body { padding: 20px; }
-
-        .description-content { font-size: 14px; line-height: 1.6; }
-        
-        .rule-box { padding-bottom: 16px; }
-        .rule-text { padding-left: 0; margin-top: 10px; font-size: 13px; }
-        
-        .info-card { border-radius: 16px; }
-    }
-</style>
     </div>
 </div>
 @endsection

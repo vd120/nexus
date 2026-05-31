@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Story - {{ $user->username }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ asset('css/stories-show.css') }}">
+    @vite('resources/css/stories-show.css')
     <script>
         window.reactionImages = {};
         window.getReactionImage = function(emoji) { return null; };

@@ -132,7 +132,8 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the avatar URL - returns custom avatar or generated default
+     * Get the avatar URL - returns custom avatar or a generated letter avatar
+     * matching the design system (gradient circle + first letter).
      */
     public function getAvatarUrlAttribute(): string
     {
@@ -140,8 +141,48 @@ class User extends Authenticatable implements MustVerifyEmail
             return asset('storage/' . $this->profile->avatar);
         }
 
-        // Return default "unknown face" placeholder image
-        return asset('images/default-avatar.svg');
+        return $this->buildLetterAvatarDataUri();
+    }
+
+    /**
+     * Build an inline SVG data URI for a letter-based default avatar.
+     * Picks one of 8 gradient palettes deterministically from the username.
+     */
+    protected function buildLetterAvatarDataUri(): string
+    {
+        $source = $this->username ?? $this->name ?? '?';
+        $letter = mb_strtoupper(mb_substr($source, 0, 1, 'UTF-8'), 'UTF-8');
+        if ($letter === '' || $letter === false) {
+            $letter = '?';
+        }
+
+        $palettes = [
+            ['#8b5cf6', '#6366f1'],
+            ['#ec4899', '#f43f5e'],
+            ['#f59e0b', '#ef4444'],
+            ['#10b981', '#06b6d4'],
+            ['#3b82f6', '#8b5cf6'],
+            ['#f43f5e', '#f97316'],
+            ['#06b6d4', '#3b82f6'],
+            ['#84cc16', '#22c55e'],
+        ];
+        $idx = abs(crc32((string) $source)) % count($palettes);
+        [$from, $to] = $palettes[$idx];
+
+        $safeLetter = htmlspecialchars($letter, ENT_QUOTES | ENT_XML1, 'UTF-8');
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+            . '<defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">'
+            . '<stop offset="0%" stop-color="' . $from . '"/>'
+            . '<stop offset="100%" stop-color="' . $to . '"/>'
+            . '</linearGradient></defs>'
+            . '<circle cx="50" cy="50" r="50" fill="url(#g)"/>'
+            . '<text x="50" y="68" text-anchor="middle" '
+            . 'font-family="Inter, -apple-system, system-ui, sans-serif" '
+            . 'font-size="56" font-weight="700" fill="white">' . $safeLetter . '</text>'
+            . '</svg>';
+
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
     }
 
     public function posts()
@@ -557,6 +598,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function socialGroupMemberships()
     {
         return $this->hasMany(SocialGroupMember::class);
+    }
+
+    /**
+     * Life Chapters owned by this user, ordered for the profile timeline.
+     */
+    public function chapters()
+    {
+        return $this->hasMany(LifeChapter::class)
+            ->orderBy('sort_order')
+            ->orderByDesc('starts_on');
     }
 
     /**

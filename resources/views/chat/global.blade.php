@@ -3,7 +3,7 @@
 @section('title', 'Global Chat - Nexus')
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('css/global-chat.css') }}">
+@vite('resources/css/global-chat.css')
 <style>
     /* Hide layout mobile nav on chat page */
     .mobile-nav, .mobile-bottom-nav { display: none !important; }
@@ -40,7 +40,7 @@
     .scroll-bottom-btn:hover {
         background: var(--primary);
         transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(94, 96, 206, 0.4);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
         border-color: rgba(255, 255, 255, 0.3);
     }
 

@@ -2931,10 +2931,10 @@ body:has(.chat-page) .mobile-bottom-nav {
 }
 
 .emoji-list span.active-pick {
-    background: #5e60ce !important;
+    background: #6366f1 !important;
     color: white;
     transform: scale(1.15);
-    box-shadow: 0 4px 15px rgba(94, 96, 206, 0.5);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.5);
 }
 
 
@@ -3685,26 +3685,22 @@ body:has(.chat-page) .mobile-bottom-nav {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     z-index: 99998;
-    display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .modal-box {
-    background: #233138; /* Solid Dark Theme */
+    background: var(--surface);
+    border: 1px solid var(--border);
     width: 100%;
     max-width: 420px;
-    border-radius: 12px;
+    border-radius: var(--radius-2xl);
     overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme="light"] .modal-box {
-    background: #ffffff; /* Solid Light Theme */
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--elev-3);
 }
 
 .message-info-modal {
@@ -4613,8 +4609,8 @@ body:has(.chat-page) .mobile-bottom-nav {
 }
 
 @keyframes fullRowHighlightDark {
-    0% { background: rgba(94, 96, 206, 0.25); }
-    30% { background: rgba(94, 96, 206, 0.25); }
+    0% { background: rgba(99, 102, 241, 0.25); }
+    30% { background: rgba(99, 102, 241, 0.25); }
     100% { background: transparent; }
 }
 

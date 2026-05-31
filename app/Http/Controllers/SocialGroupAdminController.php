@@ -457,4 +457,223 @@ class SocialGroupAdminController extends Controller
 
         return redirect()->route('communities.index')->with('success', 'Community deleted successfully.');
     }
+
+    // ==========================================================================
+    // API: Rules CRUD
+    // ==========================================================================
+
+    public function apiIndexRules($slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        return response()->json(['success' => true, 'data' => $group->rules()->orderBy('id')->get()]);
+    }
+
+    public function apiStoreRule(Request $request, $slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:2000',
+        ]);
+        $rule = $group->rules()->create($validated);
+        return response()->json(['success' => true, 'data' => $rule], 201);
+    }
+
+    public function apiUpdateRule(Request $request, $slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $rule = $group->rules()->where('id', $id)->firstOrFail();
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string|max:2000',
+        ]);
+        $rule->update($validated);
+        return response()->json(['success' => true, 'data' => $rule]);
+    }
+
+    public function apiDestroyRule($slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $deleted = $group->rules()->where('id', $id)->delete();
+        return response()->json(['success' => (bool) $deleted]);
+    }
+
+    // ==========================================================================
+    // API: Topics CRUD
+    // ==========================================================================
+
+    public function apiIndexTopics($slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        return response()->json(['success' => true, 'data' => $group->topics()->orderBy('id')->get()]);
+    }
+
+    public function apiStoreTopic(Request $request, $slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+        $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']) . '-' . rand(100, 999);
+        $topic = $group->topics()->create($validated);
+        return response()->json(['success' => true, 'data' => $topic], 201);
+    }
+
+    public function apiUpdateTopic(Request $request, $slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $topic = $group->topics()->where('id', $id)->firstOrFail();
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+        ]);
+        if (isset($validated['name'])) {
+            $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']) . '-' . rand(100, 999);
+        }
+        $topic->update($validated);
+        return response()->json(['success' => true, 'data' => $topic]);
+    }
+
+    public function apiDestroyTopic($slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $deleted = $group->topics()->where('id', $id)->delete();
+        return response()->json(['success' => (bool) $deleted]);
+    }
+
+    // ==========================================================================
+    // API: Badges CRUD
+    // ==========================================================================
+
+    public function apiIndexBadges($slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        return response()->json(['success' => true, 'data' => $group->badges()->orderBy('id')->get()]);
+    }
+
+    public function apiStoreBadge(Request $request, $slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:32',
+        ]);
+        $badge = $group->badges()->create($validated);
+        return response()->json(['success' => true, 'data' => $badge], 201);
+    }
+
+    public function apiUpdateBadge(Request $request, $slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $badge = $group->badges()->where('id', $id)->firstOrFail();
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'icon' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:32',
+        ]);
+        $badge->update($validated);
+        return response()->json(['success' => true, 'data' => $badge]);
+    }
+
+    public function apiDestroyBadge($slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        $deleted = $group->badges()->where('id', $id)->delete();
+        return response()->json(['success' => (bool) $deleted]);
+    }
+
+    // ==========================================================================
+    // API: Reports — list reports on posts inside this community
+    // ==========================================================================
+
+    public function reports(Request $request, $slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+
+        $status = $request->query('status'); // optional: pending|accepted|rejected
+        $perPage = max(1, min(50, (int) $request->query('per_page', 20)));
+
+        $query = PostReport::query()
+            ->whereHas('post', function ($q) use ($group) {
+                $q->where('social_group_id', $group->id);
+            })
+            ->with(['post:id,slug,user_id,content,social_group_id', 'reporter:id,username,name,avatar_url'])
+            ->orderByDesc('created_at');
+
+        if ($status && in_array($status, ['pending', 'accepted', 'rejected'], true)) {
+            $query->{$status}();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->paginate($perPage),
+        ]);
+    }
+
+    /**
+     * Server-rendered reports management page (shell). JS loads data via reports.data.
+     */
+    public function reportsPage($slug)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+        return view('communities.admin.reports', compact('group'));
+    }
+
+    /**
+     * Resolve a report: accept (delete the post) or reject (dismiss).
+     */
+    public function resolveReport(Request $request, $slug, $id)
+    {
+        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $this->authorize('manage', $group);
+
+        $validated = $request->validate([
+            'action' => 'required|in:accept,reject',
+            'note'   => 'nullable|string|max:1000',
+        ]);
+
+        $report = PostReport::with('post')
+            ->whereHas('post', function ($q) use ($group) {
+                $q->where('social_group_id', $group->id);
+            })
+            ->findOrFail($id);
+
+        if ($validated['action'] === 'accept') {
+            // Delete the offending post
+            if ($report->post) {
+                $report->post->delete();
+            }
+            $report->update([
+                'status'       => 'accepted',
+                'reviewed_by'  => auth()->id(),
+                'reviewed_at'  => now(),
+                'admin_note'   => $validated['note'] ?? null,
+                'admin_action' => 'delete_post',
+            ]);
+        } else {
+            $report->update([
+                'status'       => 'rejected',
+                'reviewed_by'  => auth()->id(),
+                'reviewed_at'  => now(),
+                'admin_note'   => $validated['note'] ?? null,
+                'admin_action' => 'dismiss',
+            ]);
+        }
+
+        return response()->json(['success' => true, 'data' => $report->fresh()]);
+    }
 }

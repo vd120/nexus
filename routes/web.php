@@ -279,6 +279,11 @@ Route::get('/', function () {
     return app(\App\Http\Controllers\PostController::class)->index(request());
 })->name('home');
 
+// Nexus identity showcase (design tokens preview)
+Route::get('/design', function () {
+    return view('design.showcase');
+})->name('design.showcase');
+
 
 
 // Test route for debugging
@@ -288,6 +293,7 @@ Route::get('/user/test-route', function() {
 
 Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
     Route::get('/posts/load-more', [PostController::class, 'loadMore'])->name('posts.load-more');
+    Route::get('/feed-preview', [PostController::class, 'indexPreview'])->name('feed.preview');
     Route::resource('posts', PostController::class, [
         'parameters' => ['posts' => 'post:slug'],
         'only' => ['index', 'show', 'store', 'update', 'destroy', 'create', 'edit']
@@ -314,6 +320,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
 
     Route::get('/profile', function () { return redirect()->route('users.show', auth()->user()); })->name('profile');
     Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+    Route::get('/users/{user}/memories', [UserController::class, 'memories'])->name('users.memories');
     Route::get('/users/{user}/followers', [UserController::class, 'followers'])->name('users.followers');
     Route::get('/users/{user}/following', [UserController::class, 'following'])->name('users.following');
     Route::get('/users/{user}/blocked', [UserController::class, 'blocked'])->name('users.blocked');
@@ -340,6 +347,38 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::post('/users/{user}/posts/{post}/unpin', [UserController::class, 'unpinPost'])->name('users.posts.unpin')->where('post', '[0-9]+');
     Route::post('/users/{user}/pinned-posts/reorder', [UserController::class, 'reorderPinnedPosts'])->name('users.pinned-posts.reorder');
     Route::get('/api/users/following/suggestions', [UserController::class, 'followingSuggestions'])->name('api.users.following.suggestions');
+
+    // Right-sidebar (feed) dynamic data endpoints
+    Route::get('/api/sidebar/suggestions', [App\Http\Controllers\Api\SidebarController::class, 'suggestions'])->name('api.sidebar.suggestions');
+    Route::get('/api/sidebar/top-communities', [App\Http\Controllers\Api\SidebarController::class, 'topCommunities'])->name('api.sidebar.top-communities');
+    Route::get('/api/sidebar/trending-hashtags', [App\Http\Controllers\Api\SidebarController::class, 'trendingHashtags'])->name('api.sidebar.trending-hashtags');
+
+    // Pulse — daily community prompt
+    Route::get('/pulse', [App\Http\Controllers\PulseController::class, 'index'])->name('pulse.index');
+    Route::post('/pulse/answer', [App\Http\Controllers\PulseController::class, 'answer'])->name('pulse.answer')->middleware('throttle:posts');
+    Route::delete('/pulse/answer', [App\Http\Controllers\PulseController::class, 'deleteAnswer'])->name('pulse.answer.delete');
+    Route::post('/pulse/answer/like', [App\Http\Controllers\PulseController::class, 'toggleLike'])->name('pulse.answer.like');
+    Route::get('/api/pulse/today', [App\Http\Controllers\PulseController::class, 'today'])->name('api.pulse.today');
+    Route::get('/api/pulse/answers', [App\Http\Controllers\PulseController::class, 'answers'])->name('api.pulse.answers');
+
+    // Pulse — weekly memory prompt
+    Route::get('/api/pulse/memory', [App\Http\Controllers\PulseController::class, 'memory'])->name('api.pulse.memory');
+    Route::post('/pulse/memory/answer', [App\Http\Controllers\PulseController::class, 'answerMemory'])->name('pulse.memory.answer')->middleware('throttle:posts');
+    Route::delete('/pulse/memory/answer', [App\Http\Controllers\PulseController::class, 'deleteMemoryAnswer'])->name('pulse.memory.answer.delete');
+    Route::get('/memories', [App\Http\Controllers\PulseController::class, 'memoriesIndex'])->name('memories.index');
+    Route::get('/pulse/memories', [App\Http\Controllers\PulseController::class, 'memoryAnswers'])->name('pulse.memories');
+
+    // Life Chapters — user-owned life eras that auto-tag posts and pulse answers
+    Route::get('/api/users/{username}/chapters', [App\Http\Controllers\LifeChapterController::class, 'index'])->name('api.chapters.index');
+    Route::post('/api/chapters', [App\Http\Controllers\LifeChapterController::class, 'store'])->name('api.chapters.store');
+    Route::put('/api/chapters/{chapter}', [App\Http\Controllers\LifeChapterController::class, 'update'])->name('api.chapters.update');
+    Route::delete('/api/chapters/{chapter}', [App\Http\Controllers\LifeChapterController::class, 'destroy'])->name('api.chapters.destroy');
+    Route::get('/api/chapters/{chapter}/posts', [App\Http\Controllers\LifeChapterController::class, 'posts'])->name('api.chapters.posts');
+
+    // Life Chapter dedicated page on the profile
+    Route::get('/users/{user}/chapters/{chapter}', [UserController::class, 'chapterPage'])
+        ->name('users.chapter')
+        ->where('chapter', '[0-9]+');
     
     // Set password for Google OAuth users
     Route::get('/set-password', [App\Http\Controllers\Auth\PasswordController::class, 'showSetPassword'])->name('password.set-password');
@@ -380,6 +419,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::get('/api/search-users', [App\Http\Controllers\UserController::class, 'apiSearch'])->name('api.search-users');
     Route::get('/api/user/{user}/username', [App\Http\Controllers\UserController::class, 'getUsername'])->name('api.user.username');
     Route::get('/user/{user}/online-status', [App\Http\Controllers\UserController::class, 'getOnlineStatus'])->name('user.get-online-status');
+    Route::get('/users/online-status/bulk', [App\Http\Controllers\UserController::class, 'getBulkOnlineStatus'])->name('users.online-status.bulk');
 
     // 1. Specific Chat Actions (Must come before catch-all slug)
     Route::get('/chat/groups/create', [App\Http\Controllers\GroupController::class, 'create'])->name('groups.create');
@@ -458,16 +498,24 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
                 // Meta Management
                 Route::get('/rules', [App\Http\Controllers\SocialGroupAdminController::class, 'rules'])->name('rules');
                 Route::post('/rules', [App\Http\Controllers\SocialGroupAdminController::class, 'addRule'])->name('rules.add');
+                Route::put('/rules/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'apiUpdateRule'])->name('rules.update');
                 Route::delete('/rules/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteRule'])->name('rules.delete');
-                
+
                 Route::get('/topics', [App\Http\Controllers\SocialGroupAdminController::class, 'topics'])->name('topics');
                 Route::post('/topics', [App\Http\Controllers\SocialGroupAdminController::class, 'addTopic'])->name('topics.add');
+                Route::put('/topics/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'apiUpdateTopic'])->name('topics.update');
                 Route::delete('/topics/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteTopic'])->name('topics.delete');
-                
+
                 Route::get('/badges', [App\Http\Controllers\SocialGroupAdminController::class, 'badges'])->name('badges');
                 Route::post('/badges', [App\Http\Controllers\SocialGroupAdminController::class, 'addBadge'])->name('badges.add');
+                Route::put('/badges/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'apiUpdateBadge'])->name('badges.update');
                 Route::delete('/badges/{id}', [App\Http\Controllers\SocialGroupAdminController::class, 'deleteBadge'])->name('badges.delete');
                 Route::post('/members/{userId}/badges/toggle', [App\Http\Controllers\SocialGroupAdminController::class, 'toggleBadge'])->name('badges.toggle');
+
+                // Reports management
+                Route::get('/reports', [App\Http\Controllers\SocialGroupAdminController::class, 'reportsPage'])->name('reports');
+                Route::get('/reports/data', [App\Http\Controllers\SocialGroupAdminController::class, 'reports'])->name('reports.data');
+                Route::post('/reports/{id}/resolve', [App\Http\Controllers\SocialGroupAdminController::class, 'resolveReport'])->name('reports.resolve');
             });
         });
     });

@@ -382,7 +382,7 @@
 </div>
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/activity.css') }}">
+    @vite('resources/css/activity.css')
 @endpush
 
 <script>

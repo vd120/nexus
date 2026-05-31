@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Block;
+use App\Models\GlobalMessage;
+use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\PostReaction;
 use App\Models\SavedPost;
+use App\Models\User;
 use App\Services\FileUploadService;
 use App\Services\HashtagService;
 use Illuminate\Http\Request;
@@ -16,60 +20,25 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      */
+    public function indexPreview(Request $request)
+    {
+        $response = $this->index($request);
+        $data = method_exists($response, 'getData') ? (array) $response->getData() : [];
+        return view('posts.index-preview', $data);
+    }
+
     public function index(Request $request)
     {
         $user = auth()->user();
         $perPage = $request->get('per_page', 15);
         $page = $request->get('page', 1);
+        $followedUsers = collect();
+        $topHashtags = collect();
+        $globalChatMessages = collect();
 
         if ($user) {
-            $posts = Post::withCount(['likes', 'reactions', 'comments'])
-                ->with([
-                    'user', 
-                    'media', 
-                    'userReaction',
-                    'userLike',
-                    'userSavedPost',
-                    'reactions' => function($query) {
-                        $query->select('id', 'post_id', 'reaction_type');
-                    },
-                    'comments' => function($query) {
-                        $query->latest()->limit(5)->with('user'); // Load a few recent comments + their authors
-                    }
-                ])
-                ->approved()
-                ->where(function($query) use ($user) {
-                    // Regular posts (no group)
-                    $query->where(function($q) use ($user) {
-                        $q->whereNull('social_group_id')
-                          ->where(function($inner) use ($user) {
-                              $inner->where('user_id', $user->id)
-                                   ->orWhereHas('user.followers', function($followerQuery) use ($user) {
-                                       $followerQuery->where('follower_id', $user->id);
-                                   })
-                                   ->orWhere('is_private', false);
-                          });
-                    })
-                    // Group posts
-                    ->orWhere(function($q) use ($user) {
-                        $q->whereNotNull('social_group_id')
-                          ->where(function($inner) use ($user) {
-                              $inner->whereHas('socialGroup', function($groupQuery) {
-                                  $groupQuery->where('privacy_level', 'public');
-                              })
-                              ->orWhereHas('socialGroup.members', function($memberQuery) use ($user) {
-                                  $memberQuery->where('user_id', $user->id)->where('status', 'approved');
-                              });
-                          });
-                    });
-                })
-                ->whereDoesntHave('user.blockedBy', function($blockedByQuery) use ($user) {
-                    $blockedByQuery->where('blocker_id', $user->id);
-                })
-                ->whereDoesntHave('user.blockedUsers', function($blockedUsersQuery) use ($user) {
-                    $blockedUsersQuery->where('blocked_id', $user->id);
-                })
-                ->latest()
+            $blockedUserIds = $this->getBlockedUserIds($user);
+            $posts = $this->buildFeedQuery($user, $blockedUserIds)
                 ->paginate($perPage)
                 ->withQueryString();
 
@@ -86,6 +55,21 @@ class PostController extends Controller
 
             $followedUsersWithStories = $storiesData['followed_users'];
             $myStories = $storiesData['my_stories'];
+
+            $followedUsers = $user->following()
+                ->select('users.id', 'users.username', 'users.name', 'users.is_online')
+                ->with('profile')
+                ->orderBy('follows.created_at', 'desc')
+                ->limit(8)
+                ->get();
+
+            $topHashtags = Hashtag::popular(3)->get();
+            $globalChatMessages = GlobalMessage::with('user')
+                ->latest()
+                ->limit(2)
+                ->get()
+                ->reverse()
+                ->values();
         } else {
             $posts = Post::withCount(['likes', 'reactions', 'comments'])
                 ->with([
@@ -108,7 +92,14 @@ class PostController extends Controller
             $myStories = collect();
         }
 
-        return view('posts.index', compact('posts', 'followedUsersWithStories', 'myStories'));
+        return view('posts.index', compact(
+            'posts',
+            'followedUsersWithStories',
+            'myStories',
+            'followedUsers',
+            'topHashtags',
+            'globalChatMessages'
+        ));
     }
 
     /**
@@ -121,53 +112,8 @@ class PostController extends Controller
         $page = $request->get('page', 1);
 
         if ($user) {
-            $posts = Post::withCount(['likes', 'reactions', 'comments'])
-                ->with([
-                    'user', 
-                    'media', 
-                    'userReaction',
-                    'userLike',
-                    'userSavedPost',
-                    'reactions' => function($query) {
-                        $query->select('id', 'post_id', 'reaction_type');
-                    },
-                    'comments' => function($query) {
-                        $query->latest()->limit(5)->with('user');
-                    }
-                ])
-                ->approved()
-                ->where(function($query) use ($user) {
-                    // Regular posts (no group)
-                    $query->where(function($q) use ($user) {
-                        $q->whereNull('social_group_id')
-                          ->where(function($inner) use ($user) {
-                              $inner->where('user_id', $user->id)
-                                   ->orWhereHas('user.followers', function($followerQuery) use ($user) {
-                                       $followerQuery->where('follower_id', $user->id);
-                                   })
-                                   ->orWhere('is_private', false);
-                          });
-                    })
-                    // Group posts
-                    ->orWhere(function($q) use ($user) {
-                        $q->whereNotNull('social_group_id')
-                          ->where(function($inner) use ($user) {
-                              $inner->whereHas('socialGroup', function($groupQuery) {
-                                  $groupQuery->where('privacy_level', 'public');
-                              })
-                              ->orWhereHas('socialGroup.members', function($memberQuery) use ($user) {
-                                  $memberQuery->where('user_id', $user->id)->where('status', 'approved');
-                              });
-                          });
-                    });
-                })
-                ->whereDoesntHave('user.blockedBy', function($blockedByQuery) use ($user) {
-                    $blockedByQuery->where('blocker_id', $user->id);
-                })
-                ->whereDoesntHave('user.blockedUsers', function($blockedUsersQuery) use ($user) {
-                    $blockedUsersQuery->where('blocked_id', $user->id);
-                })
-                ->latest()
+            $blockedUserIds = $this->getBlockedUserIds($user);
+            $posts = $this->buildFeedQuery($user, $blockedUserIds)
                 ->paginate($perPage, ['*'], 'page', $page)
                 ->withQueryString();
         } else {
@@ -384,46 +330,14 @@ class PostController extends Controller
                 $originalName = $file->getClientOriginalName();
 
                 if (str_contains($mimeType, 'image/')) {
-                    // Handle image upload with FAST compression
-                    try {
-                        $manager = new \Intervention\Image\ImageManager(
-                            new \Intervention\Image\Drivers\Gd\Driver()
-                        );
-                        $compressedImage = $manager->read($file);
+                    $path = $fileService->compressImage($file, 'posts/images', [
+                        'maxWidth' => 1280,
+                        'maxHeight' => 1280,
+                        'quality' => 80,
+                    ]);
 
-                        // FAST compression: smaller max size + lower quality
-                        $maxWidth = 800;  // Reduced from 1200 for speed
-                        $maxHeight = 800; // Reduced from 1200 for speed
-                        $quality = 75;    // Reduced from 85 for speed
-
-                        // Resize if too large
-                        if ($compressedImage->width() > $maxWidth || $compressedImage->height() > $maxHeight) {
-                            $compressedImage->scale(width: $maxWidth, height: $maxHeight);
-                        }
-
-                        // Generate unique filename
-                        $filename = time() . '_' . uniqid() . '.jpg'; // Always use .jpg for speed
-                        $path = 'posts/images/' . $filename;
-
-                        // Ensure directory exists
-                        $fullDirPath = storage_path('app/public/posts/images');
-                        if (!file_exists($fullDirPath)) {
-                            mkdir($fullDirPath, 0755, true);
-                        }
-
-                        // Save compressed image (fastest settings)
-                        $compressedImage->toJpeg($quality)->save(storage_path('app/public/' . $path));
-                    } catch (\Exception $e) {
-                        // If compression fails, save the original file
-                        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                        $path = 'posts/images/' . $filename;
-                        
-                        $fullDirPath = storage_path('app/public/posts/images');
-                        if (!file_exists($fullDirPath)) {
-                            mkdir($fullDirPath, 0755, true);
-                        }
-                        
-                        $file->move($fullDirPath, $filename);
+                    if (!$path) {
+                        continue;
                     }
 
                     $post->media()->create([
@@ -989,5 +903,60 @@ class PostController extends Controller
             'data' => $reactions,
             'summary' => $summary
         ]);
+    }
+
+    private function getBlockedUserIds(User $user): array
+    {
+        $iBlocked = Block::where('blocker_id', $user->id)->pluck('blocked_id')->toArray();
+        $blockedMe = Block::where('blocked_id', $user->id)->pluck('blocker_id')->toArray();
+        return array_unique(array_merge($iBlocked, $blockedMe));
+    }
+
+    private function buildFeedQuery(User $user, array $blockedUserIds)
+    {
+        $query = Post::withCount(['likes', 'reactions', 'comments'])
+            ->with([
+                'user',
+                'media',
+                'userReaction',
+                'userLike',
+                'userSavedPost',
+                'reactions' => function($q) {
+                    $q->select('id', 'post_id', 'reaction_type');
+                },
+                'comments' => function($q) {
+                    $q->latest()->limit(5)->with('user');
+                }
+            ])
+            ->approved()
+            ->where(function($q) use ($user) {
+                $q->where(function($inner) use ($user) {
+                    $inner->whereNull('social_group_id')
+                        ->where(function($innermost) use ($user) {
+                            $innermost->where('user_id', $user->id)
+                                ->orWhereHas('user.followers', function($followerQuery) use ($user) {
+                                    $followerQuery->where('follower_id', $user->id);
+                                })
+                                ->orWhere('is_private', false);
+                        });
+                })
+                ->orWhere(function($inner) use ($user) {
+                    $inner->whereNotNull('social_group_id')
+                        ->where(function($innermost) use ($user) {
+                            $innermost->whereHas('socialGroup', function($groupQuery) {
+                                $groupQuery->where('privacy_level', 'public');
+                            })
+                            ->orWhereHas('socialGroup.members', function($memberQuery) use ($user) {
+                                $memberQuery->where('user_id', $user->id)->where('status', 'approved');
+                            });
+                        });
+                });
+            })
+            ->when(!empty($blockedUserIds), function($q) use ($blockedUserIds) {
+                $q->whereNotIn('posts.user_id', $blockedUserIds);
+            })
+            ->latest();
+
+        return $query;
     }
 }

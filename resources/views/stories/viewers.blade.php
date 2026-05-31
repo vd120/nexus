@@ -2,7 +2,9 @@
 
 @section('title', __('messages.story_viewers') . ' - ' . $user->username)
 
-<link rel="stylesheet" href="{{ asset('css/stories-viewer.css') }}">
+@push('styles')
+@vite('resources/css/stories-viewer.css')
+@endpush
 
 @section('content')
 <div class="story-viewers-page">

@@ -2,6 +2,10 @@
 
 @section('title', __('admin.manage_posts') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-posts.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -128,8 +132,6 @@
     </div>
     @endif
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-posts.css') }}">
 
 <script>
 window.runOnPageLoad( function() {

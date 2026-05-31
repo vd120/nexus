@@ -96,4 +96,5 @@ return [
     'report_rejected_message' => 'Your report was reviewed but not accepted.',
     'dnd' => 'Do Not Disturb',
     'connecting' => 'Connecting to real-time server...',
+    'loading' => 'Loading',
 ];

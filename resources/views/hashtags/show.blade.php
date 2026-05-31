@@ -2,6 +2,10 @@
 
 @section('title', $hashtag->display_name)
 
+@push('styles')
+@vite('resources/css/hashtag.css')
+@endpush
+
 @section('content')
 <div class="hashtag-page">
     {{-- Header --}}
@@ -74,5 +78,4 @@
     @endif
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/hashtag.css') }}">
 @endsection

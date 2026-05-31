@@ -168,27 +168,20 @@ class AdminController extends Controller
         }
         // Handle avatar upload with compression (only if not being removed)
         elseif ($request->hasFile('avatar')) {
-            $avatarFile = $request->file('avatar');
-
-            // Compress and resize avatar (square, 200x200 max)
-            $manager = new \Intervention\Image\ImageManager(
-                new \Intervention\Image\Drivers\Gd\Driver()
+            $avatarPath = app(\App\Services\FileUploadService::class)->compressImage(
+                $request->file('avatar'),
+                'avatars',
+                [
+                    'cover' => [200, 200],
+                    'quality' => 85,
+                    'prefix' => 'avatar',
+                ]
             );
-            $avatarImage = $manager->read($avatarFile);
 
-            $filename = time() . '_avatar_' . uniqid() . '.jpg';
-            $avatarPath = 'avatars/' . $filename;
-            
-            // Ensure directory exists
-            $fullPath = storage_path('app/public/avatars');
-            if (!file_exists($fullPath)) {
-                mkdir($fullPath, 0755, true);
+            if ($avatarPath) {
+                \Log::info('Admin avatar compressed and stored at: ' . $avatarPath);
+                $profileData['avatar'] = $avatarPath;
             }
-            
-            $avatarImage->cover(200, 200)->toJpeg(90)->save(storage_path('app/public/' . $avatarPath));
-
-            \Log::info('Admin avatar compressed and stored at: ' . $avatarPath);
-            $profileData['avatar'] = $avatarPath;
         }
 
         // Handle cover image removal first (takes precedence over upload)
@@ -209,32 +202,20 @@ class AdminController extends Controller
         }
         // Handle cover image upload with compression (only if not being removed)
         elseif ($request->hasFile('cover_image')) {
-            $coverFile = $request->file('cover_image');
-
-            // Compress and resize cover image (1200px width max, maintain aspect ratio)
-            $coverManager = new \Intervention\Image\ImageManager(
-                new \Intervention\Image\Drivers\Gd\Driver()
+            $coverPath = app(\App\Services\FileUploadService::class)->compressImage(
+                $request->file('cover_image'),
+                'covers',
+                [
+                    'maxWidth' => 1280,
+                    'quality' => 80,
+                    'prefix' => 'cover',
+                ]
             );
-            $coverImage = $coverManager->read($coverFile);
 
-            $filename = time() . '_cover_' . uniqid() . '.jpg';
-            $coverPath = 'covers/' . $filename;
-
-            // Ensure directory exists
-            $fullPath = storage_path('app/public/covers');
-            if (!file_exists($fullPath)) {
-                mkdir($fullPath, 0755, true);
+            if ($coverPath) {
+                \Log::info('Admin cover image compressed and stored at: ' . $coverPath);
+                $profileData['cover_image'] = $coverPath;
             }
-
-            // Resize to max width while maintaining aspect ratio
-            if ($coverImage->width() > 1200) {
-                $coverImage->scale(width: 1200);
-            }
-
-            $coverImage->toJpeg(85)->save(storage_path('app/public/' . $coverPath));
-
-            \Log::info('Admin cover image compressed and stored at: ' . $coverPath);
-            $profileData['cover_image'] = $coverPath;
         }
 
         // Update or create profile

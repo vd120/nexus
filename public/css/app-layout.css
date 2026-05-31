@@ -2,6 +2,118 @@
    UNIFIED DESIGN SYSTEM - Nexus
    ============================================ */
 
+/* ============================================
+   NEXUS LOADING STATES
+   ============================================ */
+.nx-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid rgba(94, 96, 206, 0.18);
+    border-top-color: #5e60ce;
+    animation: nx-spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+.nx-spinner.lg { width: 44px; height: 44px; border-width: 4px; }
+.nx-spinner.sm { width: 18px; height: 18px; border-width: 2px; }
+
+@keyframes nx-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Skeleton placeholder */
+.nx-skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--surface-hover, #1c1c1e) 0%,
+        var(--border, #2a2a2a) 50%,
+        var(--surface-hover, #1c1c1e) 100%
+    );
+    background-size: 200% 100%;
+    border-radius: var(--radius, 12px);
+    animation: nx-shimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    display: block;
+}
+
+[data-theme="light"] .nx-skeleton {
+    background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+    background-size: 200% 100%;
+}
+
+@keyframes nx-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   NEXUS EMPTY STATE
+   Used via the <x-empty-state> Blade component.
+   ============================================ */
+.nx-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 56px 24px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg, 16px);
+    gap: 12px;
+}
+
+.nx-empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(94, 96, 206, 0.10);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    margin-bottom: 4px;
+}
+
+.nx-empty-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+    letter-spacing: -0.2px;
+}
+
+.nx-empty-desc {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 360px;
+    margin: 0;
+}
+
+.nx-empty-cta {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #5e60ce 0%, #7400b8 100%);
+    color: #fff;
+    border-radius: var(--radius, 12px);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--elev-1);
+    transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nx-empty-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-glow);
+    color: #fff;
+}
+
+
 :root {
     /* Core Colors - Apple-style Dark */
     --bg: #0d0d0d;
@@ -41,9 +153,9 @@
     --radius-full: 9999px;
 
     /* Shadows */
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 20px var(--primary-glow);
+    --shadow: var(--elev-2, 0 4px 12px rgba(0, 0, 0, 0.35));
+    --shadow-lg: var(--elev-3, 0 8px 24px rgba(0, 0, 0, 0.40));
+    --shadow-glow: var(--elev-glow, 0 0 24px rgba(94, 96, 206, 0.35));
 
     /* Transitions - Removed for performance */
     --transition-fast: 0ms;
@@ -72,6 +184,58 @@
     --focus-border: var(--primary);
     --error-color: var(--accent);
     --success-color: var(--success);
+
+    /* ============================================
+       NEXUS IDENTITY v1 — new tokens (live alongside legacy)
+       ============================================ */
+    /* Brand scale (anchored on #5e60ce, transitions to #7400b8 at dark end) */
+    --brand-50:  #f1f1fc;
+    --brand-100: #e2e1f9;
+    --brand-200: #c6c5f3;
+    --brand-300: #a6a4e9;
+    --brand-400: #8281dc;
+    --brand-500: #5e60ce;
+    --brand-600: #5547c0;
+    --brand-700: #4d35a8;
+    --brand-800: #642190;
+    --brand-900: #7400b8;
+
+    /* Single accent — pink (likes, hearts, social moments) */
+    --accent-300: #f9a8d4;
+    --accent-400: #f472b6;
+    --accent-500: #ec4899;
+    --accent-600: #db2777;
+    --accent-glow: rgba(236, 72, 153, 0.25);
+
+    /* Semantics (danger added explicitly) */
+    --danger: #ef4444;
+
+    /* Signature gradient */
+    --gradient-brand: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-900) 100%);
+
+    /* Elevation system */
+    --elev-0: none;
+    --elev-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --elev-2: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --elev-3: 0 8px 24px rgba(0, 0, 0, 0.40);
+    --elev-glow: 0 0 24px rgba(94, 96, 206, 0.35);
+
+    /* Motion */
+    --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+    --dur-fast: 150ms;
+    --dur: 250ms;
+    --dur-slow: 350ms;
+
+    /* Radius (canonical 3-step scale: sm=8, md=16, lg=24)
+       Keeping legacy --radius (12) and --radius-xl (20) as backward-compat aliases. */
+    --radius-2xl: 24px;
+    --r-sm: 8px;
+    --r-md: 16px;
+    --r-lg: 24px;
+
+    /* Typography */
+    --font-display: 'Bricolage Grotesque', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 [data-theme="light"] {
@@ -90,9 +254,9 @@
     --success: #30d158;
     --warning: #ffd60a;
 
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-    --shadow-glow: 0 0 20px rgba(94, 96, 206, 0.15);
+    --shadow: var(--elev-2, 0 4px 12px rgba(0, 0, 0, 0.08));
+    --shadow-lg: var(--elev-3, 0 8px 24px rgba(0, 0, 0, 0.12));
+    --shadow-glow: var(--elev-glow, 0 0 24px rgba(94, 96, 206, 0.20));
 
     /* Legacy Compatibility - Light */
     --twitter-blue: var(--primary);
@@ -106,6 +270,13 @@
     --focus-border: var(--primary);
     --error-color: var(--accent);
     --success-color: var(--success);
+
+    /* Nexus Identity v1 — light-theme elevation overrides (softer shadows) */
+    --elev-1: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --elev-2: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --elev-3: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --elev-glow: 0 0 24px rgba(94, 96, 206, 0.20);
+    --accent-glow: rgba(236, 72, 153, 0.18);
 }
 
 *,
@@ -127,7 +298,7 @@ body {
     color: var(--text);
     background: var(--bg);
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip;
     /* Eliminate touch delay on mobile */
     touch-action: manipulation;
 }
@@ -495,18 +666,22 @@ html:not([data-theme="dark"]) .logo-black,
 .nav-action-btn.primary {
     width: auto;
     padding: 8px 18px;
-    background: #fff;
+    background: var(--gradient-brand, linear-gradient(135deg, #5e60ce 0%, #7400b8 100%));
     border: none;
-    color: #000;
-    font-weight: 600;
+    color: #fff;
+    font-weight: 700;
     font-size: 14px;
     border-radius: 980px;
     height: 40px;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-fast, 150ms) var(--ease-default, cubic-bezier(0.16, 1, 0.3, 1)),
+                box-shadow var(--dur-fast, 150ms) var(--ease-default, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 .nav-action-btn.primary:hover {
-    background: #f5f5f5;
-    transform: scale(1.02);
+    background: var(--gradient-brand, linear-gradient(135deg, #5e60ce 0%, #7400b8 100%));
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: var(--elev-glow);
 }
 
 .nav-action-btn .badge {
@@ -790,8 +965,8 @@ html[dir="rtl"] .nav-user-btn {
     background: rgba(22, 22, 22, 0.95) !important;
     backdrop-filter: blur(40px) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    border-radius: var(--radius-lg, 16px) !important;
+    box-shadow: var(--elev-3, 0 8px 24px rgba(0, 0, 0, 0.40)) !important;
     z-index: 9999 !important;
     padding: 8px !important;
 }
@@ -800,15 +975,17 @@ html[dir="rtl"] .nav-user-btn {
     display: block !important;
 }
 
-/* User Menu Dropdown - Specific styles */
+/* User Menu Dropdown - theme-aware via tokens */
 #userMenu {
-    background: rgba(22, 22, 22, 0.95) !important;
-    backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: var(--surface) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 14px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
-    padding: 8px !important;
-    min-width: 280px !important;
+    box-shadow: var(--elev-3) !important;
+    padding: 6px !important;
+    min-width: 260px !important;
+    max-width: calc(100vw - 24px) !important;
 }
 
 #userMenu a,
@@ -817,43 +994,24 @@ html[dir="rtl"] .nav-user-btn {
     align-items: center !important;
     gap: 12px !important;
     width: 100% !important;
-    padding: 12px 14px !important;
+    padding: 10px 12px !important;
     border: none !important;
     background: none !important;
-    color: #f5f5f7 !important;
+    color: var(--text) !important;
     font-size: 14px !important;
     font-weight: 500 !important;
     text-decoration: none !important;
     border-radius: 10px !important;
     cursor: pointer !important;
-    transition: 0.3s !important;
+    transition: background var(--dur-fast) var(--ease-default) !important;
     margin: 0 !important;
-    text-align: left !important;
+    text-align: start !important;
     justify-content: flex-start !important;
-}
-
-/* RTL Support for User Menu - Arabic */
-html[dir="rtl"] #userMenu {
-    direction: rtl !important;
-}
-
-html[dir="rtl"] #userMenu a,
-html[dir="rtl"] #userMenu button {
-    text-align: right !important;
-    justify-content: flex-start !important;
-    flex-direction: row !important;
-}
-
-html[dir="rtl"] #userMenu a i,
-html[dir="rtl"] #userMenu button i {
-    margin-left: 12px !important;
-    margin-right: 0 !important;
-    flex-shrink: 0 !important;
 }
 
 #userMenu a:hover,
 #userMenu button:hover {
-    background: rgba(255, 255, 255, 0.05) !important;
+    background: var(--surface-hover) !important;
     text-decoration: none !important;
 }
 
@@ -861,81 +1019,59 @@ html[dir="rtl"] #userMenu button i {
 #userMenu button i {
     width: 18px !important;
     text-align: center !important;
-    color: #86868b !important;
-    font-size: 16px !important;
+    color: var(--text-muted) !important;
+    font-size: 15px !important;
     flex-shrink: 0 !important;
 }
 
 #userMenu .divider {
     height: 1px !important;
-    margin: 8px 0 !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    margin: 6px 0 !important;
+    background: var(--border) !important;
     display: block !important;
 }
 
 #userMenu .danger {
-    color: #ff6b6b !important;
+    color: var(--danger, #ef4444) !important;
+}
+
+#userMenu .danger i {
+    color: var(--danger, #ef4444) !important;
 }
 
 #userMenu .danger:hover {
-    background: rgba(255, 107, 107, 0.1) !important;
-    color: #ff6b6b !important;
-}
-
-/* Light Theme Dropdown */
-[data-theme="light"] #userMenu {
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-theme="light"] #userMenu a,
-[data-theme="light"] #userMenu button {
-    color: #111111 !important;
-}
-
-[data-theme="light"] #userMenu a:hover,
-[data-theme="light"] #userMenu button:hover {
-    background: rgba(0, 0, 0, 0.05) !important;
-}
-
-[data-theme="light"] #userMenu a i,
-[data-theme="light"] #userMenu button i {
-    color: #6b7280 !important;
-}
-
-[data-theme="light"] #userMenu .divider {
-    background: rgba(0, 0, 0, 0.08) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: var(--danger, #ef4444) !important;
 }
 
 /* Notification Panel Styles - Same as Login/Register Pages */
 .notif-panel {
     width: 380px !important;
-    max-width: calc(100vw - 32px) !important;
-    background: rgba(22, 22, 22, 0.95) !important;
-    backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    max-width: calc(100vw - 24px) !important;
+    background: var(--surface) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 16px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: var(--elev-3) !important;
     overflow: hidden !important;
     padding: 0 !important;
 }
 
 .notif-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(22, 22, 22, 0.95);
+    background: var(--surface);
 }
 
 .notif-header h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
-    color: #f5f5f7;
+    color: var(--text);
 }
 
 .notif-header-actions {
@@ -960,13 +1096,13 @@ html[dir="rtl"] #userMenu button i {
 }
 
 .notif-action-btn:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background: var(--primary-glow);
     color: var(--primary);
 }
 
 .notif-action-btn.danger:hover {
     background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    color: var(--danger, #ef4444);
 }
 
 .notif-list {
@@ -989,13 +1125,13 @@ html[dir="rtl"] #userMenu button i {
 }
 
 .notif-item {
-    padding: 16px 20px;
+    padding: 14px 18px;
     cursor: pointer;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    transition: 0.3s;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--dur-fast) var(--ease-default);
     position: relative;
     display: flex;
-    gap: 14px;
+    gap: 12px;
     align-items: flex-start;
 }
 
@@ -1004,7 +1140,7 @@ html[dir="rtl"] #userMenu button i {
 }
 
 .notif-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
 }
 
 .notif-item:hover .notif-item-actions {
@@ -1099,24 +1235,25 @@ html[dir="rtl"] #userMenu button i {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: 9000;
     padding: 20px;
-    transition: opacity 0.2s ease;
+    transition: opacity var(--dur-fast) var(--ease-default);
 }
 
 .modal-content {
     background: var(--surface) !important;
     border: 1px solid var(--border);
-    border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--elev-3);
     width: 100%;
     overflow: hidden;
-    animation: modalFadeUp 0.3s ease-out;
+    animation: modalFadeUp var(--dur-fast) var(--ease-default);
     position: relative;
 }
 
@@ -1174,15 +1311,12 @@ html[dir="rtl"] #userMenu button i {
 }
 
 .notif-content p {
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
     font-size: 14px;
-    color: #f5f5f7;
-    line-height: 1.5;
+    color: var(--text);
+    line-height: 1.45;
     font-weight: 400;
-}
-
-[dir="rtl"] .notif-content p {
-    text-align: right;
+    text-align: start;
 }
 
 .notif-content.unread p {
@@ -1191,12 +1325,9 @@ html[dir="rtl"] #userMenu button i {
 
 .notif-time {
     font-size: 12px;
-    color: #86868b;
+    color: var(--text-muted);
     display: block;
-}
-
-[dir="rtl"] .notif-time {
-    text-align: right;
+    text-align: start;
 }
 
 .notif-item-actions {
@@ -1212,88 +1343,33 @@ html[dir="rtl"] #userMenu button i {
 }
 
 .notif-item-btn {
-    width: 32px;
-    height: 32px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
-    color: #86868b;
+    background: var(--surface-hover);
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: 0.3s;
-    font-size: 14px;
+    transition: background var(--dur-fast) var(--ease-default), color var(--dur-fast) var(--ease-default), border-color var(--dur-fast) var(--ease-default);
+    font-size: 13px;
 }
 
 .notif-item-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--primary-glow);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--primary);
 }
 
 .notif-item-btn.delete:hover {
-    border-color: #ef4444;
-    color: #ef4444;
+    border-color: var(--danger, #ef4444);
+    color: var(--danger, #ef4444);
     background: rgba(239, 68, 68, 0.1);
 }
 
-/* Light Theme Notification Panel */
-[data-theme="light"] .notif-panel {
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(40px) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-theme="light"] .notif-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(255, 255, 255, 0.95);
-}
-
-[data-theme="light"] .notif-header h3 {
-    color: #111111;
-}
-
-[data-theme="light"] .notif-item {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="light"] .notif-item:hover {
-    background: rgba(0, 0, 0, 0.03);
-}
-
-[data-theme="light"] .notif-item.unread {
-    background: rgba(94, 96, 206, 0.08);
-}
-
-[data-theme="light"] .notif-content p {
-    color: #111111;
-}
-
-[data-theme="light"] .notif-content.unread p {
-    font-weight: 600;
-}
-
-[data-theme="light"] .notif-time {
-    color: #6b7280;
-}
-
-[data-theme="light"] .notif-item-btn {
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(0, 0, 0, 0.03);
-    color: #6b7280;
-}
-
-[data-theme="light"] .notif-item-btn:hover {
-    background: rgba(0, 0, 0, 0.08);
-    border-color: var(--primary);
-    color: #ffffff;
-}
-
-[data-theme="light"] .notif-empty {
-    color: #6b7280;
-}
+/* Light theme overrides for notification panel deleted — base rules now use theme tokens */
 
 /* Mobile - always show actions */
 @media (max-width: 768px) {
@@ -2537,12 +2613,11 @@ html[dir="rtl"] .dropdown-menu .theme-switcher-pill {
 .post-card, .feed-item, .card {
     content-visibility: auto;
     contain-intrinsic-size: 1px 500px;
-    will-change: transform;
 }
 
-/* Hardware accelerated buttons */
-button, a, .btn {
-    will-change: opacity, transform;
+/* Hardware accelerated buttons — only primary interactive elements, not all buttons/links */
+.btn-primary, .floating-chat-btn, .chat-drawer-toggle {
+    will-change: opacity;
 }
 
 /* --- IFRAME SUPPORT OVERRIDES --- */

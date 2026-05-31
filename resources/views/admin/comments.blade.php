@@ -2,6 +2,10 @@
 
 @section('title', __('admin.manage_comments') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-comments.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -98,8 +102,6 @@
     </div>
     @endif
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-comments.css') }}">
 
 <script>
 window.runOnPageLoad( function() {

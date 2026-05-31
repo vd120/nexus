@@ -2,6 +2,10 @@
 
 @section('title', __('admin.edit_user_title') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-user-edit.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -195,8 +199,6 @@
         </form>
     </div>
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-user-edit.css') }}">
 
 <script>
 function previewImage(input, previewId) {

@@ -19,4 +19,10 @@ Schedule::command('users:remind-inactive --days=30 --subject="We miss you! Come 
 // Schedule unverified user pruning - runs every minute
 Schedule::command('nexus:prune-unverified')->everyMinute();
 
+// Rotate the daily Pulse prompt at midnight local time.
+Schedule::command('pulse:rotate')->dailyAt('00:01');
+
+// Rotate the weekly Memory Prompt every Sunday at 00:05 local time.
+Schedule::command('pulse:rotate --type=memory')->weeklyOn(0, '00:05');
+
 

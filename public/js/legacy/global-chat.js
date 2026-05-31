@@ -205,7 +205,10 @@
         div.setAttribute('data-id', data.id);
         div.setAttribute('data-my-reaction', '');
 
-        const time = new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const _td = new Date(data.created_at);
+        const _th = _td.getHours() % 12 || 12;
+        const _tm = String(_td.getMinutes()).padStart(2, '0');
+        const time = String(_th).padStart(2, '0') + ':' + _tm + ' ' + (_td.getHours() >= 12 ? 'pm' : 'am');
 
         div.innerHTML = `
             <div class="message-avatar">

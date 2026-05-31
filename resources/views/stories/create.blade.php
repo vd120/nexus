@@ -12,7 +12,7 @@
 @endif
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('css/stories-create.css') }}">
+@vite('resources/css/stories-create.css')
 @endpush
 
 <div class="create-story-page">

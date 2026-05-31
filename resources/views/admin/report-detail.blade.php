@@ -2,6 +2,10 @@
 
 @section('title', __('admin.report_details') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-reports.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -35,19 +39,19 @@
             <h2 style="color: #ffffff !important;"><i class="fas fa-flag"></i> {{ __('admin.report_information') }}</h2>
             <div class="detail-grid">
                 <div class="detail-item">
-                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.report_slug') }}:</b>
-                    <span class="slug-text" style="color: #5e60ce !important; font-family: monospace; font-weight: bold;">{{ $report->slug }}</span>
+                    <b style="color: rgba(255,255,255,0.55) !important; font-size: 0.85rem;">{{ __('admin.report_slug') }}:</b>
+                    <span class="slug-text" style="color: #6366f1 !important; font-family: monospace; font-weight: bold;">{{ $report->slug }}</span>
                 </div>
                 <div class="detail-item">
-                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.reason') }}:</b>
-                    <span class="reason-badge" style="background: rgba(94, 96, 206, 0.1); color: #ffffff !important; padding: 4px 12px; border-radius: 20px;">{{ \App\Models\PostReport::REASONS[$report->reason] ?? $report->reason }}</span>
+                    <b style="color: rgba(255,255,255,0.55) !important; font-size: 0.85rem;">{{ __('admin.reason') }}:</b>
+                    <span class="reason-badge" style="background: rgba(99, 102, 241, 0.1); color: #ffffff !important; padding: 4px 12px; border-radius: 20px;">{{ \App\Models\PostReport::REASONS[$report->reason] ?? $report->reason }}</span>
                 </div>
                 <div class="detail-item">
-                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.reported_by') }}:</b>
+                    <b style="color: rgba(255,255,255,0.55) !important; font-size: 0.85rem;">{{ __('admin.reported_by') }}:</b>
                     <span style="color: #ffffff !important;">{{ $report->created_at->format('M d, Y h:i a') }}</span>
                 </div>
                 <div class="detail-item">
-                    <b style="color: #86868b !important; font-size: 0.85rem;">{{ __('admin.status') }}:</b>
+                    <b style="color: rgba(255,255,255,0.55) !important; font-size: 0.85rem;">{{ __('admin.status') }}:</b>
                     <span class="status-badge {{ $report->status }}" style="font-weight: bold;">
                         @if($report->status === 'pending')
                             {{ __('admin.pending') }}
@@ -62,7 +66,7 @@
 
             @if($report->content)
             <div class="detail-section">
-                <b style="color: #86868b !important; display: block; margin-bottom: 8px;">{{ __('admin.additional_details') }}:</b>
+                <b style="color: rgba(255,255,255,0.55) !important; display: block; margin-bottom: 8px;">{{ __('admin.additional_details') }}:</b>
                 <p class="content-text" style="color: #ffffff !important; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px;">{{ $report->content }}</p>
             </div>
             @endif
@@ -75,7 +79,7 @@
                 <img src="{{ $report->reporter->avatar_url }}" alt="" class="profile-avatar" style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--border);">
                 <div class="profile-info">
                     <h3 style="color: #ffffff !important; margin: 0;">{{ $report->reporter->username }}</h3>
-                    <p style="color: #86868b !important; margin: 2px 0;">{{ $report->reporter->name }}</p>
+                    <p style="color: rgba(255,255,255,0.55) !important; margin: 2px 0;">{{ $report->reporter->name }}</p>
                 </div>
             </div>
             <a href="{{ route('admin.users.show', $report->reporter) }}" class="btn btn-secondary btn-sm" style="color: #ffffff !important; border-color: #444;">
@@ -92,7 +96,7 @@
                     <img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; display: block;">
                     <div class="post-meta" style="display: -webkit-inline-box; -webkit-box-orient: vertical; -webkit-box-pack: center; margin-left: 10px;">
                         <b class="author" style="color: #ffffff !important; display: block; line-height: 1.2;">{{ $report->post->user->username }}</b>
-                        <span class="date" style="color: #86868b !important; font-size: 0.8rem; line-height: 1.2;">
+                        <span class="date" style="color: rgba(255,255,255,0.55) !important; font-size: 0.8rem; line-height: 1.2;">
                             {{ $report->post->created_at->diffForHumans() }}
                             @if($report->post->trashed())
                                 <span style="color: #ef4444; font-weight: bold; margin-left: 5px;">[{{ __('admin.suspended') }}]</span>
@@ -122,8 +126,8 @@
                 @endif
 
                 <div class="post-stats" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                    <span style="color: #86868b !important;"><i class="fas fa-heart" style="color: #5e60ce;"></i> {{ $report->post->likes->count() }} {{ __('admin.likes') }}</span>
-                    <span style="color: #86868b !important;"><i class="fas fa-comment" style="color: #5e60ce;"></i> {{ $report->post->comments->count() }} {{ __('admin.comments') }}</span>
+                    <span style="color: rgba(255,255,255,0.55) !important;"><i class="fas fa-heart" style="color: #6366f1;"></i> {{ $report->post->likes->count() }} {{ __('admin.likes') }}</span>
+                    <span style="color: rgba(255,255,255,0.55) !important;"><i class="fas fa-comment" style="color: #6366f1;"></i> {{ $report->post->comments->count() }} {{ __('admin.comments') }}</span>
                 </div>
 
                 <a href="{{ route('posts.show', $report->post->slug) }}" target="_blank" class="btn btn-secondary btn-sm" style="color: #ffffff !important; border-color: #444;">
@@ -135,7 +139,7 @@
 
         {{-- Action Section (only for pending reports) --}}
         @if($report->isPending() && $report->post)
-        <div class="detail-card action-card" style="border: 2px solid #5e60ce !important;">
+        <div class="detail-card action-card" style="border: 2px solid #6366f1 !important;">
             <h2 style="color: #ffffff !important;"><i class="fas fa-gavel"></i> {{ __('admin.take_action_on_report') }}</h2>
 
             <form method="POST" action="{{ route('admin.reports.accept', $report) }}" class="action-form">
@@ -148,7 +152,7 @@
                             <div class="option-content">
                                 <i class="fas fa-trash" style="font-size: 24px; margin-bottom: 8px;"></i>
                                 <b style="color: #ffffff !important; display: block;">{{ __('admin.delete_post') }}</b>
-                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.delete_post_description') }}</small>
+                                <small style="color: rgba(255,255,255,0.55) !important; display: block; font-size: 0.75rem;">{{ __('admin.delete_post_description') }}</small>
                             </div>
                         </label>
                         <label class="option-card">
@@ -156,7 +160,7 @@
                             <div class="option-content">
                                 <i class="fas fa-eye-slash" style="font-size: 24px; margin-bottom: 8px;"></i>
                                 <b style="color: #ffffff !important; display: block;">{{ __('admin.hide_post') }}</b>
-                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.hide_post_description') }}</small>
+                                <small style="color: rgba(255,255,255,0.55) !important; display: block; font-size: 0.75rem;">{{ __('admin.hide_post_description') }}</small>
                             </div>
                         </label>
                         <label class="option-card">
@@ -164,7 +168,7 @@
                             <div class="option-content">
                                 <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 8px;"></i>
                                 <b style="color: #ffffff !important; display: block;">{{ __('admin.issue_warning') }}</b>
-                                <small style="color: #86868b !important; display: block; font-size: 0.75rem;">{{ __('admin.issue_warning_description') }}</small>
+                                <small style="color: rgba(255,255,255,0.55) !important; display: block; font-size: 0.75rem;">{{ __('admin.issue_warning_description') }}</small>
                             </div>
                         </label>
                     </div>
@@ -244,7 +248,6 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/admin-reports.css') }}">
 <script>
 // Add click handlers for option cards to improve selection visibility
 window.runOnPageLoad( function() {

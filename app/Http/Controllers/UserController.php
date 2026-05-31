@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Block;
+use App\Models\LifeChapter;
 use App\Models\Post;
 use App\Models\User;
 use App\Services\QrCodeService;
@@ -86,6 +87,37 @@ class UserController extends Controller
             'isBlockedBy',
             'isOwner'
         ));
+    }
+
+    /**
+     * Display a single life chapter timeline page for a user.
+     */
+    public function chapterPage(User $user, $chapter)
+    {
+        $chapter = LifeChapter::where('id', $chapter)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $isOwner = auth()->check() && auth()->id() === $user->id;
+
+        $postsQuery = Post::where('user_id', $user->id)
+            ->where('life_chapter_id', $chapter->id);
+
+        if (!$isOwner) {
+            $postsQuery->where('is_anonymous', false);
+        }
+
+        $posts = $postsQuery
+            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions', 'user'])
+            ->latest()
+            ->paginate(10);
+
+        return view('users.chapter', [
+            'user'    => $user,
+            'chapter' => $chapter,
+            'posts'   => $posts,
+            'isOwner' => $isOwner,
+        ]);
     }
 
     /**
@@ -179,6 +211,34 @@ class UserController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * Show user's memory prompt answers
+     */
+    public function memories(User $user)
+    {
+        $isOwner = auth()->check() && auth()->id() === $user->id;
+
+        $memoriesQuery = \App\Models\PulseAnswer::where('user_id', $user->id)
+            ->whereHas('prompt', function($q) {
+                $q->where('type', 'memory');
+            })
+            ->with('prompt');
+
+        // Non-owners only see public or followers-only (if following)
+        if (!$isOwner) {
+            $memoriesQuery->where(function($q) use ($user) {
+                $q->where('visibility', 'public');
+                if (auth()->check() && auth()->user()->isFollowing($user)) {
+                    $q->orWhere('visibility', 'followers');
+                }
+            });
+        }
+
+        $memories = $memoriesQuery->latest()->paginate(20);
+
+        return view('users.memories', compact('user', 'memories'));
     }
 
     /**
@@ -300,38 +360,30 @@ class UserController extends Controller
         $data = $request->only(['bio', 'about', 'website', 'location', 'occupation', 'phone', 'gender', 'is_private', 'birth_date']);
         $data['is_private'] = $request->has('is_private');
 
+        $fileService = app(\App\Services\FileUploadService::class);
+
         // Avatar upload
         if ($request->hasFile('avatar')) {
-            $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
-            $image = $manager->read($request->file('avatar'))->cover(200, 200)->toJpeg(90);
-            $path = 'avatars/' . time() . '_avatar_' . uniqid() . '.jpg';
-            
-            // Ensure directory exists
-            $fullPath = storage_path('app/public/avatars');
-            if (!file_exists($fullPath)) {
-                mkdir($fullPath, 0755, true);
+            $path = $fileService->compressImage($request->file('avatar'), 'avatars', [
+                'cover' => [200, 200],
+                'quality' => 85,
+                'prefix' => 'avatar',
+            ]);
+            if ($path) {
+                $data['avatar'] = $path;
             }
-            
-            $image->save(storage_path('app/public/' . $path));
-            $data['avatar'] = $path;
         }
 
         // Cover image upload
         if ($request->hasFile('cover_image')) {
-            $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
-            $image = $manager->read($request->file('cover_image'));
-            if ($image->width() > 1200) $image->scale(width: 1200);
-            $image->toJpeg(85);
-            $path = 'covers/' . time() . '_cover_' . uniqid() . '.jpg';
-            
-            // Ensure directory exists
-            $fullPath = storage_path('app/public/covers');
-            if (!file_exists($fullPath)) {
-                mkdir($fullPath, 0755, true);
+            $path = $fileService->compressImage($request->file('cover_image'), 'covers', [
+                'maxWidth' => 1280,
+                'quality' => 80,
+                'prefix' => 'cover',
+            ]);
+            if ($path) {
+                $data['cover_image'] = $path;
             }
-            
-            $image->save(storage_path('app/public/' . $path));
-            $data['cover_image'] = $path;
         }
 
         $user->profile()->updateOrCreate(['user_id' => $user->id], $data);
@@ -433,6 +485,25 @@ class UserController extends Controller
     }
 
     /**
+     * Bulk online status for multiple user IDs — reduces N HTTP requests to 1
+     */
+    public function getBulkOnlineStatus(\Illuminate\Http\Request $request)
+    {
+        $ids = array_slice(array_filter(array_map('intval', (array) $request->input('ids', []))), 0, 100);
+        if (empty($ids)) return response()->json(['success' => true, 'statuses' => []]);
+
+        $users = User::whereIn('id', $ids)->get(['id', 'is_online', 'last_active']);
+        $now = now();
+        $statuses = [];
+        foreach ($users as $user) {
+            $isOnline = (bool) $user->is_online;
+            $statuses[(string) $user->id] = $isOnline;
+        }
+
+        return response()->json(['success' => true, 'statuses' => $statuses]);
+    }
+
+    /**
      * Get user's online status (REST endpoint)
      */
     public function getOnlineStatus($userId)
@@ -440,8 +511,7 @@ class UserController extends Controller
         $user = User::find($userId);
         if (!$user) return response()->json(['success' => false, 'message' => __('messages.user_not_found')], 404);
 
-        $isOnline = $user->is_online && $user->last_active && $user->last_active->diffInSeconds(now()) < 30;
-        if (!$isOnline && $user->is_online) $user->update(['is_online' => false]);
+        $isOnline = (bool) $user->is_online;
 
         return response()->json([
             'success' => true,

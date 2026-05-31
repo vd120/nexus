@@ -2,6 +2,10 @@
 
 @section('title', __('admin.dashboard') . ' - Nexus')
 
+@push('styles')
+@vite('resources/css/admin-dashboard.css')
+@endpush
+
 @section('content')
 <div class="admin-dashboard">
     {{-- Header --}}
@@ -184,7 +188,7 @@
                         </a>
                     </div>
                     @empty
-                    <div class="empty-activity" style="color: #86868b !important;">{{ __('admin.no_users_yet') }}</div>
+                    <div class="empty-activity" style="color: rgba(255,255,255,0.55) !important;">{{ __('admin.no_users_yet') }}</div>
                     @endforelse
                 </div>
             </div>
@@ -209,15 +213,13 @@
                         </a>
                     </div>
                     @empty
-                    <div class="empty-activity" style="color: #86868b !important;">{{ __('admin.no_posts_yet') }}</div>
+                    <div class="empty-activity" style="color: rgba(255,255,255,0.55) !important;">{{ __('admin.no_posts_yet') }}</div>
                     @endforelse
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-dashboard.css') }}">
 
 {{-- Create Admin Modal --}}
 <div id="create-admin-modal" class="modal-overlay" style="display: none;">

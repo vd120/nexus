@@ -6,8 +6,6 @@ use App\Models\Story;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Gd\Driver;
 
 class StoryController extends Controller
 {
@@ -85,32 +83,15 @@ class StoryController extends Controller
         $mimeType = $file->getMimeType();
 
         if (str_contains($mimeType, 'image/')) {
-            // Handle image upload with compression
-            $manager = new ImageManager(new Driver());
-            $compressedImage = $manager->read($file);
+            $path = app(\App\Services\FileUploadService::class)->compressImage($file, 'stories/images', [
+                'maxWidth' => 1080,
+                'maxHeight' => 1920,
+                'quality' => 80,
+            ]);
 
-            // Compress image
-            $maxWidth = 1080;
-            $maxHeight = 1920;
-            $quality = 85;
-
-            // Resize if too large
-            if ($compressedImage->width() > $maxWidth || $compressedImage->height() > $maxHeight) {
-                $compressedImage->scale(width: $maxWidth, height: $maxHeight);
+            if (!$path) {
+                return back()->withErrors(['media' => __('messages.upload_failed')]);
             }
-
-            // Generate unique filename
-            $filename = time() . '_' . uniqid() . '.jpg';
-            $path = 'stories/images/' . $filename;
-
-            // Ensure directory exists
-            $directory = dirname(storage_path('app/public/' . $path));
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
-
-            // Save compressed image
-            $compressedImage->toJpeg($quality)->save(storage_path('app/public/' . $path));
 
             $mediaType = 'image';
         } elseif (str_contains($mimeType, 'video/')) {

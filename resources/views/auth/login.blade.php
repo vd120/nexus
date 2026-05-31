@@ -14,13 +14,13 @@
     })();
 </script>
 <style>
-    html[data-theme="dark"] { background: #0d0d0d; color: #f5f5f7; }
+    html[data-theme="dark"] { background: #0a0a0b; color: #f5f5f7; }
     html[data-theme="light"] { background: #ffffff; color: #111111; }
 </style>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fonts/all.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-<link rel="stylesheet" href="{{ asset('css/auth-login.css') }}">
+@vite('resources/css/auth-login.css')
 <style>
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .page { animation: fadeIn 0.3s ease-out forwards; }

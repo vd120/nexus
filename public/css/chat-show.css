@@ -219,11 +219,12 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .conversation-item.active {
-    background: var(--wa-panel-hover);
+    background: rgba(94, 96, 206, 0.12);
+    border-left: 3px solid var(--brand-500);
 }
 
 .conversation-item.unread {
-    background: rgba(0, 168, 132, 0.08);
+    background: rgba(94, 96, 206, 0.08);
 }
 
 .conv-avatar {
@@ -258,13 +259,13 @@ body:has(.chat-page) .mobile-nav {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--wa-text-muted);
+    background: var(--wa-green);
     border: 2px solid var(--wa-panel);
-    transition: background 0.3s;
+    display: none;
 }
 
 .online-indicator.online {
-    background: var(--wa-green);
+    display: block;
     animation: pulse 2s infinite;
 }
 
@@ -386,12 +387,12 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .unread-pill {
-    background: var(--wa-accent);
+    background: var(--accent-500);
     color: white;
     font-size: 11px;
     font-weight: 600;
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     min-width: 20px;
     text-align: center;
     flex-shrink: 0;
@@ -684,8 +685,8 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .conv-item:hover { background: var(--wa-panel-hover); }
-.conv-item.active { background: var(--wa-panel-hover); }
-.conv-item.unread { background: rgba(0, 168, 132, 0.08); }
+.conv-item.active { background: rgba(94, 96, 206, 0.12); border-left: 3px solid var(--brand-500); }
+.conv-item.unread { background: rgba(94, 96, 206, 0.08); }
 
 .conv-avatar {
     margin-right: 12px;
@@ -752,12 +753,12 @@ body:has(.chat-page) .mobile-nav {
 .conv-preview em { font-style: italic; opacity: 0.7; }
 
 .badge {
-    background: var(--wa-accent);
+    background: var(--accent-500);
     color: white;
     font-size: 11px;
     font-weight: 600;
     padding: 2px 7px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
 }
 
 .empty-sidebar {
@@ -863,13 +864,13 @@ body:has(.chat-page) .mobile-nav {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--wa-text-muted);
+    background: var(--wa-green);
     border: 2px solid var(--wa-panel);
-    transition: background 0.3s;
+    display: none;
 }
 
 .online-indicator.online {
-    background: var(--wa-green);
+    display: block;
     animation: pulse 2s infinite;
 }
 
@@ -1679,7 +1680,7 @@ body:has(.chat-page) .mobile-nav {
     width: 42px;
     height: 42px;
     border: none;
-    background: var(--wa-accent);
+    background: var(--gradient-brand);
     color: white;
     border-radius: 50%;
     cursor: pointer;
@@ -1687,15 +1688,22 @@ body:has(.chat-page) .mobile-nav {
     align-items: center;
     justify-content: center;
     font-size: 16px;
+    box-shadow: var(--elev-1);
+    transition: transform var(--dur-fast) var(--ease-default), box-shadow var(--dur-fast) var(--ease-default);
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
 }
 
+.send-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-glow);
+}
+
 .send-btn:active,
 .send-btn:focus {
-    background: var(--wa-accent) !important;
+    background: var(--gradient-brand) !important;
     outline: none !important;
     -webkit-tap-highlight-color: transparent !important;
 }
@@ -1795,16 +1803,9 @@ body:has(.chat-page) .mobile-nav {
     font-weight: 600;
 }
 
-/* Modal */
+/* Modal — overlay base styles come from app-layout.css; chat-show needs a higher stacking context */
 .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
     z-index: 99998;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .modal-box {

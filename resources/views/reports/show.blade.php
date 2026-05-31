@@ -2,6 +2,10 @@
 
 @section('title', __('messages.report_details'))
 
+@push('styles')
+@vite('resources/css/report-detail-user.css')
+@endpush
+
 @section('content')
 <div class="report-detail-page">
     {{-- Header --}}
@@ -201,7 +205,6 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ asset('css/report-detail-user.css') }}?v={{ time() }}">
 <script>
 function deleteReport(reportSlug) {
     if (!confirm('{{ __('messages.delete_report_confirm') }}')) {

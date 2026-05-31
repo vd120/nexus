@@ -117,7 +117,7 @@ async function loadNotificationsList() {
         console.error('Error loading notifications:', error);
         document.getElementById('notifications-list').innerHTML = `
             <div style="text-align: center; padding: 60px 20px;">
-                <i class="fas fa-exclamation-circle" style="font-size: 64px; color: #ef4444; opacity: 0.5; margin-bottom: 20px;"></i>
+                <i class="fas fa-exclamation-circle" style="font-size: 64px; color: var(--danger); opacity: 0.5; margin-bottom: 20px;"></i>
                 <p style="color: var(--text-muted); font-size: 16px;">Error loading notifications</p>
             </div>
         `;

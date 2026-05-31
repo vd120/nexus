@@ -76,28 +76,58 @@
 
     <div class="badges-grid">
         @forelse($group->badges as $badge)
-            <div class="panel badge-card" id="badge-{{ $badge->id }}">
-                <div class="badge-card-inner">
+            <div class="panel badge-card ed-row" id="badge-{{ $badge->id }}">
+                <div class="ed-view badge-card-inner">
                     <div class="badge-visual-section">
                         <div class="badge-icon-wrap" style="background: {{ $badge->color }}15; color: {{ $badge->color }}; border-color: {{ $badge->color }}30;">
                             <i class="{{ $badge->icon ?? 'fas fa-award' }}"></i>
                         </div>
                     </div>
                     <div class="badge-content-section">
-                        <h3 class="badge-name-title">{{ $badge->name }}</h3>
+                        <h3 class="badge-name-title" data-view="name">{{ $badge->name }}</h3>
                         <div class="badge-pill-preview" style="background: {{ $badge->color }};">
                             <i class="{{ $badge->icon ?? 'fas fa-award' }}"></i>
                             <span>{{ $badge->name }}</span>
                         </div>
                     </div>
-                    <div class="badge-actions-section">
-                        <form action="{{ route('communities.admin.badges.delete', [$group->slug, $badge->id]) }}" method="POST" onsubmit="return confirm('{{ __('community_admin.delete_badge_confirm') }}')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn-icon-danger-sm">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                    <div class="badge-actions-section" style="display:flex;gap:6px;">
+                        <button type="button" class="btn-icon-danger-sm"
+                                data-admin-edit data-target="#badge-{{ $badge->id }}"
+                                title="{{ __('community_admin.edit') ?? 'Edit' }}">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button type="button" class="btn-icon-danger-sm"
+                                data-admin-delete="{{ route('communities.admin.badges.delete', [$group->slug, $badge->id]) }}"
+                                data-target="#badge-{{ $badge->id }}"
+                                data-confirm="{{ __('community_admin.delete_badge_confirm') }}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="ed-form" style="display:none;padding:16px;">
+                    <div class="form-group">
+                        <label>{{ __('community_admin.badge_name') }}</label>
+                        <input type="text" class="input" data-field="name" value="{{ $badge->name }}">
+                    </div>
+                    <div class="form-group">
+                        <label>{{ __('community_admin.badge_color') }}</label>
+                        <input type="text" class="input" data-field="color" value="{{ $badge->color }}" placeholder="#6366f1">
+                    </div>
+                    <div class="form-group">
+                        <label>{{ __('community_admin.select_icon') }}</label>
+                        <input type="text" class="input" data-field="icon" value="{{ $badge->icon }}" placeholder="fas fa-award">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn approve"
+                                data-admin-save
+                                data-url="{{ route('communities.admin.badges.update', [$group->slug, $badge->id]) }}"
+                                data-target="#badge-{{ $badge->id }}">
+                            {{ __('community_admin.save') ?? 'Save' }}
+                        </button>
+                        <button type="button" class="btn-text"
+                                data-admin-cancel data-target="#badge-{{ $badge->id }}">
+                            {{ __('community_admin.cancel') }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -113,78 +143,6 @@
         @endforelse
     </div>
 </div>
-
-<style>
-    .admin-page { max-width: 1100px; margin: 0 auto; }
-    
-    .admin-flex-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 40px; }
-    
-    .badges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-    
-    .badge-card { border-radius: 24px; border: 1px solid var(--border); background: var(--surface); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .badge-card:hover { border-color: var(--admin-accent); transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
-    
-    .badge-card-inner { padding: 24px; display: flex; align-items: center; gap: 20px; }
-    
-    .badge-icon-wrap { width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid transparent; flex-shrink: 0; }
-    
-    .badge-content-section { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-    .badge-name-title { font-size: 17px; font-weight: 800; color: var(--text); margin: 0; }
-    
-    .badge-pill-preview { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 100px; color: white; font-size: 12px; font-weight: 800; width: fit-content; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .badge-pill-preview i { font-size: 14px; }
-
-    .btn-icon-danger-sm { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-hover); color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-    .btn-icon-danger-sm:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.05); }
-
-    /* Modern Form */
-    .add-form { border-radius: 28px; border: 1px solid var(--admin-accent-glow); background: var(--surface); animation: slideDown 0.3s ease-out; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-    
-    .form-section-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-    .form-section-header i { font-size: 24px; color: var(--admin-accent); }
-    .form-section-header h3 { font-size: 18px; font-weight: 800; color: var(--text); margin: 0; }
-    .form-section-header p { font-size: 13px; color: var(--text-muted); margin: 0; }
-
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    
-    .form-group { margin-bottom: 24px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-left: 4px; }
-    
-    .icon-selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 10px; padding: 12px; background: var(--surface-hover); border-radius: 16px; border: 1px solid var(--border); }
-    .icon-opt { aspect-ratio: 1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--text-muted); cursor: pointer; transition: 0.2s; border: 1px solid transparent; }
-    .icon-opt:hover { background: var(--border); color: var(--text); }
-    .icon-opt.active { background: var(--admin-accent-glow); color: var(--admin-accent); border-color: var(--admin-accent); }
-
-    .input { width: 100%; background: var(--surface-hover); border: 1px solid var(--border); padding: 12px 16px; border-radius: 14px; color: var(--text); font-size: 15px; font-weight: 500; transition: 0.2s; outline: none; }
-    .input:focus { border-color: var(--admin-accent); background: var(--surface); }
-    
-    .color-picker-wrapper { display: flex; align-items: center; gap: 12px; background: var(--surface-hover); padding: 5px 16px; border-radius: 14px; border: 1px solid var(--border); }
-    .color-input { width: 40px; height: 40px; border: none; border-radius: 8px; cursor: pointer; background: none; }
-    .color-value-text { font-size: 14px; font-weight: 700; color: var(--text); font-family: monospace; }
-
-    .form-actions { display: flex; gap: 12px; padding-top: 10px; }
-    
-    .mod-btn { height: 52px; padding: 0 28px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.3s; border: 1px solid transparent; }
-    .approve-btn { background: var(--admin-accent); color: white; }
-    .approve-btn:hover { background: #4f46e5; transform: scale(1.02); }
-    
-    .btn-text { background: none; border: none; color: var(--text-muted); font-weight: 700; cursor: pointer; padding: 0 16px; }
-    .btn-text:hover { color: var(--text); }
-
-    /* Empty State */
-    .admin-empty-state { padding: 80px 40px; text-align: center; background: var(--surface); border-radius: 32px; border: 1px solid var(--border); }
-    .empty-icon-wrap { width: 80px; height: 80px; background: var(--admin-accent-glow); color: var(--admin-accent); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 24px; }
-    .admin-empty-state h3 { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
-    .admin-empty-state p { color: var(--text-muted); margin-bottom: 24px; }
-    .btn-link { background: none; border: none; color: var(--admin-accent); text-decoration: none; font-weight: 700; font-size: 14px; cursor: pointer; }
-
-    @media (max-width: 900px) {
-        .badges-grid { grid-template-columns: 1fr; }
-        .grid-2 { grid-template-columns: 1fr; }
-        .admin-flex-header { flex-direction: column; align-items: flex-start; gap: 16px; }
-    }
-</style>
 
 <script>
     function toggleAddBadge() {

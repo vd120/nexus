@@ -1,0 +1,660 @@
+/* Pulse — full page styles. Sidebar widget styles live in posts-index.css. */
+
+.pulse-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ───────── Hero ───────── */
+.pulse-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--primary) 16%, var(--surface)) 0%,
+        var(--surface) 60%);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+    border-radius: 24px;
+    padding: 28px 24px 32px;
+}
+.pulse-hero-bg {
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(circle at 20% 30%,
+                  color-mix(in srgb, var(--primary) 60%, transparent) 0%, transparent 45%),
+                radial-gradient(circle at 80% 70%,
+                  color-mix(in srgb, #f43f5e 50%, transparent) 0%, transparent 50%);
+    filter: blur(60px);
+    opacity: 0.6;
+    pointer-events: none;
+    animation: pulse-aurora 20s ease-in-out infinite;
+    z-index: 0;
+}
+.pulse-hero > * { position: relative; z-index: 1; }
+.pulse-hero-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.pulse-hero-question {
+    font-family: var(--font-display, 'Bricolage Grotesque', 'Inter', sans-serif);
+    font-size: clamp(24px, 6vw, 36px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+    color: var(--text);
+}
+.pulse-hero-sub {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 480px;
+}
+.pulse-answered-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 14px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    color: #22c55e;
+    font-size: 13px;
+    font-weight: 600;
+}
+.pulse-answered-badge i { font-size: 14px; }
+
+/* ───────── Compose ───────── */
+.pulse-compose {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pulse-compose-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.pulse-compose-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.pulse-compose-input { flex: 1; min-width: 0; }
+.pulse-compose-input textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 48px;
+    padding: 10px 0;
+}
+.pulse-compose-input textarea::placeholder { color: var(--text-muted); }
+
+.pulse-compose-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 10px;
+}
+.pulse-anon {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+.pulse-anon input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+.pulse-share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease;
+    min-height: 40px;
+}
+.pulse-share-btn:hover { background: var(--primary-hover, var(--primary)); }
+.pulse-share-btn:active { transform: scale(0.96); }
+.pulse-share-btn:disabled { opacity: 0.6; cursor: wait; }
+
+/* ───────── Answers list ───────── */
+.pulse-answers-head h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 12px;
+}
+
+.pulse-answer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pulse-answer {
+    display: flex;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    position: relative;
+    transition: border-color 0.18s ease;
+}
+.pulse-answer:hover { border-color: color-mix(in srgb, var(--primary) 25%, var(--border)); }
+
+.pulse-answer-avatar img,
+.pulse-anon-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.pulse-anon-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface-hover));
+    color: var(--primary);
+}
+.pulse-answer-body {
+    flex: 1;
+    min-width: 0;
+}
+.pulse-answer-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+    align-items: center;
+}
+.pulse-answer-head-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.pulse-delete-btn {
+    position: static;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    opacity: 1;
+}
+.pulse-delete-btn:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+.pulse-answer-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.pulse-answer-fullname {
+    font-weight: 600;
+    color: var(--text);
+}
+.pulse-answer-handle {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+.pulse-answer-time {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+.pulse-edited-badge {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-top: 8px;
+}
+
+/* ───────── Like button ───────── */
+.pulse-answer-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.pulse-like-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    user-select: none;
+}
+.pulse-like-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+.pulse-like-btn.liked { color: #ef4444; }
+.pulse-like-btn.liked i { animation: like-pop 0.25s cubic-bezier(0.16,1,0.3,1); }
+.pulse-like-btn--guest { cursor: default; pointer-events: none; }
+.pulse-like-count { font-variant-numeric: tabular-nums; }
+@media (hover: none) {
+    .pulse-like-btn:hover { color: var(--text-muted); background: none; }
+    .pulse-like-btn.liked:hover { color: #ef4444; background: none; }
+    .pulse-delete-btn:hover { background: none; color: var(--text-muted); }
+    .pulse-answer:hover { border-color: var(--border); }
+    .memory-answer:hover { border-color: var(--border) !important; }
+    .pulse-share-btn:hover { background: var(--primary); }
+    .memory-share-btn:hover { background: linear-gradient(135deg, #f59e0b, #d97706) !important; }
+    .memory-pill:hover { border-color: var(--border); color: var(--text-muted); }
+    .memory-login-cta:hover { background: none; border-color: rgba(245,158,11,0.3); }
+    .memory-card:hover { border-color: var(--border); box-shadow: none; }
+    .memory-cta:hover { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #d97706; }
+}
+@keyframes like-pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.4); }
+    100% { transform: scale(1); }
+}
+.pulse-answer-content {
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    word-wrap: break-word;
+}
+
+/* ───────── Empty states ───────── */
+.pulse-empty,
+.pulse-page-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-muted);
+}
+.pulse-empty-icon,
+.pulse-page-empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--surface-hover);
+    margin-bottom: 12px;
+    font-size: 22px;
+    color: var(--text-dim);
+}
+.pulse-page-empty h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    color: var(--text);
+}
+.pulse-page-back {
+    display: inline-block;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.pulse-answer--new {
+    animation: pulse-answer-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pulse-answer-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ───────── Mobile ───────── */
+@media (max-width: 768px) {
+    .pulse-page { padding: 16px 12px 100px; gap: 14px; }
+    .pulse-hero { padding: 20px 16px 22px; border-radius: 18px; }
+    .pulse-hero-question { font-size: clamp(20px, 6vw, 28px); }
+    .pulse-compose { padding: 12px; border-radius: 14px; }
+    .pulse-compose-avatar { width: 34px; height: 34px; }
+    .pulse-compose-input textarea { font-size: 14px; }
+    .pulse-compose-actions { gap: 8px; }
+    .pulse-anon { font-size: 12px; }
+    .pulse-share-btn { padding: 9px 14px; font-size: 13px; }
+    .pulse-answer { padding: 10px 12px; border-radius: 12px; }
+    .pulse-answer-content { font-size: 14px; }
+    .pulse-answer-name { font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+    .pulse-page { padding: 12px 10px 100px; gap: 12px; }
+    .pulse-hero { padding: 16px 14px 18px; border-radius: 16px; }
+    .pulse-hero-question { font-size: clamp(18px, 5.5vw, 24px); }
+    .pulse-share-btn { padding: 8px 12px; font-size: 12.5px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Memory page overrides — warm orange brand on top of pulse base
+   ═══════════════════════════════════════════════════════════ */
+
+.memory-hero-bg {
+    background: linear-gradient(135deg, rgba(255, 236, 210, 0.18), rgba(251, 191, 100, 0.14)) !important;
+}
+
+.memory-eyebrow {
+    color: #f59e0b;
+}
+
+.memory-eyebrow i {
+    font-size: 13px;
+}
+
+.memory-countdown {
+    color: #f59e0b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.memory-answered-badge {
+    background: rgba(245, 158, 11, 0.12) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+    color: #d97706 !important;
+}
+
+/* Visibility pills inside compose */
+.memory-visibility-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 0 4px 46px;
+}
+
+.memory-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.memory-pill:hover {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.memory-pill.active {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #d97706;
+}
+
+.memory-pill i {
+    font-size: 11px;
+}
+
+/* Char counter */
+.memory-char-row {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+
+.memory-char-count {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Save button — orange accent */
+.memory-share-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    border-color: transparent !important;
+}
+
+.memory-share-btn:hover {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+}
+
+/* Visibility badge on answer cards */
+.memory-vis-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.memory-vis-followers {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.25);
+    color: var(--primary);
+}
+
+/* Login prompt */
+.memory-login-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px !important;
+}
+
+.memory-login-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #f59e0b;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 10px 20px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 999px;
+    transition: all 0.15s ease;
+}
+
+.memory-login-cta:hover {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* Pagination */
+.memory-pagination {
+    margin-top: 24px;
+}
+
+/* Memory answer content — supports Arabic RTL and multi-line */
+.memory-answer-content {
+    white-space: pre-wrap;
+    unicode-bidi: plaintext;
+}
+
+/* Answer hover — orange tint instead of primary */
+.memory-answer:hover {
+    border-color: rgba(251, 191, 100, 0.35) !important;
+}
+
+/* Memory compose overrides — larger textarea, better spacing */
+.memory-compose .pulse-compose-input textarea {
+    min-height: 120px;
+    padding: 12px 0;
+    font-size: 14.5px;
+}
+
+.memory-compose .memory-char-row {
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    margin-top: 2px;
+}
+
+.memory-compose .memory-visibility-pills {
+    padding-left: 52px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.memory-compose .pulse-compose-actions {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 2px;
+}
+
+/* Memory card feed styles */
+.memory-card {
+    background: linear-gradient(135deg, rgba(255, 236, 210, 0.15), rgba(251, 191, 100, 0.12));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 20px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.memory-card:hover {
+    border-color: rgba(251, 191, 100, 0.35);
+    box-shadow: 0 4px 20px rgba(251, 191, 100, 0.1);
+}
+
+.memory-card-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 236, 210, 0.08), rgba(251, 191, 100, 0.06));
+    pointer-events: none;
+}
+
+.memory-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.memory-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #f59e0b;
+}
+
+.memory-question {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.45;
+    margin: 0 0 14px;
+}
+
+.memory-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.memory-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #d97706;
+    transition: all 0.15s ease;
+}
+
+.memory-cta:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #b45309;
+}
+
+.memory-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.memory-count i {
+    color: #f59e0b;
+    font-size: 12px;
+}
+
+.is-dismissing {
+    animation: fade-out 0.18s ease forwards;
+}
+
+@keyframes fade-out {
+    to { opacity: 0; transform: scale(0.97); }
+}
+
+@media (max-width: 480px) {
+    .memory-visibility-pills { padding-left: 0; }
+    .memory-card { padding: 14px 14px 12px; }
+}

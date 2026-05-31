@@ -2,6 +2,10 @@
 
 @section('title', __('admin.manage_users') . ' - Admin Panel')
 
+@push('styles')
+@vite('resources/css/admin-users.css')
+@endpush
+
 @section('content')
 <div class="admin-page">
     {{-- Header --}}
@@ -122,8 +126,6 @@
     </div>
     @endif
 </div>
-
-<link rel="stylesheet" href="{{ asset('css/admin-users.css') }}">
 
 <script>
 let searchTimeout;

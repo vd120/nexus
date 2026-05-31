@@ -99,6 +99,71 @@ class FileUploadService
     }
 
     /**
+     * Compress an uploaded image to WebP and save it under storage/app/public/{folder}.
+     *
+     * Options:
+     *   maxWidth  (int)    — resize ceiling (preserves aspect ratio)
+     *   maxHeight (int)    — resize ceiling (preserves aspect ratio)
+     *   quality   (int)    — WebP quality 1-100 (default 80)
+     *   cover    (array)  — [w, h] center-crop instead of scale
+     *   prefix    (string) — filename prefix (default '')
+     *
+     * Returns the relative path (e.g. "posts/images/1700000000_xxx.webp") on success,
+     * or null if both compression and fallback save failed.
+     */
+    public function compressImage(UploadedFile $file, string $folder, array $options = []): ?string
+    {
+        $quality = (int) ($options['quality'] ?? 80);
+        $maxWidth = isset($options['maxWidth']) ? (int) $options['maxWidth'] : null;
+        $maxHeight = isset($options['maxHeight']) ? (int) $options['maxHeight'] : null;
+        $cover = $options['cover'] ?? null;
+        $prefix = isset($options['prefix']) ? (string) $options['prefix'] : '';
+
+        $folder = trim($folder, '/');
+        $fullDirPath = storage_path('app/public/' . $folder);
+        if (!file_exists($fullDirPath)) {
+            mkdir($fullDirPath, 0755, true);
+        }
+
+        $basename = time() . '_' . ($prefix !== '' ? $prefix . '_' : '') . uniqid();
+
+        try {
+            $manager = new \Intervention\Image\ImageManager(
+                new \Intervention\Image\Drivers\Gd\Driver()
+            );
+            $image = $manager->read($file);
+
+            if (is_array($cover) && count($cover) === 2) {
+                $image->cover((int) $cover[0], (int) $cover[1]);
+            } elseif ($maxWidth !== null || $maxHeight !== null) {
+                $needsResize = ($maxWidth !== null && $image->width() > $maxWidth)
+                    || ($maxHeight !== null && $image->height() > $maxHeight);
+                if ($needsResize) {
+                    $image->scale(width: $maxWidth, height: $maxHeight);
+                }
+            }
+
+            $filename = $basename . '.webp';
+            $path = $folder . '/' . $filename;
+            $image->toWebp($quality)->save(storage_path('app/public/' . $path));
+
+            return $path;
+        } catch (\Throwable $e) {
+            \Log::warning('compressImage failed, falling back to original: ' . $e->getMessage());
+
+            try {
+                $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+                $filename = $basename . '.' . $ext;
+                $file->move($fullDirPath, $filename);
+                return $folder . '/' . $filename;
+            } catch (\Throwable $e2) {
+                \Log::error('compressImage fallback also failed: ' . $e2->getMessage());
+                return null;
+            }
+        }
+    }
+
+    /**
      * Generate a thumbnail from a video file using FFMpeg
      */
     public function generateVideoThumbnail(string $videoPath, string $outputPath): bool
