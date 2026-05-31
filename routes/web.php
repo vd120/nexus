@@ -279,13 +279,6 @@ Route::get('/', function () {
     return app(\App\Http\Controllers\PostController::class)->index(request());
 })->name('home');
 
-// Nexus identity showcase (design tokens preview)
-Route::get('/design', function () {
-    return view('design.showcase');
-})->name('design.showcase');
-
-
-
 // Test route for debugging
 Route::get('/user/test-route', function() {
     return response()->json(['status' => 'ok', 'message' => 'Route works']);
