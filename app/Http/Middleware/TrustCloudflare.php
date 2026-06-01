@@ -79,10 +79,17 @@ class TrustCloudflare
      */
     protected function setTrustedHeaders(Request $request): void
     {
-        // Cloudflare sets these headers, trust them
         if ($request->header('CF-Connecting-IP')) {
-            // Override the remote address with Cloudflare's provided IP
             $request->server->set('REMOTE_ADDR', $request->header('CF-Connecting-IP'));
+        }
+
+        // CF-Visitor tells us the scheme the browser actually used (http or https).
+        // Without this, Flexible SSL makes Laravel think every request is HTTP,
+        // causing Secure cookies to be rejected by the browser.
+        $cfVisitor = $request->header('CF-Visitor');
+        if ($cfVisitor && str_contains($cfVisitor, '"scheme":"https"')) {
+            $request->server->set('HTTPS', 'on');
+            $request->server->set('HTTP_X_FORWARDED_PROTO', 'https');
         }
     }
 

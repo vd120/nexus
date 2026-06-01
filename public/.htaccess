@@ -5,6 +5,15 @@
 
     RewriteEngine On
 
+    # Force HTTPS - Case 1: request came through Cloudflare proxy via HTTP
+    RewriteCond %{HTTP:CF-Visitor} '"scheme":"http"'
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Force HTTPS - Case 2: direct request (no Cloudflare proxy) via HTTP
+    RewriteCond %{HTTP:CF-Visitor} ^$
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
