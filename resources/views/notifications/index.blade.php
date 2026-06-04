@@ -38,8 +38,25 @@
 </style>
 
 <script>
+function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function notifPageSkeleton(n) {
+    return Array.from({length: n}, () =>
+        `<div style="display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border-color,#2a2a3e);align-items:flex-start;">
+            <div class="sk" style="width:42px;height:42px;border-radius:50%;flex-shrink:0;"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px;">
+                <div class="sk sk-line" style="width:75%;"></div>
+                <div class="sk sk-line" style="width:40%;"></div>
+            </div>
+        </div>`
+    ).join('');
+}
+
 // Load notifications
 async function loadNotificationsList() {
+    const list = document.getElementById('notifications-list');
+    if (list && !list.querySelector('.notification-item')) {
+        list.innerHTML = notifPageSkeleton(6);
+    }
     try {
         const response = await fetch('/notifications', {
             headers: {
@@ -107,7 +124,7 @@ async function loadNotificationsList() {
                     }
                 </div>
                 <div style="flex: 1; min-width: 0;">
-                    <p style="color: var(--text); font-size: 14px; margin-bottom: 5px; word-wrap: break-word;">${n.message || 'Notification'}</p>
+                    <p style="color: var(--text); font-size: 14px; margin-bottom: 5px; word-wrap: break-word;">${escapeHtml(n.message || 'Notification')}</p>
                     <p style="color: var(--text-muted); font-size: 12px;">${formatDate(n.created_at)}</p>
                     ${n.link ? `<span style="color: var(--primary); font-size: 13px; text-decoration: none; display: inline-block; margin-top: 5px;">View →</span>` : ''}
                 </div>

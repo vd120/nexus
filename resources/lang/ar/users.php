@@ -159,4 +159,36 @@ return [
     'app_security_desc' => 'عزز خصوصيتك باستخدام البصمة.',
     'privacy_lock' => 'قفل الخصوصية',
     'privacy_lock_desc' => 'طلب البصمة لفتح التطبيق',
+
+    // Online Status & Read Receipts
+    'show_online_status' => 'إظهار حالة الاتصال',
+    'show_online_status_desc' => 'اسمح للآخرين برؤية متى تكون أونلاين. لما تطفيها، هتبان أوف لاين دايماً للناس.',
+    'show_read_receipts' => 'إشعارات القراءة',
+    'show_read_receipts_desc' => 'اسمح للآخرين يشوفوا لما قرأت رسالتهم. لما تطفيها، مش هتظهر "شاف" على الإطلاق.',
+
+    // Two-Factor Authentication (edit-profile card)
+    'two_factor_auth' => 'التحقق بخطوتين',
+    'two_factor_enabled' => 'التحقق بخطوتين مفعّل',
+    'two_factor_enabled_desc' => 'حسابك محمي بتطبيق المصادقة.',
+    'two_factor_not_enabled' => 'التحقق بخطوتين مش مفعّل',
+    'two_factor_not_enabled_desc' => 'أضف طبقة حماية إضافية لحسابك.',
+    'enable_2fa' => 'تفعيل التحقق بخطوتين',
+    'disable_2fa' => 'إيقاف التحقق بخطوتين',
+    'two_factor_scan_desc' => 'امسح رمز QR ده بتطبيق المصادقة (Google Authenticator أو Authy وغيره)، ثم اكتب الكود المكون من 6 أرقام للتأكيد.',
+    'two_factor_cant_scan' => 'مش قادر تمسح؟ أدخل المفتاح يدوياً',
+    'two_factor_confirm' => 'تأكيد',
+    'two_factor_save_codes_title' => 'احفظ أكواد الاسترداد',
+    'two_factor_save_codes_desc' => 'خزّن هذه الأكواد في مكان آمن. كل كود يُستخدم مرة واحدة بس لو خسرت وصولك لتطبيق المصادقة.',
+    'two_factor_done' => 'حفظت أكواد الاسترداد — تم',
+    'disable_2fa_title' => 'إيقاف التحقق بخطوتين',
+    'disable_2fa_desc' => 'اكتب كلمة السر عشان تأكد إيقاف التحقق بخطوتين.',
+    'disable' => 'إيقاف',
+    'your_password' => 'كلمة السر',
+
+    // Data Export
+    'your_data' => 'بياناتك',
+    'your_data_desc' => 'نزّل نسخة من كل بياناتك — منشورات، تعليقات، رسائل، متابعين، ومعلومات البروفايل. هتوصلك إيميل برابط التحميل خلال 24 ساعة.',
+    'download_my_data' => 'تحميل بياناتي',
+    'export_pending' => 'في تصدير جاري التحضير — هتوصلك إيميل لما يكون جاهز.',
+    'export_queued' => 'طلب التصدير اتحط في الطابور. هتوصلك إيميل خلال 24 ساعة برابط التحميل.',
 ];

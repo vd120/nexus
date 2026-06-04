@@ -18,7 +18,9 @@ class PulseController extends Controller
         if ($prompt) {
             $answers = $prompt->answers()
                 ->with(['user.profile', 'likes'])
-                ->latest()
+                ->withCount('likes')
+                ->orderByDesc('likes_count')
+                ->orderByDesc('created_at')
                 ->limit(50)
                 ->get();
 
@@ -78,9 +80,11 @@ class PulseController extends Controller
             'is_update'    => $isUpdate,
             'author_id'    => $answer->is_anonymous ? null : $answer->user_id,
             'author' => [
-                'username'   => $answer->is_anonymous ? null : $answer->user->username,
-                'name'       => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
-                'avatar_url' => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                'id'          => $answer->is_anonymous ? null : $answer->user_id,
+                'username'    => $answer->is_anonymous ? null : $answer->user->username,
+                'name'        => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
+                'avatar_url'  => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                'is_verified' => $answer->is_anonymous ? false : (bool)$answer->user->is_verified,
             ],
         ]);
 
@@ -93,9 +97,11 @@ class PulseController extends Controller
                 'created_at'   => $answer->created_at->toIso8601String(),
                 'likes_count'  => $likesCount,
                 'author'       => [
-                    'username'   => $answer->is_anonymous ? null : $answer->user->username,
-                    'name'       => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
-                    'avatar_url' => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                    'id'          => $answer->is_anonymous ? null : $answer->user_id,
+                    'username'    => $answer->is_anonymous ? null : $answer->user->username,
+                    'name'        => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
+                    'avatar_url'  => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                    'is_verified' => $answer->is_anonymous ? false : (bool)$answer->user->is_verified,
                 ],
             ],
             'answers_count' => $answersCount,
@@ -141,7 +147,9 @@ class PulseController extends Controller
 
         $answers = $prompt->answers()
             ->with(['user.profile'])
-            ->latest()
+            ->withCount('likes')
+            ->orderByDesc('likes_count')
+            ->orderByDesc('created_at')
             ->limit(50)
             ->get()
             ->map(fn($a) => [
@@ -216,9 +224,11 @@ class PulseController extends Controller
             'is_update'    => $isUpdate,
             'author_id'    => $answer->is_anonymous ? null : $answer->user_id,
             'author'       => [
-                'username'   => $answer->is_anonymous ? null : $answer->user->username,
-                'name'       => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
-                'avatar_url' => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                'id'          => $answer->is_anonymous ? null : $answer->user_id,
+                'username'    => $answer->is_anonymous ? null : $answer->user->username,
+                'name'        => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
+                'avatar_url'  => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                'is_verified' => $answer->is_anonymous ? false : (bool)$answer->user->is_verified,
             ],
         ]);
 
@@ -232,9 +242,11 @@ class PulseController extends Controller
                 'created_at'   => $answer->created_at->toIso8601String(),
                 'likes_count'  => $likesCount,
                 'author'       => [
-                    'username'   => $answer->is_anonymous ? null : $answer->user->username,
-                    'name'       => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
-                    'avatar_url' => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                    'id'          => $answer->is_anonymous ? null : $answer->user_id,
+                    'username'    => $answer->is_anonymous ? null : $answer->user->username,
+                    'name'        => $answer->is_anonymous ? __('messages.anonymous_participant') : ($answer->user->profile?->full_name ?: $answer->user->name),
+                    'avatar_url'  => $answer->is_anonymous ? null : $answer->user->avatar_url,
+                    'is_verified' => $answer->is_anonymous ? false : (bool)$answer->user->is_verified,
                 ],
             ],
             'answers_count' => $answersCount,
@@ -304,7 +316,9 @@ class PulseController extends Controller
                         });
                     }
                 })
-                ->latest();
+                ->withCount('likes')
+                ->orderByDesc('likes_count')
+                ->orderByDesc('created_at');
 
             $answers = $answersQuery->paginate(20);
         }
@@ -350,7 +364,9 @@ class PulseController extends Controller
                     });
                 }
             })
-            ->latest();
+            ->withCount('likes')
+            ->orderByDesc('likes_count')
+            ->orderByDesc('created_at');
 
         $answers = $answersQuery->paginate(20);
 

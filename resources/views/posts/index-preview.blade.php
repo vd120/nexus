@@ -1453,11 +1453,11 @@ window.globalChatPreviewMessages = @json($globalChatPreviewMessagesPayload);
         el.setAttribute('data-message-id', String(msg.id));
         el.innerHTML =
             '<div class="global-chat-avatar">' +
-                '<img src="' + escapeHtml(msg.avatar_url) + '" alt="' + escapeHtml(msg.username) + '" onerror="this.src=\'/images/default-avatar.svg\'">' +
+                '<a href="/users/' + encodeURIComponent(msg.username) + '" style="display:flex;flex-shrink:0;"><img src="' + escapeHtml(msg.avatar_url) + '" alt="' + escapeHtml(msg.username) + '" onerror="this.src=\'/images/default-avatar.svg\'" style="pointer-events:none;"></a>' +
             '</div>' +
             '<div class="global-chat-body">' +
                 '<div class="global-chat-header">' +
-                    '<span class="global-chat-username">' + escapeHtml(msg.username) + '</span>' +
+                    '<a href="/users/' + encodeURIComponent(msg.username) + '" class="global-chat-username" style="text-decoration:none;">' + escapeHtml(msg.username) + '</a>' +
                     '<span class="global-chat-time">' + escapeHtml(msg.time) + '</span>' +
                 '</div>' +
                 '<p>' + escapeHtml(msg.content || '') + '</p>' +
@@ -1659,11 +1659,21 @@ window.globalChatPreviewMessages = @json($globalChatPreviewMessagesPayload);
         if (composerAvatar && composerAvatar.src) return composerAvatar.src;
         const socketAvatar = window.NexusSocket && window.NexusSocket.config && window.NexusSocket.config.userAvatarUrl;
         if (socketAvatar) return socketAvatar;
-        return '/assets/images/default-avatar.png';
+        return '/images/default-avatar.svg';
     }
     function postHasSocialGroup(postId) {
         const post = postId ? document.getElementById('post-' + postId) : null;
         return !!(post && post.dataset.socialGroupId);
+    }
+    function verifiedBadgeSvgPreview(userId, size) {
+        size = size || '.85em';
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"'
+            + ' width="' + size + '" height="' + size + '"'
+            + ' style="display:inline-block;vertical-align:middle;margin-left:.2em;flex-shrink:0;"'
+            + ' aria-label="Verified" role="img">'
+            + '<circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/>'
+            + '<path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+            + '</svg>';
     }
 
     function renderCommentHtmlPreview(comment, level, currentUserId) {
@@ -1686,12 +1696,14 @@ window.globalChatPreviewMessages = @json($globalChatPreviewMessagesPayload);
 
         const avatarHtml = isAnonymous
             ? '<div class="comment-avatar-placeholder anonymous" aria-hidden="true"><i class="fas fa-user-secret"></i></div>'
-            : '<img src="' + escapeAttr(author.avatar_url || '/assets/images/default-avatar.png') + '" alt="" class="comment-avatar">';
+            : '<a href="/users/' + username + '" style="flex-shrink:0;display:flex;"><img src="' + escapeAttr(author.avatar_url || '/images/default-avatar.svg') + '" alt="" class="comment-avatar" style="pointer-events:none;" onerror="this.onerror=null;this.src=\'/images/default-avatar.svg\'"></a>';
 
+        const authorVerifiedBadge = (!isAnonymous && author.is_verified) ? verifiedBadgeSvgPreview(author.id || comment.user_id) : '';
         const authorNameHtml = isAnonymous
             ? '<span class="comment-name anonymous-name">' + (t.anonymous_participant || 'Anonymous Participant') + '</span>'
             : '<div class="comment-name-row">'
                 + '<a href="/users/' + username + '" class="comment-name">' + displayName + '</a>'
+                + authorVerifiedBadge
                 + (comment.role_badge_html || '')
               + '</div>';
 

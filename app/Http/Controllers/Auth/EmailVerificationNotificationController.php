@@ -21,17 +21,21 @@ class EmailVerificationNotificationController extends Controller
         }
 
         $verificationCode = $request->user()->generateVerificationCode();
-        
+
+        $originalLocale = app()->getLocale();
+        if ($request->user()->language) app()->setLocale($request->user()->language);
+        $subject = __('emails.verification_code_subject', ['app' => config('app.name')]);
+
         \Log::info('Resending verification code to ' . $request->user()->email);
         try {
-            \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $verificationCode], function ($message) use ($request) {
-                $message->to($request->user()->email)
-                        ->subject(config('app.name') . ' - Verification Code');
+            \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $verificationCode], function ($message) use ($request, $subject) {
+                $message->to($request->user()->email)->subject($subject);
             });
             \Log::info('Resending: Email sent successfully to ' . $request->user()->email);
         } catch (\Exception $e) {
             \Log::error('Resending: Failed to send verification email to ' . $request->user()->email . '. Error: ' . $e->getMessage());
         }
+        app()->setLocale($originalLocale);
 
         return back()->with('message', __('messages.verification_code_sent'));
     }

@@ -56,7 +56,7 @@ class UserController extends Controller
         }
 
         $pinnedPosts = $pinnedPostsQuery
-            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions', 'user'])
+            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions.user:id,name,username', 'user'])
             ->orderBy('pinned_at', 'asc')
             ->get();
 
@@ -69,7 +69,7 @@ class UserController extends Controller
         }
 
         $posts = $postsQuery
-            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions'])
+            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions.user:id,name,username'])
             ->latest()
             ->paginate(10);
 
@@ -104,11 +104,14 @@ class UserController extends Controller
             ->where('life_chapter_id', $chapter->id);
 
         if (!$isOwner) {
-            $postsQuery->where('is_anonymous', false);
+            $postsQuery->where('is_anonymous', false)
+                       ->where('is_private', false)
+                       ->where('is_approved', true)
+                       ->whereNull('social_group_id');
         }
 
         $posts = $postsQuery
-            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions', 'user'])
+            ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions.user:id,name,username', 'user'])
             ->latest()
             ->paginate(10);
 
@@ -282,7 +285,7 @@ class UserController extends Controller
         $user = auth()->user();
         $savedPosts = \App\Models\SavedPost::where('user_id', $user->id)
             ->whereHas('post')
-            ->with(['post.user', 'post.media', 'post.reactions', 'post.comments.replies.user', 'post.comments.likes', 'post.userSavedPost', 'post.socialGroup', 'post.userReaction'])
+            ->with(['post.user', 'post.media', 'post.reactions.user:id,name,username', 'post.comments.replies.user', 'post.comments.likes', 'post.userSavedPost', 'post.socialGroup', 'post.userReaction'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -348,8 +351,10 @@ class UserController extends Controller
             'occupation' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'gender' => 'nullable|in:male,female,other',
-            'is_private' => 'nullable|boolean',
-            'birth_date' => 'nullable|date|before:today',
+            'is_private'            => 'nullable|boolean',
+            'show_online_status'    => 'nullable|boolean',
+            'show_read_receipts'    => 'nullable|boolean',
+            'birth_date'            => 'nullable|date|before:today',
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
         ]);
@@ -357,8 +362,10 @@ class UserController extends Controller
         $usernameChanged = $user->username !== $request->username;
         $user->update($request->only(['name', 'username', 'email']));
 
-        $data = $request->only(['bio', 'about', 'website', 'location', 'occupation', 'phone', 'gender', 'is_private', 'birth_date']);
-        $data['is_private'] = $request->has('is_private');
+        $data = $request->only(['bio', 'about', 'website', 'location', 'occupation', 'phone', 'gender', 'birth_date']);
+        $data['is_private']          = $request->has('is_private');
+        $data['show_online_status']  = $request->has('show_online_status');
+        $data['show_read_receipts']  = $request->has('show_read_receipts');
 
         $fileService = app(\App\Services\FileUploadService::class);
 
@@ -655,7 +662,8 @@ class UserController extends Controller
                     'username' => $user->username,
                     'name' => $user->name,
                     'avatar_url' => $user->avatar_url,
-                    'is_online' => (bool) $user->is_online
+                    'is_online' => (bool) $user->is_online,
+                    'is_verified' => (bool) $user->is_verified,
                 ];
             });
 
@@ -684,6 +692,7 @@ class UserController extends Controller
                     'username' => $follow->followed->username,
                     'name' => $follow->followed->name,
                     'avatar_url' => $follow->followed->avatar_url,
+                    'is_verified' => (bool) $follow->followed->is_verified,
                 ];
             });
             

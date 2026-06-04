@@ -70,7 +70,13 @@
         </script>
     @endauth
     <title>@yield('title', 'Nexus')</title>
-    
+
+    {{-- Default OG / Twitter meta (can be overridden per-page via @push('meta')) --}}
+    <meta property="og:site_name" content="{{ config('app.name', 'Nexus') }}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    @stack('meta')
+
     {{-- Performance: System font stacks. Actual @font-face declarations for
          Cairo + Inter + Plus Jakarta Sans + Bricolage Grotesque live in
          /fonts/all.css (self-hosted, cached once across the whole site). --}}
@@ -106,11 +112,26 @@
         }
     </style>
 
-    {{-- Icons --}}
-    <link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
+    {{-- Global skeleton loader styles --}}
+    <style>
+    :root{--skeleton-a:oklch(22% .005 260);--skeleton-b:oklch(28% .005 260);}
+    [data-theme="light"]{--skeleton-a:oklch(90% .005 260);--skeleton-b:oklch(94% .005 260);}
+    .sk{border-radius:4px;background:linear-gradient(90deg,var(--skeleton-a) 0%,var(--skeleton-b) 50%,var(--skeleton-a) 100%);background-size:200% 100%;animation:sk-pulse 1.6s ease-in-out infinite;}
+    @keyframes sk-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .sk-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;}
+    .sk-avatar-sm{width:32px;height:32px;border-radius:50%;flex-shrink:0;}
+    .sk-line{height:11px;border-radius:4px;}
+    .sk-block{border-radius:8px;}
+    .sk-notif-row{display:flex;gap:10px;padding:12px 16px;align-items:flex-start;border-bottom:1px solid var(--border-color,#2a2a3e);}
+    .sk-sidebar-row{display:flex;gap:10px;padding:10px 14px;align-items:center;}
+    </style>
+
+    {{-- Icons: async-load FA so it never blocks first paint --}}
+    <link rel="preload" href="{{ asset('vendor/fontawesome/css/all.min.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}"></noscript>
     
     {{-- Main Styles --}}
-    @vite(['resources/css/app-layout.css', 'resources/css/mobile-header.css', 'resources/css/comments.css', 'resources/css/partial-posts.css', 'resources/css/modals.css'])
+    @vite(['resources/css/app-layout.css', 'resources/css/mobile-header.css', 'resources/css/comments.css', 'resources/css/partial-posts.css', 'resources/css/modals.css', 'resources/css/life-chapters.css'])
 
     {{-- Page-specific styles --}}
     @stack('styles')
@@ -213,6 +234,15 @@
     </style>
 </head>
 <body id="app-body">
+    <a href="#main-content" class="skip-link" style="
+        position:absolute;top:-100%;left:1rem;
+        background:var(--accent,#6366f1);color:#fff;
+        padding:.5rem 1rem;border-radius:0 0 8px 8px;
+        font-size:.875rem;font-weight:600;text-decoration:none;
+        z-index:999999;transition:top .15s;
+    " onfocus="this.style.top='0'" onblur="this.style.top='-100%'">
+        Skip to content
+    </a>
 
     <header class="header">
         <div class="header-inner">
@@ -429,7 +459,7 @@
     </nav>
     @endauth
 
-    <main class="app-layout @yield('main_class')">
+    <main class="app-layout @yield('main_class')" id="main-content" tabindex="-1">
         <div class="main-content @yield('content_class')">
             <script>
                 // Essential translations for global JS functions (posts, comments, chat)
@@ -489,6 +519,11 @@
             </script>
             <script>
                  window.reactionImages = {!! json_encode(\App\Models\Post::REACTION_IMAGES) !!};
+                 window.reactionLabels = {
+                     you: '{{ __("messages.you") }}',
+                     and: '{{ __("messages.and") }}',
+                     others: '{{ __("messages.others") }}',
+                 };
                  
                  window.getReactionImage = function(emoji) {
                      if (!window.reactionImages || !emoji) return null;
@@ -500,6 +535,218 @@
                      return null;
                  };
             </script>
+            {{-- 2FA security nudge for new/unprotected users --}}
+            @auth
+                @if(!auth()->user()->two_factor_secret && !auth()->user()->onboarding_completed_at && !session('2fa_nudge_dismissed'))
+                    <div id="2fa-nudge-banner" style="
+                        position:fixed; bottom:1.5rem; right:1.5rem; z-index:8888;
+                        max-width:360px; width:calc(100vw - 3rem);
+                        background:var(--card-bg,#1e1e2e);
+                        border:1px solid #8b5cf660; border-radius:12px;
+                        padding:1rem 1.25rem;
+                        box-shadow:0 8px 32px rgba(0,0,0,.4);
+                        display:flex; gap:.875rem; align-items:flex-start;
+                    ">
+                        <div style="font-size:1.25rem; margin-top:.1rem;">🔒</div>
+                        <div style="flex:1; min-width:0;">
+                            <strong style="display:block; font-size:.9375rem; margin-bottom:.25rem;">{{ __('messages.onboarding_security_tip') }}</strong>
+                            <p style="font-size:.8rem; opacity:.7; margin:0 0 .75rem; line-height:1.4;">{{ __('messages.onboarding_2fa_prompt') }}</p>
+                            <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                                <a href="{{ route('profile.edit', auth()->user()) }}#2fa-card" class="btn btn-primary" style="font-size:.8rem; padding:.375rem .75rem;">{{ __('users.enable_2fa') }}</a>
+                                <button type="button" onclick="dismiss2FANudge()" class="btn btn-ghost" style="font-size:.8rem; padding:.375rem .75rem;">{{ __('auth.close') }}</button>
+                            </div>
+                        </div>
+                        <button onclick="dismiss2FANudge()" style="background:none;border:none;cursor:pointer;opacity:.4;padding:0;font-size:1rem;line-height:1;" aria-label="{{ __('auth.close') }}">&times;</button>
+                    </div>
+                    <script>
+                    (function() {
+                        var b = document.getElementById('2fa-nudge-banner');
+                        if (!b) return;
+                        function apply2faMobileStyle() {
+                            if (window.innerWidth <= 900) {
+                                b.style.bottom = 'calc(72px + env(safe-area-inset-bottom))';
+                                b.style.right = '0';
+                                b.style.left = '0';
+                                b.style.margin = '0 auto';
+                                b.style.width = 'calc(100vw - 2rem)';
+                                b.style.maxWidth = '480px';
+                            } else {
+                                b.style.bottom = '1.5rem';
+                                b.style.right = '1.5rem';
+                                b.style.left = '';
+                                b.style.margin = '';
+                                b.style.width = 'calc(100vw - 3rem)';
+                                b.style.maxWidth = '360px';
+                            }
+                        }
+                        apply2faMobileStyle();
+                        window.addEventListener('resize', apply2faMobileStyle);
+                    })();
+                    </script>
+                    <script>
+                    function dismiss2FANudge() {
+                        document.getElementById('2fa-nudge-banner')?.remove();
+                        fetch('/settings/2fa/nudge-dismiss', {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                        });
+                    }
+                    </script>
+                @endif
+            @endauth
+
+            {{-- Pulse & Memory reminder nudge --}}
+            @auth
+                @if($showPulseNudge || $showMemoryNudge)
+                <style>
+                #prompt-nudge-banner {
+                    position: fixed;
+                    bottom: 1.5rem;
+                    left: 1.5rem;
+                    z-index: 8888;
+                    max-width: 340px;
+                    width: calc(100vw - 3rem);
+                    background: var(--card-bg, #1e1e2e);
+                    border: 1px solid #8b5cf660;
+                    border-radius: 12px;
+                    padding: .875rem 1rem;
+                    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+                }
+                #prompt-nudge-banner .nudge-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: .5rem;
+                }
+                #prompt-nudge-banner .nudge-title {
+                    font-size: .8rem;
+                    font-weight: 600;
+                    opacity: .5;
+                    text-transform: uppercase;
+                    letter-spacing: .04em;
+                }
+                #prompt-nudge-banner .nudge-row {
+                    display: flex;
+                    align-items: center;
+                    gap: .625rem;
+                    padding: .5rem .625rem;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    color: inherit;
+                    transition: background .15s;
+                }
+                #prompt-nudge-banner .nudge-row:hover {
+                    background: rgba(139,92,246,.1);
+                }
+                #prompt-nudge-banner .nudge-row + .nudge-row {
+                    margin-top: .25rem;
+                }
+                #prompt-nudge-banner .nudge-icon {
+                    font-size: 1.25rem;
+                    width: 2rem;
+                    text-align: center;
+                    flex-shrink: 0;
+                }
+                #prompt-nudge-banner .nudge-text strong {
+                    display: block;
+                    font-size: .875rem;
+                    line-height: 1.2;
+                }
+                #prompt-nudge-banner .nudge-text span {
+                    font-size: .75rem;
+                    opacity: .55;
+                }
+                #prompt-nudge-banner .nudge-arrow {
+                    margin-left: auto;
+                    opacity: .35;
+                    font-size: .75rem;
+                    flex-shrink: 0;
+                }
+                #prompt-nudge-banner .nudge-close {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    opacity: .35;
+                    padding: 0;
+                    font-size: 1.1rem;
+                    line-height: 1;
+                    color: inherit;
+                }
+                #prompt-nudge-banner .nudge-close:hover { opacity: .7; }
+                @@media (max-width: 900px) {
+                    #prompt-nudge-banner {
+                        bottom: calc(72px + env(safe-area-inset-bottom));
+                        left: 0;
+                        right: 0;
+                        margin: 0 auto;
+                        width: calc(100vw - 2rem);
+                        max-width: 480px;
+                    }
+                }
+                </style>
+                <div id="prompt-nudge-banner">
+                    <div class="nudge-header">
+                        <span class="nudge-title">{{ __('messages.nudge_reminder') }}</span>
+                        <button class="nudge-close" onclick="dismissPromptNudge('both')" aria-label="{{ __('auth.close') }}">&times;</button>
+                    </div>
+
+                    @if($showPulseNudge)
+                    <a href="{{ route('pulse.index') }}" class="nudge-row" onclick="dismissPromptNudge('pulse', event)">
+                        <div class="nudge-icon">📝</div>
+                        <div class="nudge-text">
+                            <strong>{{ __('messages.nudge_pulse_title') }}</strong>
+                            <span>{{ __('messages.nudge_pulse_sub') }}</span>
+                        </div>
+                        <i class="fas fa-chevron-right nudge-arrow"></i>
+                    </a>
+                    @endif
+
+                    @if($showMemoryNudge)
+                    <a href="{{ route('memories.index') }}" class="nudge-row" onclick="dismissPromptNudge('memory', event)">
+                        <div class="nudge-icon">🧠</div>
+                        <div class="nudge-text">
+                            <strong>{{ __('messages.nudge_memory_title') }}</strong>
+                            <span>{{ __('messages.nudge_memory_sub') }}</span>
+                        </div>
+                        <i class="fas fa-chevron-right nudge-arrow"></i>
+                    </a>
+                    @endif
+                </div>
+                <script>
+                function dismissPromptNudge(type, e) {
+                    if (e && type !== 'both') {
+                        // Allow navigation but still mark dismissed
+                    }
+                    var banner = document.getElementById('prompt-nudge-banner');
+                    if (type === 'both') {
+                        banner?.remove();
+                    } else {
+                        // Remove just that row
+                        var rows = banner?.querySelectorAll('.nudge-row');
+                        rows?.forEach(function(row) {
+                            if ((type === 'pulse' && row.href && row.href.includes('/pulse')) ||
+                                (type === 'memory' && row.href && row.href.includes('/memories'))) {
+                                row.remove();
+                            }
+                        });
+                        // If no rows left, remove the whole banner
+                        if (banner && !banner.querySelector('.nudge-row')) {
+                            banner.remove();
+                        }
+                    }
+                    fetch('/settings/prompt-nudge/dismiss', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ type: type })
+                    });
+                }
+                </script>
+                @endif
+            @endauth
+
             @yield('content')
         </div>
     </main>
@@ -559,6 +806,9 @@
 
             const toast = document.createElement('div');
             toast.className = `toast ${type} ${avatar ? 'has-avatar' : ''} ${link ? 'is-clickable' : ''}`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'polite');
+            toast.setAttribute('aria-atomic', 'true');
             
             if (link) {
                 toast.style.cursor = 'pointer';
@@ -608,7 +858,7 @@
         };
     </script>
 
-    @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js'])
+    @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js', 'resources/js/keyboard-shortcuts.js'])
     @auth
         @vite(['resources/js/socket-manager.js'])
     @endauth
@@ -862,7 +1112,25 @@
             return document.querySelector('meta[name="csrf-token"]')?.content || '';
         }
 
+        function notifSkeletonHTML(n) {
+            return Array.from({length:n}, () =>
+                `<div class="sk-notif-row">
+                    <div class="sk sk-avatar-sm"></div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+                        <div class="sk sk-line" style="width:70%;"></div>
+                        <div class="sk sk-line" style="width:45%;"></div>
+                    </div>
+                </div>`
+            ).join('');
+        }
+
         const _loadNotificationsRaw = function loadNotifications() {
+            const list = document.getElementById('notif-list');
+            // Only show skeleton on first load (list is empty or has no notif-items yet)
+            if (list && !list.querySelector('.notif-item, .notif-empty')) {
+                list.innerHTML = notifSkeletonHTML(4);
+            }
+
             fetch('/notifications', {
                 credentials: 'include',
                 headers: { 
@@ -1306,7 +1574,141 @@
     {{-- Global modal a11y: Escape to close, focus trap, backdrop click --}}
     <script src="{{ asset('js/modal-a11y.js') }}?v={{ time() }}" defer></script>
 
+    {{-- Sensitive content reveal --}}
+    <script>
+    function revealSensitive(postId) {
+        const overlay = document.getElementById('overlay-' + postId);
+        if (overlay) {
+            overlay.style.transition = 'opacity .2s';
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 200);
+        }
+        sessionStorage.setItem('revealed_post_' + postId, '1');
+    }
+    </script>
+
     @stack('scripts')
+
+    {{-- Poll voting --}}
+    <script>
+    (function pollExpiryTicker() {
+        function refreshPollExpiry() {
+            document.querySelectorAll('.poll-expires-label[data-expires]').forEach(el => {
+                const expires = new Date(el.dataset.expires);
+                const now = new Date();
+                const diff = expires - now;
+                if (diff <= 0) {
+                    el.textContent = '{{ __('posts.poll_final_results') }}';
+                    return;
+                }
+                const minutes = Math.floor(diff / 60000);
+                const hours   = Math.floor(diff / 3600000);
+                const days    = Math.floor(diff / 86400000);
+                let label;
+                if (minutes < 60)       label = minutes <= 1 ? 'ends in 1 minute' : `ends in ${minutes} minutes`;
+                else if (hours < 24)    label = hours === 1  ? 'ends in 1 hour'   : `ends in ${hours} hours`;
+                else                    label = days === 1   ? 'ends in 1 day'    : `ends in ${days} days`;
+                el.textContent = '{{ __('posts.poll_ends') }} ' + label;
+            });
+        }
+        refreshPollExpiry();
+        setInterval(refreshPollExpiry, 60000);
+    })();
+    async function castPollVote(btn) {
+        const optionId = btn.dataset.optionId;
+        const postSlug = btn.dataset.postSlug;
+        const container = btn.closest('.post-poll');
+        if (!container || container.dataset.voting) return;
+        container.dataset.voting = '1';
+
+        const allBtns = container.querySelectorAll('.poll-option');
+        allBtns.forEach(b => { b.style.opacity = '.5'; b.style.pointerEvents = 'none'; });
+
+        try {
+            const res = await fetch(`/posts/${postSlug}/poll/vote`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ option_id: optionId }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (window.showToast) showToast(data.message || 'Vote failed.', 'error');
+            } else {
+                // Pass userVoted=true so updatePollUI disables buttons for this user
+                updatePollUI(container, data.voted_option_id, data.results, data.total_votes, true);
+            }
+        } catch(e) {
+            if (window.showToast) showToast('Something went wrong.', 'error');
+        } finally {
+            // Always restore regardless of success or failure
+            delete container.dataset.voting;
+            allBtns.forEach(b => { b.style.opacity = ''; b.style.pointerEvents = ''; });
+        }
+    }
+
+    // userVoted = true  → this user just voted, disable all buttons
+    // userVoted = false → someone else voted via socket, only update counts/bars
+    window.updatePollUI = function updatePollUI(container, votedOptionId, results, totalVotes, userVoted) {
+        const allBtns = container.querySelectorAll('.poll-option');
+        allBtns.forEach(btn => {
+            const id = parseInt(btn.dataset.optionId);
+            const result = results.find(r => r.id === id);
+            if (!result) return;
+
+            // Update fill bar width
+            let fill = btn.querySelector('.poll-fill');
+            if (!fill) {
+                fill = document.createElement('span');
+                fill.className = 'poll-fill';
+                btn.insertBefore(fill, btn.firstChild);
+            }
+            fill.style.width = result.percentage + '%';
+
+            if (userVoted) {
+                // Remove radio dots, add result classes
+                btn.querySelectorAll('.poll-radio').forEach(el => el.remove());
+                btn.classList.add('poll-option--result');
+                btn.style.cursor = 'default';
+                btn.onclick = null;
+
+                const isChosen = id === parseInt(votedOptionId);
+                if (isChosen) {
+                    btn.classList.add('poll-option--chosen');
+                }
+
+                // Add percentage if missing
+                let pctEl = btn.querySelector('.poll-option-pct');
+                if (!pctEl) {
+                    pctEl = document.createElement('span');
+                    pctEl.className = 'poll-option-pct';
+                    btn.appendChild(pctEl);
+                }
+                pctEl.textContent = result.percentage + '%';
+
+                // Add checkmark on chosen option
+                if (isChosen && !btn.querySelector('.poll-option-check')) {
+                    const check = document.createElement('span');
+                    check.className = 'poll-option-check';
+                    check.setAttribute('aria-hidden', 'true');
+                    check.innerHTML = '<i class="fas fa-check-circle"></i>';
+                    btn.appendChild(check);
+                }
+            } else {
+                // Someone else voted — just update percentage if already in result state
+                let pctEl = btn.querySelector('.poll-option-pct');
+                if (pctEl) pctEl.textContent = result.percentage + '%';
+            }
+        });
+
+        const meta = container.querySelector('.poll-vote-count');
+        if (meta) meta.textContent = `${totalVotes} ${totalVotes === 1 ? 'vote' : 'votes'}`;
+    }
+
+    </script>
 
     {{-- Predictive Pre-loading (Kills the 1-second lag) --}}
 </body>

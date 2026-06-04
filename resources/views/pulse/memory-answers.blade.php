@@ -59,7 +59,7 @@
                                 <a href="{{ route('users.show', $answer->user->username) }}" class="memory-answer-author">
                                     <img src="{{ $answer->user->avatar_url }}" alt="{{ $answer->user->name }}" class="memory-answer-avatar">
                                     <div class="memory-answer-author-info">
-                                        <span class="memory-answer-author-name">{{ $answer->user->profile->full_name ?? $answer->user->name }}</span>
+                                        <span class="memory-answer-author-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $answer->user->profile->full_name ?? $answer->user->name }}<x-verified-badge :user="$answer->user" size=".8em" /></span>
                                         <span class="memory-answer-meta">
                                             <span class="memory-answer-username">@{{ $answer->user->username }}</span>
                                             <span>•</span>

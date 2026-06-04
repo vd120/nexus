@@ -97,13 +97,30 @@ class SocialGroupController extends Controller
             ->paginate(15);
 
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'group' => $group,
-                'posts' => $posts,
-            ]);
+            return response()->json(['group' => $group, 'posts' => $posts]);
         }
 
-        return view('communities.show', compact('group', 'posts'));
+        $topMembers = $group->members()
+            ->where('status', 'approved')
+            ->with('user.profile')
+            ->orderByRaw("FIELD(role, 'admin', 'moderator', 'member')")
+            ->limit(6)
+            ->get();
+
+        $recentMedia = $group->posts()
+            ->where('is_approved', true)
+            ->with('media')
+            ->has('media')
+            ->latest()
+            ->limit(12)
+            ->get()
+            ->pluck('media')
+            ->flatten()
+            ->where('media_type', 'image')
+            ->take(6)
+            ->values();
+
+        return view('communities.show', compact('group', 'posts', 'topMembers', 'recentMedia'));
     }
 
     /**

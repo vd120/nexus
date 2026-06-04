@@ -28,7 +28,7 @@ return [
     'stories' => 'Stories',
     'messages' => 'Messages',
     'notifications' => 'Notifications',
-    'groups' => 'Groups',
+    'groups' => 'Communities',
     'ai_assistant' => 'Nexus AI',
     'global_chat' => 'Global Chat',
     'explore' => 'Explore Users',

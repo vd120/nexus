@@ -57,10 +57,10 @@
                         </span>
                     </div>
                 @else
-                    <img src="{{ $post->user->avatar_url }}" alt="" class="author-avatar" loading="lazy" decoding="async">
+                    <a href="{{ route('users.show', $post->user) }}" class="author-avatar-link" style="flex-shrink:0;display:flex;"><img src="{{ $post->user->avatar_url }}" alt="" class="author-avatar" loading="lazy" decoding="async" style="pointer-events:none;"></a>
                     <div class="author-info">
                         <div class="author-top-row">
-                            <a href="{{ route('users.show', $post->user) }}" class="author-name" id="post-author-{{ $post->id }}">{{ $post->user->name ?: $post->user->username }}</a>
+                            <a href="{{ route('users.show', $post->user) }}" class="author-name" id="post-author-{{ $post->id }}" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->name ?: $post->user->username }}<x-verified-badge :user="$post->user" size=".95em" /></a>
                             <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" title="{{ __('users.pinned_to_profile') }}" aria-label="{{ __('users.pinned_to_profile') }}" style="{{ $isPinnedPost ? '' : 'display: none;' }}"></i>
                             @php
                                 $isBroadcast = isset($is_broadcast) && $is_broadcast;
@@ -169,6 +169,10 @@
                 </button>
             @endif
         </div>
+    @endif
+
+    @if($post->poll)
+        @include('partials.poll', ['poll' => $post->poll->load('options'), 'post' => $post])
     @endif
 
     @if($post->media && $post->media->count() > 0)

@@ -123,8 +123,6 @@ class AdminController extends Controller
             'username' => $request->username,
             'name' => $request->name ?? $user->name,
             'email' => $request->email,
-            'is_admin' => $request->has('is_admin'),
-            'is_suspended' => $request->has('is_suspended'),
         ];
 
         if ($request->filled('password')) {
@@ -132,6 +130,11 @@ class AdminController extends Controller
         }
 
         $user->update($updateData);
+
+        // Set sensitive flags directly (not via mass assignment)
+        $user->is_admin = $request->has('is_admin');
+        $user->is_suspended = $request->has('is_suspended');
+        $user->save();
 
         // Prepare profile data
         $profileData = $request->only([
@@ -262,6 +265,20 @@ class AdminController extends Controller
         return redirect()->route('admin.users')->with('success', __('messages.user_deleted'));
     }
 
+    public function verifyUser(User $user)
+    {
+        $user->is_verified = true;
+        $user->save();
+        return response()->json(['verified' => true, 'message' => __('admin.user_verified', ['username' => $user->username])]);
+    }
+
+    public function unverifyUser(User $user)
+    {
+        $user->is_verified = false;
+        $user->save();
+        return response()->json(['verified' => false, 'message' => __('admin.user_unverified', ['username' => $user->username])]);
+    }
+
     public function posts(Request $request)
     {
         $query = Post::with(['user', 'media', 'comments', 'likes', 'reactions']);
@@ -357,8 +374,9 @@ class AdminController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'email_verified_at' => now(),
-            'is_admin' => true,
         ]);
+        $user->is_admin = true;
+        $user->save();
 
         $user->profile()->updateOrCreate(
             ['user_id' => $user->id],

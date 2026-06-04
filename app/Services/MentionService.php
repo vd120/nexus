@@ -78,6 +78,7 @@ class MentionService
      */
     public function convertMentionsToLinks(string $text): string
     {
+        $text = e($text);
         return preg_replace_callback(
             '/@([a-zA-Z0-9_-]+)/',
             function ($matches) {

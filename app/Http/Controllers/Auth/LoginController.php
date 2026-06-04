@@ -48,9 +48,13 @@ class LoginController extends Controller
                 ], 600);
 
                 // Send Security Code Email
-                \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user) {
-                    $message->to($user->email)->subject(config('app.name') . ' - Security Verification Code');
+                $originalLocale = app()->getLocale();
+                if ($user->language) app()->setLocale($user->language);
+                $verifySubject = __('emails.verification_code_security_subject', ['app' => config('app.name')]);
+                \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $verifySubject) {
+                    $message->to($user->email)->subject($verifySubject);
                 });
+                app()->setLocale($originalLocale);
 
                 return redirect()->route('login.suspicious.view', $challengeUuid);
             }
@@ -186,45 +190,48 @@ class LoginController extends Controller
     {
         $challenge = Cache::get('login_challenge_' . $uuid);
         if (!$challenge) {
-            return response()->json(['success' => false, 'message' => 'Login session expired.'], 422);
+            return response()->json(['success' => false, 'message' => __('auth.login_session_expired')], 422);
         }
 
         $user = \App\Models\User::find($challenge['user_id']);
         if (!$user) {
-            return response()->json(['success' => false, 'message' => 'User not found.'], 422);
+            return response()->json(['success' => false, 'message' => __('auth.login_session_expired')], 422);
         }
 
         // Generate a 6-digit code for this challenge
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        
+
         $challenge['email_code'] = $code;
         $challenge['email_code_expires_at'] = now()->addMinutes(10)->timestamp;
         Cache::put('login_challenge_' . $uuid, $challenge, 120);
 
-        // Send the email
-        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user) {
-            $message->to($user->email)
-                    ->subject(config('app.name') . ' - Login Security Code');
+        // Send the email in the user's language
+        $originalLocale = app()->getLocale();
+        if ($user->language) app()->setLocale($user->language);
+        $loginSubject = __('emails.verification_code_login_subject', ['app' => config('app.name')]);
+        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $loginSubject) {
+            $message->to($user->email)->subject($loginSubject);
         });
+        app()->setLocale($originalLocale);
 
-        return response()->json(['success' => true, 'message' => 'Verification code sent to your email.']);
+        return response()->json(['success' => true, 'message' => __('auth.verification_code_sent_to_email')]);
     }
 
     public function verifyEmailChallenge(Request $request, $uuid)
     {
         $request->validate(['code' => 'required|string|size:6']);
-        
+
         $challenge = Cache::get('login_challenge_' . $uuid);
         if (!$challenge) {
-            return response()->json(['success' => false, 'message' => 'Login session expired.'], 422);
+            return response()->json(['success' => false, 'message' => __('auth.login_session_expired')], 422);
         }
 
         if (!isset($challenge['email_code']) || $challenge['email_code'] !== $request->code) {
-            return response()->json(['success' => false, 'message' => 'Invalid verification code.'], 422);
+            return response()->json(['success' => false, 'message' => __('auth.invalid_verification_code')], 422);
         }
 
         if ($challenge['email_code_expires_at'] < now()->timestamp) {
-            return response()->json(['success' => false, 'message' => 'Verification code expired.'], 422);
+            return response()->json(['success' => false, 'message' => __('auth.verification_code_expired')], 422);
         }
 
         // Mark as approved

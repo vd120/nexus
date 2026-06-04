@@ -16,14 +16,14 @@
                 <span class="post-time" data-timestamp="{{ $post->created_at->toIso8601String() }}">{{ $post->created_at->diffInMinutes() < 1 ? __('messages.just_now') : $post->created_at->diffForHumans(null, true, true) }}</span>
             </div>
         @else
-            <img src="{{ $post->user->avatar_url }}" alt="{{ $post->user->username }}" class="author-avatar">
+            <a href="{{ route('users.show', $post->user) }}" style="flex-shrink:0;display:flex;"><img src="{{ $post->user->avatar_url }}" alt="{{ $post->user->username }}" class="author-avatar" style="pointer-events:none;"></a>
             <div class="author-info" style="display: flex; flex-direction: column; align-items: flex-start; margin-top: -3px;">
                 <div class="author-top-row" style="display: flex; align-items: center; gap: 6px;">
                     @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
                          <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name">{{ $group->name }}</a>
                          <span class="header-separator">•</span>
                     @endif
-                    <a href="{{ route('users.show', $post->user) }}" class="author-name">{{ $post->user->name ?: $post->user->username }}</a>
+                    <a href="{{ route('users.show', $post->user) }}" class="author-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->name ?: $post->user->username }}<x-verified-badge :user="$post->user" size=".95em" /></a>
                     <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="margin-left: 6px; font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
                     
                     {{-- Role Badges (Facebook-style) --}}

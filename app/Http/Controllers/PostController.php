@@ -56,14 +56,17 @@ class PostController extends Controller
             $followedUsersWithStories = $storiesData['followed_users'];
             $myStories = $storiesData['my_stories'];
 
-            $followedUsers = $user->following()
-                ->select('users.id', 'users.username', 'users.name', 'users.is_online')
-                ->with('profile')
-                ->orderBy('follows.created_at', 'desc')
-                ->limit(8)
-                ->get();
+            $followedUsers = \Illuminate\Support\Facades\Cache::remember(
+                "following_sidebar_{$user->id}", 120,
+                fn() => $user->following()
+                    ->select('users.id', 'users.username', 'users.name', 'users.is_online')
+                    ->with('profile')
+                    ->orderBy('follows.created_at', 'desc')
+                    ->limit(8)
+                    ->get()
+            );
 
-            $topHashtags = Hashtag::popular(3)->get();
+            $topHashtags = \Illuminate\Support\Facades\Cache::remember('top_hashtags_feed', 180, fn() => Hashtag::popular(3)->get());
             $globalChatMessages = GlobalMessage::with('user')
                 ->latest()
                 ->limit(2)
@@ -76,7 +79,7 @@ class PostController extends Controller
                     'user', 
                     'media', 
                     'reactions' => function($query) {
-                        $query->select('id', 'post_id', 'reaction_type');
+                        $query->select('id', 'post_id', 'user_id', 'reaction_type')->with('user:id,name,username');
                     }
                 ])
                 ->approved()
@@ -122,7 +125,7 @@ class PostController extends Controller
                     'user', 
                     'media', 
                     'reactions' => function($query) {
-                        $query->select('id', 'post_id', 'reaction_type');
+                        $query->select('id', 'post_id', 'user_id', 'reaction_type')->with('user:id,name,username');
                     }
                 ])
                 ->approved()
@@ -180,10 +183,15 @@ class PostController extends Controller
             'social_group_topic_id' => 'nullable|exists:social_group_topics,id',
             'is_anonymous' => 'nullable|boolean',
             'is_comments_disabled' => 'nullable|boolean',
+            'is_sensitive' => 'nullable|boolean',
+            'poll_question' => 'nullable|string|max:255',
+            'poll_options'  => 'nullable|array|min:2|max:4',
+            'poll_options.*'=> 'required_with:poll_options|string|max:255',
+            'poll_expires_at' => 'nullable|date|after:now',
         ]);
 
-        // Ensure at least content or media is provided
-        if (!$request->filled('content') && !$request->hasFile('media')) {
+        // Ensure at least content, media, or poll is provided
+        if (!$request->filled('content') && !$request->hasFile('media') && !$request->filled('poll_options')) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -223,6 +231,7 @@ class PostController extends Controller
         $postData = $request->only(['content', 'social_group_id', 'social_group_topic_id']);
         $postData['is_private'] = $request->boolean('is_private');
         $postData['is_comments_disabled'] = $request->boolean('is_comments_disabled');
+        $postData['is_sensitive'] = $request->boolean('is_sensitive');
         
         // 1. Separate Anonymity: Only allowed in communities that support it
         $isAnonymous = $request->boolean('is_anonymous');
@@ -281,6 +290,20 @@ class PostController extends Controller
         unset($postData['media_type'], $postData['media_path'], $postData['media_thumbnail']);
 
         $post = auth()->user()->posts()->create($postData);
+
+        // Create poll if provided
+        if ($request->filled('poll_options')) {
+            $options = array_filter(array_map('trim', (array) $request->poll_options));
+            if (count($options) >= 2) {
+                $poll = $post->poll()->create([
+                    'question'   => $request->input('poll_question'),
+                    'expires_at' => $request->input('poll_expires_at') ?: null,
+                ]);
+                foreach ($options as $optionText) {
+                    $poll->options()->create(['text' => substr($optionText, 0, 255)]);
+                }
+            }
+        }
 
         if ($request->social_group_id) {
             $group = \App\Models\SocialGroup::find($request->social_group_id);
@@ -396,12 +419,19 @@ class PostController extends Controller
             }
 
             $hideGroupContext = $request->filled('social_group_id');
+            // Render the post HTML without broadcast flag for the owner (so analytics button shows)
+            $ownerPostHtml = view('partials.post', [
+                'post' => $post,
+                'is_broadcast' => false,
+                'hideGroupContext' => $hideGroupContext
+            ])->render();
+            // Render with is_broadcast for non-owner recipients
             $postHtml = view('partials.post', [
                 'post' => $post,
                 'is_broadcast' => true,
                 'hideGroupContext' => $hideGroupContext
             ])->render();
-            
+
             // Broadcast to all followers
             $socketService = app(\App\Services\SocketEmitService::class);
             foreach (auth()->user()->followers as $follower) {
@@ -446,7 +476,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'post' => $post,
-                'post_html' => $postHtml,
+                'post_html' => $ownerPostHtml,
                 'message' => $post->is_approved ? __('messages.post_created') : 'Post submitted for approval.'
             ]);
         }
@@ -488,7 +518,7 @@ class PostController extends Controller
         }
 
         $post->load([
-            'user', 'media', 'reactions', 'comments.replies.user', 'comments.likes',
+            'user', 'media', 'reactions.user:id,name,username', 'comments.replies.user', 'comments.likes',
             'member' => function($query) use ($post) {
                 if ($post->social_group_id) {
                     $query->where('social_group_id', $post->social_group_id);
@@ -500,7 +530,57 @@ class PostController extends Controller
                 }
             }
         ]);
+
+        // Track view
+        $userId  = auth()->id();
+        $ipHash  = $userId ? null : hash('sha256', request()->ip());
+        $post->recordView($userId, $ipHash);
+
         return view('posts.show', compact('post'));
+    }
+
+    public function analytics(Post $post)
+    {
+        if ($post->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $viewsByDay = \App\Models\PostView::where('post_id', $post->id)
+            ->where('viewed_at', '>=', now()->subDays(30))
+            ->selectRaw('DATE(viewed_at) as day, COUNT(*) as count')
+            ->groupBy('day')
+            ->orderBy('day')
+            ->pluck('count', 'day');
+
+        $totalViews    = \App\Models\PostView::where('post_id', $post->id)->count();
+        $totalLikes    = $post->likes()->count();
+        $totalComments = $post->comments()->count();
+        $totalSaves    = $post->savedPosts()->count();
+        $engagementRate = $totalViews > 0
+            ? round((($totalLikes + $totalComments + $totalSaves) / $totalViews) * 100, 1)
+            : 0;
+
+        $pollData = null;
+        if ($post->poll) {
+            $poll = $post->poll->load('options.votes.user');
+            $totalVotes = $poll->totalVotes();
+            $pollData = [
+                'question' => $poll->question,
+                'total_votes' => $totalVotes,
+                'options' => $poll->options->map(fn($o) => [
+                    'text' => $o->text,
+                    'votes_count' => $o->votes_count,
+                    'percentage' => $totalVotes > 0 ? round(($o->votes_count / $totalVotes) * 100, 1) : 0,
+                    'voters' => $o->votes->map(fn($v) => [
+                        'name' => $v->user?->name ?? '—',
+                        'username' => $v->user?->username ?? '—',
+                        'avatar' => $v->user?->avatar_url,
+                    ]),
+                ]),
+            ];
+        }
+
+        return view('posts.analytics', compact('post', 'viewsByDay', 'totalViews', 'totalLikes', 'totalComments', 'totalSaves', 'engagementRate', 'pollData'));
     }
 
     /**
@@ -735,7 +815,8 @@ class PostController extends Controller
                     'avatar' => $finalAvatar,
                     'bio' => $finalBio,
                     'can_follow' => $liker->id !== $user->id && !$user->isFollowing($liker) && !$liker->isBlocking($user),
-                    'is_following' => $user->isFollowing($liker)
+                    'is_following' => $user->isFollowing($liker),
+                    'is_verified' => (bool) $liker->is_verified,
                 ];
             });
 
@@ -781,14 +862,22 @@ class PostController extends Controller
             ]
         );
 
-        $post->load(['reactions.user']);
+        $post->load(['reactions.user:id,name,username,is_verified']);
         $summaries = $post->getGroupedReactions();
 
         // Broadcast reaction update to all users
         try {
+            $reactors = $post->reactions->pluck('user')->filter()->unique('id')->values()->map(fn($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'username' => $u->username,
+                'avatar' => $u->avatar_url,
+                'is_verified' => (bool) $u->is_verified,
+            ]);
             app(\App\Services\SocketEmitService::class)->emit('global', 'post:reacted', [
                 'post_id' => $post->id,
-                'reaction_summaries' => $summaries
+                'reaction_summaries' => $summaries,
+                'reactors' => $reactors,
             ]);
         } catch (\Exception $e) {
             \Log::debug('Socket.io post:reacted broadcast failed: ' . $e->getMessage());
@@ -841,22 +930,31 @@ class PostController extends Controller
 
         return response()->json([
             'success' => true,
-            'reaction_summaries' => $summaries
+            'reaction_summaries' => $summaries,
+            'reactors' => $reactors,
         ]);
     }
 
     public function removeReaction(Post $post)
     {
         $post->reactions()->where('user_id', auth()->id())->delete();
-        
-        $post->load(['reactions.user']);
+
+        $post->load(['reactions.user:id,name,username,is_verified']);
         $summaries = $post->getGroupedReactions();
 
         // Broadcast reaction update to all users
         try {
+            $reactors = $post->reactions->pluck('user')->filter()->unique('id')->values()->map(fn($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'username' => $u->username,
+                'avatar' => $u->avatar_url,
+                'is_verified' => (bool) $u->is_verified,
+            ]);
             app(\App\Services\SocketEmitService::class)->emit('global', 'post:reacted', [
                 'post_id' => $post->id,
-                'reaction_summaries' => $summaries
+                'reaction_summaries' => $summaries,
+                'reactors' => $reactors,
             ]);
         } catch (\Exception $e) {
             \Log::debug('Socket.io post:reacted broadcast failed: ' . $e->getMessage());
@@ -864,7 +962,8 @@ class PostController extends Controller
 
         return response()->json([
             'success' => true,
-            'reaction_summaries' => $summaries
+            'reaction_summaries' => $summaries,
+            'reactors' => $reactors,
         ]);
     }
 
@@ -882,7 +981,7 @@ class PostController extends Controller
         }
 
         $reactions = $post->reactions()
-            ->with(['user:id,name,username', 'user.profile:id,user_id,avatar'])
+            ->with(['user:id,name,username,is_verified', 'user.profile:id,user_id,avatar'])
             ->latest()
             ->get()
             ->map(function ($reaction) {
@@ -891,7 +990,8 @@ class PostController extends Controller
                     'username' => $author->username,
                     'avatar' => $author->avatar_url,
                     'reaction_type' => $reaction->reaction_type,
-                    'created_at' => $reaction->created_at->toISOString()
+                    'created_at' => $reaction->created_at->toISOString(),
+                    'is_verified' => (bool) $author->is_verified,
                 ];
             });
 
@@ -907,9 +1007,14 @@ class PostController extends Controller
 
     private function getBlockedUserIds(User $user): array
     {
-        $iBlocked = Block::where('blocker_id', $user->id)->pluck('blocked_id')->toArray();
-        $blockedMe = Block::where('blocked_id', $user->id)->pluck('blocker_id')->toArray();
-        return array_unique(array_merge($iBlocked, $blockedMe));
+        return \Illuminate\Support\Facades\Cache::remember(
+            "blocked_ids_{$user->id}", 300,
+            function () use ($user) {
+                $iBlocked  = Block::where('blocker_id', $user->id)->pluck('blocked_id')->toArray();
+                $blockedMe = Block::where('blocked_id', $user->id)->pluck('blocker_id')->toArray();
+                return array_unique(array_merge($iBlocked, $blockedMe));
+            }
+        );
     }
 
     private function buildFeedQuery(User $user, array $blockedUserIds)
@@ -922,7 +1027,7 @@ class PostController extends Controller
                 'userLike',
                 'userSavedPost',
                 'reactions' => function($q) {
-                    $q->select('id', 'post_id', 'reaction_type');
+                    $q->select('id', 'post_id', 'user_id', 'reaction_type')->with('user:id,name,username');
                 },
                 'comments' => function($q) {
                     $q->latest()->limit(5)->with('user');

@@ -69,7 +69,7 @@
                         <img src="{{ $story->user->avatar_url }}" alt="">
                     </div>
                     <div class="user-details">
-                        <span class="user-name">{{ $story->user->username }}</span>
+                        <span class="user-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $story->user->username }}<x-verified-badge :user="$story->user" size=".8em" /></span>
                         <span class="story-time">{{ $story->created_at->diffForHumans() }}</span>
                     </div>
                 </div>

@@ -50,7 +50,7 @@
                         <img src="{{ $post->user->avatar_url }}" alt="">
                     </div>
                     <div class="user-details">
-                        <span class="user-name">{{ $post->user->username }}</span>
+                        <span class="user-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->username }}<x-verified-badge :user="$post->user" size=".8em" /></span>
                         <span class="post-time">{{ $post->created_at->diffForHumans() }}</span>
                     </div>
                     @if($post->is_private)

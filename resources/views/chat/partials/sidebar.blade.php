@@ -23,7 +23,7 @@
             <div class="user-avatar-large">
                 <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->username }}">
             </div>
-            <span class="username-text">{{ auth()->user()->username }}</span>
+            <span class="username-text" style="display:inline-flex;align-items:center;gap:.2em;">{{ auth()->user()->username }}<x-verified-badge :user="auth()->user()" size=".85em" /></span>
         </div>
         <div class="header-actions">
             <a href="{{ route('groups.create') }}" class="icon-btn" title="{{ __('chat.new_group') }}">
@@ -175,9 +175,8 @@
                     @endif
                     @if(!$isGroup && $conv->other_user)
                         @php
-                            // Strict check: Only show as online if the is_online flag is true.
-                            // This flag is managed in real-time by the socket server.
-                            $isOnline = (bool) $conv->other_user->is_online;
+                            $otherShowsOnline = $conv->other_user->profile?->show_online_status ?? true;
+                            $isOnline = (bool) $conv->other_user->is_online && $otherShowsOnline;
                         @endphp
                         <span class="online-indicator {{ $isOnline ? 'online' : 'offline' }}" data-user-id="{{ $conv->other_user->id }}"></span>
                     @endif
@@ -185,8 +184,8 @@
                 <div class="conv-content">
                     <div class="conv-header">
                         <div class="conv-title-container">
-                            <span class="conv-title" dir="auto">
-                                {{ $displayName }}
+                            <span class="conv-title" dir="auto" style="display:inline-flex;align-items:center;gap:.2em;">
+                                {{ $displayName }}@if(!$isGroup && $conv->other_user)<x-verified-badge :user="$conv->other_user" size=".8em" />@endif
                             </span>
                             @if($conv->other_user)
                                 {{-- Typing indicator moved to preview area --}}
@@ -902,20 +901,21 @@
         item.setAttribute('data-name', displayName);
         item.setAttribute('data-latest-message-id', data.id || data.message_id || '');
         
+        const safeDisplayName = escapeHtml(displayName);
         item.innerHTML = `
             <div class="conv-avatar">
-                ${avatarUrl 
-                    ? `<img src="${avatarUrl}" alt="${displayName}" loading="lazy" width="48" height="48">`
-                    : (isGroup 
+                ${avatarUrl
+                    ? `<img src="${avatarUrl}" alt="${safeDisplayName}" loading="lazy" width="48" height="48">`
+                    : (isGroup
                         ? `<div class="avatar-fallback group"><i class="fas fa-users"></i></div>`
-                        : `<div class="avatar-fallback">${displayName.charAt(0).toUpperCase()}</div>`)
+                        : `<div class="avatar-fallback">${safeDisplayName.charAt(0).toUpperCase()}</div>`)
                 }
                 ${!isGroup ? `<span class="online-indicator ${initialStatus}" data-user-id="${otherUserId}"></span>` : ''}
             </div>
             <div class="conv-content">
                 <div class="conv-header">
                     <div class="conv-title-container">
-                        <span class="conv-title" dir="auto">${displayName}</span>
+                        <span class="conv-title" dir="auto" style="display:inline-flex;align-items:center;gap:.15em;">${safeDisplayName}${(!isGroup && data.sender && data.sender.is_verified) ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}</span>
                     </div>
                     <div class="conv-header-meta">
                         <span class="conv-time">${timeStr}</span>
@@ -1020,18 +1020,19 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        resultsDiv.innerHTML = data.users.map(u => `
-                            <div class="result-user" onclick="startChat(${u.id})">
+                        resultsDiv.innerHTML = data.users.map(u => {
+                            const vb = u.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+                            return `<div class="result-user" onclick="startChat(${u.id})">
                                 <div class="conv-avatar">
                                     <img src="${escapeHtml(u.avatar_url)}">
                                     <span class="online-indicator ${u.is_online ? 'online' : 'offline'}" data-user-id="${u.id}"></span>
                                 </div>
                                 <div class="result-user-info">
-                                    <div class="result-user-name" dir="auto">${escapeHtml(u.username)}</div>
+                                    <div class="result-user-name" dir="auto" style="display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(u.username)}${vb}</div>
                                     ${u.name && u.name !== u.username ? `<div class="result-user-fullname" dir="auto">${escapeHtml(u.name)}</div>` : ''}
                                 </div>
-                            </div>
-                        `).join('');
+                            </div>`;
+                        }).join('');
                     }
                 });
             });

@@ -225,6 +225,10 @@ return [
     'post_already_deleted_message' => 'تم حذف هذا المنشور. يمكنك وضع علامة كمتمت مراجعة لإغلاق البلاغ.',
     'mark_as_reviewed' => 'وضع كمتمت مراجعة',
 
+    // Verified Badge
+    'user_verified' => 'تم توثيق :username.',
+    'user_unverified' => 'تم إلغاء توثيق :username.',
+
     // Report Reasons
     'reasons' => [
         'spam' => 'محتوى غير مرغوب فيه (Spam)',

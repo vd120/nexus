@@ -358,6 +358,8 @@
         const senderUsername = data.sender ? data.sender.username : (data.username || 'user');
         const senderAvatar = data.sender ? data.sender.avatar_url : (data.avatar_url || '');
 
+        const isVerified = data.sender && data.sender.is_verified;
+        const verifiedBadgeHtml = isVerified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
         const isOwn = String(senderId) === String(window.SOCKET_CONFIG.userId);
         const hasReactions = data.reactions && Array.from(data.reactions).length > 0;
         const div = document.createElement('div');
@@ -415,11 +417,11 @@
 
         div.innerHTML = `
             <div class="message-avatar">
-                <img src="${senderAvatar}" alt="${senderUsername}">
+                <a href="/users/${senderUsername}" style="display:flex;flex-shrink:0;"><img src="${senderAvatar}" alt="${senderUsername}" style="pointer-events:none;"></a>
             </div>
             <div class="message-content">
                 <div class="message-info">
-                    <span class="user-tag">${senderUsername}</span>
+                    <a href="/users/${senderUsername}" class="user-tag" style="text-decoration:none;display:inline-flex;align-items:center;gap:.15em;">${senderUsername}${verifiedBadgeHtml}</a>
                 </div>
 
                 <div class="bubble-container">
@@ -733,7 +735,7 @@
         if (!confirm('Are you sure you want to CLEAR the entire global chat? This cannot be undone.')) return;
         
         try {
-            const response = await fetch('/global-chat/admin-clear-all', {
+            const response = await fetch('/admin/global-chat/clear-all', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -825,7 +827,7 @@
             return;
         }
 
-        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #8696a0;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+        list.innerHTML = Array.from({length: 4}, () => '<div style="display:flex;gap:12px;padding:10px 14px;align-items:center;"><div class="sk" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px;"><div class="sk sk-line" style="width:55%;"></div><div class="sk sk-line" style="width:35%;"></div></div></div>').join('');
         modal.style.display = 'flex';
 
         fetch(`/global-chat/message/${messageId}/reactions`)
@@ -843,17 +845,18 @@
                     const avatar = user.avatar_url || '/images/default-avatar.svg';
                     const emoji = group.reaction_type;
                     
+                    const gcBadge = user.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
                     html += `
-                        <div class="global-reactor-item" onclick="window.location.href='/users/${user.username}'" style="cursor: pointer;">
+                        <a href="/users/${user.username}" class="global-reactor-item" style="cursor: pointer; text-decoration: none; color: inherit; display: flex; align-items: center;">
                             <div class="global-reactor-avatar">
                                 <img src="${avatar}" alt="${user.username}" onerror="this.src='/images/default-avatar.svg'">
                             </div>
                             <div class="global-reactor-info">
-                                <div class="global-reactor-name">${user.name} ${isMe ? '(You)' : ''}</div>
-                                <div class="global-reactor-username">${user.username}</div>
+                                <div class="global-reactor-name" style="display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(user.name)}${gcBadge} ${isMe ? '(You)' : ''}</div>
+                                <div class="global-reactor-username">${escapeHtml(user.username)}</div>
                             </div>
                             <div class="global-reactor-emoji">${emoji}</div>
-                        </div>
+                        </a>
                     `;
                 });
             });

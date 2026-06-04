@@ -4,80 +4,81 @@
     @vite('resources/css/communities.css')
 @endpush
 
+@section('content_class', 'wide-content')
+@section('main_class', 'full-width')
 @section('title', __('messages.discover_communities_title'))
 
 @section('content')
 <div class="discover-page">
-    {{-- Header --}}
-    <div class="discover-header">
-        <div class="text" style="display: flex; align-items: flex-start; gap: 12px;">
-            <a href="javascript:history.back()" class="btn back-btn" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0; min-width: 44px; margin-top: 5px;">
+
+    {{-- Sticky top bar --}}
+    <div class="comm-topbar">
+        <div class="comm-topbar-left">
+            <a href="javascript:history.back()" class="comm-back-btn" aria-label="Back">
                 <i class="fas fa-arrow-left"></i>
             </a>
-            <div>
-                <h1 class="page-title">{{ __('messages.communities_header') }}</h1>
-                <p class="page-subtitle">{{ __('messages.communities_subtitle') }}</p>
-            </div>
+            <h1 class="comm-page-title">{{ __('messages.communities_header') }}</h1>
         </div>
-        <button class="btn approve create-btn" onclick="openCreateGroupModal()">
-            <i class="fas fa-plus"></i> {{ __('messages.create_new') }}
+        <div class="comm-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="community-search" placeholder="{{ __('messages.search_communities') }}" autocomplete="off">
+        </div>
+        <button class="comm-create-btn" onclick="openCreateGroupModal()">
+            <i class="fas fa-plus"></i>
+            <span>{{ __('messages.create_new') }}</span>
         </button>
     </div>
 
-    {{-- My Communities (Horizontal Scroll) --}}
+    {{-- Your Communities --}}
     @if($myGroups->count() > 0)
-    <section class="section">
-        <h2 class="section-title">{{ __('messages.your_communities') }}</h2>
-        <div class="horizontal-scroll-container">
-            <div class="horizontal-scroll">
-                @foreach($myGroups as $group)
-                    <a href="{{ route('communities.show', $group->slug) }}" class="mini-card">
-                        <div class="mini-content-alt">
-                            <img src="{{ $group->avatar_url }}" alt="" class="mini-avatar-alt">
-                            <div class="mini-info">
-                                <strong>{{ $group->name }}</strong>
-                                <span data-mini-members-count="{{ $group->slug }}">{{ number_format($group->members_count) }} {{ __('messages.members_label') }}</span>
-                            </div>
-                        </div>
-                    </a>
-                @endforeach
-            </div>
+    <section class="comm-section">
+        <p class="comm-section-label">{{ __('messages.your_communities') }}</p>
+        <div class="comm-mine-scroll">
+            @foreach($myGroups as $group)
+                <a href="{{ route('communities.show', $group->slug) }}" class="comm-mine-pill">
+                    <img src="{{ $group->avatar_url }}" alt="" class="comm-mine-avatar">
+                    <span>{{ $group->name }}</span>
+                    <span class="comm-mine-count" data-mini-members-count="{{ $group->slug }}">{{ number_format($group->members_count) }}</span>
+                </a>
+            @endforeach
         </div>
     </section>
     @endif
 
-    {{-- Discovery Grid --}}
-    <section class="section">
-        <div class="discovery-header">
-            <h2 class="section-title">{{ __('messages.discover') }}</h2>
-            <div class="search-wrap">
-                <i class="fas fa-search"></i>
-                <input type="text" id="community-search" placeholder="{{ __('messages.search_communities') }}">
-            </div>
-        </div>
-        
-        <div class="discovery-grid" id="groups-grid">
+    {{-- Discover list --}}
+    <section class="comm-section">
+        <p class="comm-section-label">{{ __('messages.discover') }}</p>
+        <div class="comm-list" id="groups-grid">
             @forelse($groups as $group)
-                <a href="{{ route('communities.show', $group->slug) }}" class="discovery-card">
-                    <div class="card-body-alt">
-                        <img src="{{ $group->avatar_url }}" alt="" class="card-avatar-alt">
-                        <div class="card-text">
-                            <h3>{{ $group->name }}</h3>
-                            <p>{{ Str::limit($group->description, 80) }}</p>
-                        </div>
-                        <div class="card-footer">
-                            <span class="member-tag" data-discovery-members-count="{{ $group->slug }}"><i class="fas fa-users"></i> {{ number_format($group->members_count) }}</span>
-                            @if(in_array($group->id, $joinedIds))
-                                <span class="joined-badge"><i class="fas fa-check-circle"></i> {{ __('messages.joined') }}</span>
+                <a href="{{ route('communities.show', $group->slug) }}" class="comm-row">
+                    <img src="{{ $group->avatar_url }}" alt="" class="comm-row-avatar">
+                    <div class="comm-row-body">
+                        <span class="comm-row-name">{{ $group->name }}</span>
+                        <span class="comm-row-desc">{{ Str::limit($group->description, 70) }}</span>
+                    </div>
+                    <div class="comm-row-meta">
+                        <span class="comm-row-count" data-discovery-members-count="{{ $group->slug }}">
+                            <i class="fas fa-users"></i> {{ number_format($group->members_count) }}
+                        </span>
+                        <span class="comm-row-privacy">
+                            @if($group->privacy_level === 'private')
+                                <i class="fas fa-lock"></i>
                             @else
-                                <span class="join-hint">{{ __('messages.enter') }} <i class="fas fa-arrow-right"></i></span>
+                                <i class="fas fa-globe"></i>
                             @endif
-                        </div>
+                        </span>
+                    </div>
+                    <div class="comm-row-action">
+                        @if(in_array($group->id, $joinedIds))
+                            <span class="comm-badge-joined"><i class="fas fa-check"></i> {{ __('messages.joined') }}</span>
+                        @else
+                            <span class="comm-btn-join">{{ __('messages.enter') }} <i class="fas fa-arrow-right"></i></span>
+                        @endif
                     </div>
                 </a>
             @empty
-                <div class="empty-state-card">
-                    <div class="empty-icon"><i class="fas fa-search"></i></div>
+                <div class="comm-empty">
+                    <i class="fas fa-search"></i>
                     <h3>{{ __('messages.no_communities_found') }}</h3>
                     <p>{{ __('messages.no_communities_desc') }}</p>
                 </div>
@@ -85,9 +86,10 @@
         </div>
     </section>
 
-    <div class="pagination">
+    <div class="pagination" style="padding: 0 24px 40px; max-width: 1100px; margin: 0 auto;">
         {{ $groups->links() }}
     </div>
+
 </div>
 
 {{-- Create Modal --}}
@@ -156,28 +158,23 @@
     </div>
 </div>
 
-
 <script>
     function openCreateGroupModal() {
         document.getElementById('createGroupModal').style.display = 'flex';
     }
 
-    function closeCreateGroupModal() {
-        document.getElementById('createGroupModal').style.display = 'none';
+    function closeCreateGroupModal(e) {
+        if (!e || e.target === document.getElementById('createGroupModal')) {
+            document.getElementById('createGroupModal').style.display = 'none';
+        }
     }
 
     document.getElementById('community-search')?.addEventListener('input', function(e) {
         const query = e.target.value.toLowerCase();
-        const cards = document.querySelectorAll('.discovery-card');
-        
-        cards.forEach(card => {
-            const name = card.querySelector('h3').textContent.toLowerCase();
-            const desc = card.querySelector('p').textContent.toLowerCase();
-            if (name.includes(query) || desc.includes(query)) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
-            }
+        document.querySelectorAll('.comm-row').forEach(row => {
+            const name = row.querySelector('.comm-row-name')?.textContent.toLowerCase() || '';
+            const desc = row.querySelector('.comm-row-desc')?.textContent.toLowerCase() || '';
+            row.style.display = (name.includes(query) || desc.includes(query)) ? 'flex' : 'none';
         });
     });
 </script>

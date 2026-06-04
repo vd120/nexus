@@ -57,10 +57,10 @@
                         </span>
                     </div>
                 @else
-                    <img src="{{ $post->user->avatar_url }}" alt="" class="author-avatar" loading="lazy" decoding="async">
+                    <a href="{{ route('users.show', $post->user) }}" class="author-avatar-link" style="flex-shrink:0;display:flex;"><img src="{{ $post->user->avatar_url }}" alt="" class="author-avatar" loading="lazy" decoding="async" style="pointer-events:none;"></a>
                     <div class="author-info">
                         <div class="author-top-row">
-                            <a href="{{ route('users.show', $post->user) }}" class="author-name" id="post-author-{{ $post->id }}">{{ $post->user->name ?: $post->user->username }}</a>
+                            <a href="{{ route('users.show', $post->user) }}" class="author-name" id="post-author-{{ $post->id }}" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->name ?: $post->user->username }}<x-verified-badge :user="$post->user" size=".95em" /></a>
                             <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" title="{{ __('users.pinned_to_profile') }}" aria-label="{{ __('users.pinned_to_profile') }}" style="{{ $isPinnedPost ? '' : 'display: none;' }}"></i>
                             @php
                                 $isBroadcast = isset($is_broadcast) && $is_broadcast;
@@ -109,6 +109,11 @@
                         <button type="button" role="menuitem" id="unpin-menu-item-{{ $post->id }}" class="menu-item menu-item-unpin {{ $isBroadcast ? 'context-owner' : '' }}" onclick="unpinPost(event, {{ $post->id }})" style="{{ ($isBroadcast || $post->isPinned()) ? '' : 'display: none;' }}">
                             <i class="fas fa-thumbtack" aria-hidden="true"></i> {{ __('users.unpin_post') }}
                         </button>
+                        @if($isOwner && !$isBroadcast)
+                        <button type="button" role="menuitem" class="menu-item" onclick="window.location.href='{{ route('posts.analytics', $post) }}'">
+                            <i class="fas fa-chart-bar" aria-hidden="true"></i> {{ __('posts.post_analytics') }}
+                        </button>
+                        @endif
                         <button type="button" role="menuitem" class="menu-item {{ $isBroadcast ? 'context-owner' : '' }}" onclick="deletePost('{{ $post->slug }}', this)" @if($isBroadcast) style="display: none;" @endif>
                             <i class="fas fa-trash" aria-hidden="true"></i> {{ __('messages.delete_post') }}
                         </button>
@@ -144,6 +149,30 @@
         </header>
     @endif
 
+    @php
+        $viewerAutoReveal = auth()->check() && (auth()->user()->profile->show_sensitive_content ?? false);
+        $isSensitive = $post->is_sensitive && !$viewerAutoReveal;
+    @endphp
+
+    @if($isSensitive)
+    <div class="sensitive-wrapper" id="sensitive-{{ $post->id }}">
+        <div class="sensitive-overlay" id="overlay-{{ $post->id }}"
+             onclick="revealSensitive('{{ $post->id }}')"
+             role="button" tabindex="0" aria-label="{{ __('posts.sensitive_content') }}"
+             onkeydown="if(event.key==='Enter'||event.key===' ')revealSensitive('{{ $post->id }}')">
+            <div class="sensitive-card">
+                <div class="sensitive-card-icon"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></div>
+                <p class="sensitive-card-title">{{ __('posts.sensitive_content') }}</p>
+                <p class="sensitive-card-desc">{{ __('posts.sensitive_content_desc') }}</p>
+                <button type="button" class="sensitive-card-btn" tabindex="-1">
+                    <i class="far fa-eye" aria-hidden="true"></i>
+                    {{ __('messages.show_content') }}
+                </button>
+            </div>
+        </div>
+        <script>if(sessionStorage.getItem('revealed_post_{{ $post->id }}'))document.getElementById('overlay-{{ $post->id }}').remove();</script>
+    @endif
+
     @if($post->content)
         <div class="post-content">
             @php
@@ -169,6 +198,10 @@
                 </button>
             @endif
         </div>
+    @endif
+
+    @if($post->poll)
+        @include('partials.poll', ['poll' => $post->poll->load('options'), 'post' => $post])
     @endif
 
     @if($post->media && $post->media->count() > 0)
@@ -238,7 +271,28 @@
                             </span>
                         @endforeach
                     </span>
-                    <span class="reaction-total-count">{{ $totalReactions }}</span>
+                    @php
+                        $reactors = $post->reactions->pluck('user')->filter()->unique('id')->values();
+                        $me = auth()->check() && $reactors->firstWhere('id', auth()->id()) ? true : false;
+                        $others = $reactors->where('id', '!=', auth()->id())->values();
+                    @endphp
+                    <span class="reaction-total-count" data-total="{{ $totalReactions }}">
+                        @if($me && $others->isEmpty())
+                            {{ __('messages.you') }}
+                        @elseif(!$me && $others->count() === 1)
+                            {{ $others[0]->username }}
+                        @elseif($me && $others->count() === 1)
+                            {{ __('messages.you') }}, {{ $others[0]->username }}
+                        @elseif(!$me && $others->count() === 2)
+                            {{ $others[0]->username }} {{ __('messages.and') }} {{ $others[1]->username }}
+                        @elseif($me && $others->count() === 2)
+                            {{ __('messages.you') }}, {{ $others[0]->username }} {{ __('messages.and') }} {{ $others[1]->username }}
+                        @elseif(!$me)
+                            {{ $others[0]->username }}, {{ $others[1]->username }} {{ __('messages.and') }} {{ $others->count() - 2 }} {{ __('messages.others') }}
+                        @else
+                            {{ __('messages.you') }}, {{ $others[0]->username }} {{ __('messages.and') }} {{ $others->count() - 2 }} {{ __('messages.others') }}
+                        @endif
+                    </span>
                 </button>
             @endif
             @if($totalComments > 0)
@@ -247,6 +301,10 @@
                 </span>
             @endif
         </div>
+    @endif
+
+    @if($isSensitive)
+    </div>{{-- /sensitive-wrapper --}}
     @endif
 
     <div class="post-actions">
@@ -259,6 +317,7 @@
                             onclick="togglePostReaction(this, '{{ $post->slug }}')"
                             title="{{ $userReaction ? \App\Models\Post::getReactionLabels()[$userReaction->reaction_type] : __('messages.react') }}"
                             aria-label="{{ $userReaction ? \App\Models\Post::getReactionLabels()[$userReaction->reaction_type] : __('messages.react') }}"
+                            aria-pressed="{{ $userReaction ? 'true' : 'false' }}"
                             aria-haspopup="menu">
                         @if($userReaction)
                             @php $userReactionImg = \App\Models\Post::REACTION_IMAGES[$userReaction->reaction_type] ?? null; @endphp
@@ -325,6 +384,12 @@
             </button>
         @endif
     </div>
+
+    @if(auth()->check() && auth()->id() === $post->user_id)
+        <div class="post-stats" style="padding:.375rem 1rem; font-size:.78rem; opacity:.5; display:flex; gap:1rem;">
+            <a href="{{ route('posts.analytics', $post) }}" style="color:inherit; text-decoration:none;"><i class="fas fa-eye" aria-hidden="true"></i> {{ number_format($post->views_count) }} {{ $post->views_count === 1 ? 'view' : 'views' }}</a>
+        </div>
+    @endif
 
     <div class="post-comments-section">
         <div class="comments-list" data-comments-list>

@@ -103,9 +103,9 @@ Route::middleware('guest')->group(function () {
 
     // Password Reset Routes
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email')->middleware('throttle:auth');
     Route::get('reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
-    Route::post('reset-password', [ResetPasswordController::class, 'store'])->name('password.update');
+    Route::post('reset-password', [ResetPasswordController::class, 'store'])->name('password.update')->middleware('throttle:auth');
 });
 
 // Login Challenge Routes (Publicly accessible to allow session overrides)
@@ -120,6 +120,36 @@ Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleC
 
 
 
+// Onboarding
+Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
+    Route::get('/welcome', [App\Http\Controllers\OnboardingController::class, 'welcome'])->name('onboarding.welcome');
+    Route::post('/welcome/complete', [App\Http\Controllers\OnboardingController::class, 'complete'])->name('onboarding.complete');
+});
+
+// 2FA challenge (authenticated but not yet 2FA-confirmed)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/2fa/challenge', [App\Http\Controllers\TwoFactorController::class, 'showChallenge'])->name('2fa.challenge');
+    Route::post('/2fa/challenge', [App\Http\Controllers\TwoFactorController::class, 'challenge'])->name('2fa.challenge.post')->middleware('throttle:auth');
+});
+
+// 2FA management (fully authenticated)
+Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
+    Route::get('/settings/2fa/setup', [App\Http\Controllers\TwoFactorController::class, 'setup'])->name('2fa.setup');
+    Route::post('/settings/2fa/confirm', [App\Http\Controllers\TwoFactorController::class, 'confirm'])->name('2fa.confirm');
+    Route::post('/settings/2fa/disable', [App\Http\Controllers\TwoFactorController::class, 'disable'])->name('2fa.disable');
+    Route::post('/settings/2fa/nudge-dismiss', fn() => session(['2fa_nudge_dismissed' => true]))->name('2fa.nudge.dismiss');
+    Route::post('/settings/prompt-nudge/dismiss', function (\Illuminate\Http\Request $request) {
+        $type = $request->input('type', 'both');
+        if ($type === 'pulse' || $type === 'both') {
+            session(['pulse_nudge_dismissed' => now()->format('Y-m-d')]);
+        }
+        if ($type === 'memory' || $type === 'both') {
+            session(['memory_nudge_dismissed' => now()->format('Y-W')]);
+        }
+        return response()->noContent();
+    })->name('prompt.nudge.dismiss');
+});
+
 Route::middleware(['auth', 'suspended'])->group(function () {
     Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -127,6 +157,9 @@ Route::middleware(['auth', 'suspended'])->group(function () {
     Route::post('login/challenge/{uuid}/approve', [LoginController::class, 'approveChallenge'])->name('login.challenge.approve');
     Route::post('login/challenge/{uuid}/deny', [LoginController::class, 'denyChallenge'])->name('login.challenge.deny');
 });
+
+// Data export download (signed URL, no auth required)
+Route::get('/export/download/{token}', [App\Http\Controllers\DataExportController::class, 'download'])->name('export.download');
 
 // Email verification routes (6-digit code system)
 
@@ -279,10 +312,6 @@ Route::get('/', function () {
     return app(\App\Http\Controllers\PostController::class)->index(request());
 })->name('home');
 
-// Test route for debugging
-Route::get('/user/test-route', function() {
-    return response()->json(['status' => 'ok', 'message' => 'Route works']);
-});
 
 Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
     Route::get('/posts/load-more', [PostController::class, 'loadMore'])->name('posts.load-more');
@@ -296,6 +325,10 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::delete('/posts/{post}/react', [PostController::class, 'removeReaction'])->name('posts.remove-reaction')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
     Route::get('/posts/{post}/reactions', [PostController::class, 'getReactions'])->name('posts.reactions')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/posts/{post}/save', [PostController::class, 'save'])->name('posts.save')->where('post', '[a-zA-Z0-9]{24}')->middleware('throttle:posts');
+    Route::post('/posts/{post}/poll/vote', [App\Http\Controllers\PollController::class, 'vote'])->name('posts.poll.vote')->where('post', '[a-zA-Z0-9]{24}');
+    Route::get('/posts/{post}/analytics', [PostController::class, 'analytics'])->name('posts.analytics')->where('post', '[a-zA-Z0-9]{24}');
+    Route::post('/api/link-preview', [App\Http\Controllers\LinkPreviewController::class, 'fetch'])->name('link-preview')->middleware('throttle:60,1');
+    Route::post('/settings/export-data', [App\Http\Controllers\DataExportController::class, 'request'])->name('export.request')->middleware('throttle:3,60');
     Route::get('/posts/{post}/likers', [PostController::class, 'getLikers'])->name('posts.likers')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/comments', [CommentController::class, 'store'])->name('comments.store')->middleware('throttle:comments');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
@@ -405,7 +438,6 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::post('/global-chat/react/{message}', [GlobalChatController::class, 'react'])->name('global-chat.react');
     Route::get('/global-chat/message/{message}/reactions', [GlobalChatController::class, 'getReactions'])->name('global-chat.message.reactions');
     Route::delete('/global-chat/message/{message}', [GlobalChatController::class, 'destroy'])->name('global-chat.message.destroy');
-    Route::post('/global-chat/admin-clear-all', [GlobalChatController::class, 'clear'])->name('global-chat.clear');
 
     Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
     Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
@@ -517,6 +549,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
 
     // Admin routes (protected by admin middleware)
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::post('/global-chat/clear-all', [GlobalChatController::class, 'clear'])->name('global-chat.clear');
         Route::get('/', [App\Http\Controllers\AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/users', [App\Http\Controllers\AdminController::class, 'users'])->name('users');
         Route::get('/users/{user}', [App\Http\Controllers\AdminController::class, 'showUser'])->name('users.show');
@@ -530,7 +563,15 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         Route::get('/stories', [App\Http\Controllers\AdminController::class, 'stories'])->name('stories');
         Route::delete('/stories/{story}', [App\Http\Controllers\AdminController::class, 'deleteStory'])->name('stories.delete');
         Route::post('/create-admin', [App\Http\Controllers\AdminController::class, 'createAdminAccount'])->name('create-admin');
-        
+
+        // Feature flags
+        Route::get('/feature-flags', [App\Http\Controllers\Admin\FeatureFlagController::class, 'index'])->name('feature-flags.index');
+        Route::post('/feature-flags/{name}/toggle', [App\Http\Controllers\Admin\FeatureFlagController::class, 'toggle'])->name('feature-flags.toggle');
+
+        // User verification badge
+        Route::post('/users/{user}/verify', [App\Http\Controllers\AdminController::class, 'verifyUser'])->name('users.verify');
+        Route::post('/users/{user}/unverify', [App\Http\Controllers\AdminController::class, 'unverifyUser'])->name('users.unverify');
+
         // Report management routes
         Route::get('/reports', [App\Http\Controllers\ReportController::class, 'index'])->name('reports');
         Route::get('/reports/{report}', [App\Http\Controllers\ReportController::class, 'show'])->name('reports.show');

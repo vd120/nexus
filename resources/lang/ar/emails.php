@@ -64,4 +64,43 @@ return [
     'security_tip_enable_2fa' => 'فعّل المصادقة الثنائية لمزيد من الأمان',
     'security_tip_review_sessions' => 'راجع جلساتك النشطة وسجّل الخروج من الأجهزة غير المعروفة',
     'security_tip_never_share_password' => 'مشاركش كلمة المرور بتاعتك مع أي حد أبداً',
+
+    // Verification Code Email
+    'verification_code_subject'          => ':app — كود التحقق',
+    'verification_code_security_subject' => ':app — كود التحقق الأمني',
+    'verification_code_login_subject'    => ':app — كود تأمين الدخول',
+    'verification_code_welcome'          => 'أهلاً بيك في :app!',
+    'verification_code_prompt'           => 'كود التحقق بتاعك هو:',
+    'verification_code_notice'           => 'اكتب الكود ده في صفحة التحقق عشان تأكد حسابك.',
+    'verification_code_expire'           => 'الكود ده هينتهي خلال 10 دقايق.',
+    'all_rights_reserved'                => 'جميع الحقوق محفوظة.',
+
+    // Password Reset Email
+    'password_reset_subject'  => ':app — طلب إعادة تعيين كلمة السر',
+    'password_reset_title'    => 'إعادة تعيين كلمة السر',
+    'password_reset_greeting' => 'أهلاً!',
+    'password_reset_body'     => 'وصلنا طلب إعادة تعيين كلمة السر لحسابك.',
+    'password_reset_button'   => 'إعادة تعيين كلمة السر',
+    'password_reset_expire'   => 'الرابط ده هينتهي خلال 60 دقيقة.',
+    'password_reset_ignore'   => 'لو أنت ما طلبتش إعادة التعيين، تقدر تتجاهل الإيميل ده.',
+
+    // Login Security Alert Email
+    'security_alert_subject'  => ':app — دخول مشبوه',
+    'security_alert_title'    => 'تنبيه أمني: دخول مشبوه',
+    'security_alert_greeting' => 'أهلاً :name،',
+    'security_alert_body'     => 'اكتشفنا محاولة دخول مشبوهة على حسابك. لأسباب أمنية، حجبنا الوصول مؤقتاً لحين التحقق.',
+    'security_alert_device'   => 'الجهاز',
+    'security_alert_browser'  => 'المتصفح',
+    'security_alert_ip'       => 'عنوان IP',
+    'security_alert_location' => 'الموقع',
+    'security_alert_time'     => 'الوقت',
+    'security_alert_footer'   => 'لو ده أنت، أكمل التحقق في صفحة الدخول. لو ما حاولتش تدخل، غيّر كلمة السر فوراً.',
+
+    // Data Export Email
+    'data_export_subject' => ':app — بياناتك جاهزة للتحميل',
+    'data_export_title' => 'بياناتك جاهزة للتحميل',
+    'data_export_greeting' => 'أهلاً :name،',
+    'data_export_body' => 'تصدير بياناتك من :app جاهز للتحميل. الرابط هينتهي في :expires.',
+    'data_export_button' => 'تحميل بياناتي',
+    'data_export_footer' => 'لو أنت ما طلبتش التصدير ده، تقدر تتجاهل الإيميل ده. الرابط بينتهي تلقائياً بعد 48 ساعة.',
 ];

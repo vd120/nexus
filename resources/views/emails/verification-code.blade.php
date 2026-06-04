@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verification Code</title>
+    <title>{{ __('emails.verification_code_prompt') }}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -48,20 +48,20 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>Welcome to {{ config('app.name') }}!</h2>
+            <h2>{{ __('emails.verification_code_welcome', ['app' => config('app.name')]) }}</h2>
         </div>
-        
-        <p>Your verification code is:</p>
-        
+
+        <p>{{ __('emails.verification_code_prompt') }}</p>
+
         <div class="code-box">
             {{ $verificationCode }}
         </div>
-        
-        <p>Please enter this code on the verification page to confirm your account.</p>
-        <p>This code will expire in 10 minutes.</p>
-        
+
+        <p>{{ __('emails.verification_code_notice') }}</p>
+        <p>{{ __('emails.verification_code_expire') }}</p>
+
         <div class="footer">
-            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. {{ __('emails.all_rights_reserved') }}</p>
         </div>
     </div>
 </body>

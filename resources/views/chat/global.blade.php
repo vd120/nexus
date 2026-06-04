@@ -217,11 +217,11 @@
                 @endphp
                 <div class="message-item {{ $msg->user_id === auth()->id() ? 'own' : '' }} {{ $msg->reactions->count() > 0 ? 'has-reactions' : '' }}" data-id="{{ $msg->id }}" data-my-reaction="{{ $myReaction }}">
                     <div class="message-avatar">
-                        <img src="{{ $msg->user->avatar_url }}" alt="{{ $msg->user->username }}">
+                        <a href="/users/{{ $msg->user->username }}" style="display:flex;flex-shrink:0;"><img src="{{ $msg->user->avatar_url }}" alt="{{ $msg->user->username }}" style="pointer-events:none;"></a>
                     </div>
                     <div class="message-content">
                         <div class="message-info">
-                            <span class="user-tag">{{ $msg->user->username }}</span>
+                            <a href="/users/{{ $msg->user->username }}" class="user-tag" style="text-decoration:none;display:inline-flex;align-items:center;gap:.15em;">{{ $msg->user->username }}<x-verified-badge :user="$msg->user" size=".8em" /></a>
                         </div>
                         <div class="bubble-container">
                             <div class="bubble-wrapper">

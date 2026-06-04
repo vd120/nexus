@@ -446,11 +446,28 @@
         }
 
         window.showLikers = function(slug) {
+            // Show modal immediately with skeleton
+            const existingModal = document.getElementById('likers-modal');
+            if (existingModal) existingModal.remove();
+            const modal = document.createElement('div');
+            modal.id = 'likers-modal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+            const content = document.createElement('div');
+            content.style.cssText = 'background:var(--surface,#161616);border:1px solid var(--border,#2a2a2a);border-radius:16px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;padding:20px;';
+            content.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border,#2a2a2a);"><h3 style="margin:0;font-size:18px;font-weight:700;">' + (window.chatTranslations?.likes || 'Likes') + '</h3><button onclick="document.getElementById(\'likers-modal\').remove()" style="background:none;border:none;color:var(--text-muted);font-size:24px;cursor:pointer;padding:0;line-height:1;">&times;</button></div>'
+                + Array.from({length: 4}, () => '<div style="display:flex;gap:12px;padding:10px 0;align-items:center;"><div class="sk" style="width:44px;height:44px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px;"><div class="sk sk-line" style="width:60%;"></div><div class="sk sk-line" style="width:35%;"></div></div></div>').join('');
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+
             fetch(`/posts/${slug}/likers`, {
                 headers: { 'Accept': 'application/json' }
             })
             .then(response => response.json())
             .then(data => {
+                const m = document.getElementById('likers-modal');
+                if (!m) return;
+                m.remove();
                 if (data.success && data.likers && data.likers.length > 0) {
                     showLikersModal(data.likers);
                 } else {
@@ -458,6 +475,8 @@
                 }
             })
             .catch(error => {
+                const m = document.getElementById('likers-modal');
+                if (m) m.remove();
                 console.error('Error:', error);
                 showToast(window.chatTranslations?.could_not_load_likers || 'Could not load likers', 'error');
             });
@@ -504,7 +523,7 @@
                     + '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;direction:ltr;text-align:left;">@' + escapeHtml(displayName) + '</div>'
                     + (liker.name ? '<div style="font-size:12px;color:var(--text-muted,rgba(255,255,255,0.55));">' + escapeHtml(liker.name) + '</div>' : '')
                     + '</div>'
-                    + (liker.is_verified ? '<i class="fas fa-check-circle" style="color:#22c55e;font-size:16px;flex-shrink:0;"></i>' : '');
+                    + (liker.is_verified ? verifiedBadgeSvg(liker.id, '1em') : '');
 
                 list.appendChild(item);
             });
@@ -798,11 +817,22 @@
             if (composerAvatar && composerAvatar.src) return composerAvatar.src;
             const socketAvatar = window.NexusSocket && window.NexusSocket.config && window.NexusSocket.config.userAvatarUrl;
             if (socketAvatar) return socketAvatar;
-            return '/assets/images/default-avatar.png';
+            return '/images/default-avatar.svg';
         }
         function postHasSocialGroup(postId) {
             const post = postId ? document.getElementById('post-' + postId) : null;
             return !!(post && post.dataset.socialGroupId);
+        }
+
+        function verifiedBadgeSvg(userId, size) {
+            size = size || '.85em';
+            return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"'
+                + ' width="' + size + '" height="' + size + '"'
+                + ' style="display:inline-block;vertical-align:middle;margin-left:.2em;flex-shrink:0;"'
+                + ' aria-label="Verified" role="img">'
+                + '<circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/>'
+                + '<path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+                + '</svg>';
         }
 
         window.renderCommentHtml = function(comment, level = 0, currentUserId = null) {
@@ -824,12 +854,14 @@
 
             const avatarHtml = isAnonymous
                 ? '<div class="comment-avatar-placeholder anonymous" aria-hidden="true"><i class="fas fa-user-secret"></i></div>'
-                : '<img src="' + escapeAttr(author.avatar_url || '/assets/images/default-avatar.png') + '" alt="" class="comment-avatar">';
+                : '<a href="/users/' + username + '" style="flex-shrink:0;display:flex;"><img src="' + escapeAttr(author.avatar_url || '/images/default-avatar.svg') + '" alt="" class="comment-avatar" style="pointer-events:none;" onerror="this.onerror=null;this.src=\'/images/default-avatar.svg\'"></a>';
 
+            const authorVerifiedBadge = (!isAnonymous && author.is_verified) ? verifiedBadgeSvg(author.id || comment.user_id) : '';
             const authorNameHtml = isAnonymous
                 ? '<span class="comment-name anonymous-name">' + (t.anonymous_participant || 'Anonymous Participant') + '</span>'
                 : '<div class="comment-name-row">'
                     + '<a href="/users/' + username + '" class="comment-name">' + displayName + '</a>'
+                    + authorVerifiedBadge
                     + (comment.role_badge_html || '')
                   + '</div>';
 
@@ -2035,7 +2067,7 @@
                     // Discard stale responses — a newer action has been issued.
                     if (card._reactionRequestSeq !== requestToken) return;
                     if (data && data.success) {
-                        updatePostReactionSummary(card, data.reaction_summaries, postSlug);
+                        updatePostReactionSummary(card, data.reaction_summaries, postSlug, data.reactors);
                     } else {
                         revertReactionBtn(button, snap);
                         applyOptimisticReactionDelta(card, '', snap.reaction);
@@ -2090,7 +2122,7 @@
             let currentCount = 0;
             if (summaryBar) {
                 const el = summaryBar.querySelector('.reaction-total-count');
-                if (el) currentCount = parseInt(el.textContent, 10) || 0;
+                if (el) currentCount = parseInt(el.dataset.total || el.textContent, 10) || 0;
             }
             const newCount = Math.max(0, currentCount + delta);
 
@@ -2410,7 +2442,7 @@
                 .then(function (data) {
                     if (card._reactionRequestSeq !== requestToken) return;
                     if (data && data.success) {
-                        updatePostReactionSummary(card, data.reaction_summaries, postSlug);
+                        updatePostReactionSummary(card, data.reaction_summaries, postSlug, data.reactors);
                     } else {
                         revertReactionBtn(reactionBtn, snap);
                         applyOptimisticReactionDelta(card, emoji, snap.reaction);
@@ -2425,7 +2457,7 @@
                 });
         };
 
-        window.updatePostReactionSummary = function(card, reactionSummaries, postSlug) {
+        window.updatePostReactionSummary = function(card, reactionSummaries, postSlug, reactors) {
             let summaryBar = card.querySelector('.reaction-summary-bar');
             let engagementBar = card.querySelector(':scope > .post-engagement-bar');
 
@@ -2566,15 +2598,43 @@
 
             // Update count only if different — avoids any visual blink
             const currentCount = parseInt(countSpan.textContent, 10) || 0;
-            if (currentCount !== totalCount) {
-                countSpan.textContent = totalCount;
+            if (reactors && reactors.length > 0) {
+                const labels = window.reactionLabels || { you: 'You', and: 'and', others: 'others' };
+                const me = reactors.some(function(r) { return Number(r.id) === Number(window.currentUserId); });
+                const others = reactors.filter(function(r) { return Number(r.id) !== Number(window.currentUserId); });
+                var text;
+                if (me && others.length === 0) {
+                    text = labels.you;
+                } else if (!me && others.length === 1) {
+                    text = others[0].username;
+                } else if (me && others.length === 1) {
+                    text = labels.you + ', ' + others[0].username;
+                } else if (!me && others.length === 2) {
+                    text = others[0].username + ' ' + labels.and + ' ' + others[1].username;
+                } else if (me && others.length === 2) {
+                    text = labels.you + ', ' + others[0].username + ' ' + labels.and + ' ' + others[1].username;
+                } else if (!me) {
+                    text = others[0].username + ', ' + others[1].username + ' ' + labels.and + ' ' + (others.length - 2) + ' ' + labels.others;
+                } else {
+                    text = labels.you + ', ' + others[0].username + ' ' + labels.and + ' ' + (others.length - 2) + ' ' + labels.others;
+                }
+                if (countSpan.textContent !== text) {
+                    countSpan.textContent = text;
+                    countSpan.dataset.total = totalCount;
+                }
+            } else {
+                const currentCount = parseInt(countSpan.dataset.total || countSpan.textContent, 10) || 0;
+                if (currentCount !== totalCount) {
+                    countSpan.textContent = totalCount;
+                    countSpan.dataset.total = totalCount;
+                }
             }
 
             // Reset reactors modal body to loading state immediately
             if (postSlug) {
                 const body = document.getElementById('post-reactors-modal-body-' + postSlug);
                 if (body) {
-                    body.innerHTML = '<div class="reactors-loading"><i class="fas fa-spinner fa-spin"></i></div>';
+                    body.innerHTML = Array.from({length: 4}, () => '<div style="display:flex;gap:12px;padding:10px 14px;align-items:center;"><div class="sk" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px;"><div class="sk sk-line" style="width:55%;"></div><div class="sk sk-line" style="width:35%;"></div></div></div>').join('');
                 }
             }
         };
@@ -2592,8 +2652,7 @@
 
             const body = document.getElementById('post-reactors-modal-body-' + postSlug);
             if (body) {
-                // Show loading state
-                body.innerHTML = '<div class="reactors-loading"><i class="fas fa-spinner fa-spin"></i></div>';
+                body.innerHTML = Array.from({length: 4}, () => '<div style="display:flex;gap:12px;padding:10px 14px;align-items:center;"><div class="sk" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px;"><div class="sk sk-line" style="width:55%;"></div><div class="sk sk-line" style="width:35%;"></div></div></div>').join('');
                 
                 try {
                     // Added timestamp to force database check every time
@@ -2698,8 +2757,8 @@
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'reactor-item';
                     
-                    const avatarHtml = reactor.avatar 
-                        ? '<img src="' + reactor.avatar + '" alt="" class="reactor-avatar">'
+                    const avatarHtml = reactor.avatar
+                        ? '<a href="/users/' + reactor.username + '" style="display:flex;flex-shrink:0;"><img src="' + reactor.avatar + '" alt="" class="reactor-avatar" style="pointer-events:none;"></a>'
                         : '<div class="reactor-avatar-placeholder">' + reactor.username.charAt(0).toUpperCase() + '</div>';
 
                     let reactionHtml = reactor.reaction_type;
@@ -2711,7 +2770,7 @@
                     itemDiv.innerHTML =
                         '<div class="reactor-user-info">' +
                             avatarHtml +
-                            '<a href="/users/' + reactor.username + '" class="reactor-name">@' + escapeHtml(reactor.username) + '</a>' +
+                            '<a href="/users/' + reactor.username + '" class="reactor-name" style="display:inline-flex;align-items:center;gap:.2em;">@' + escapeHtml(reactor.username) + (reactor.is_verified ? verifiedBadgeSvg(reactor.id) : '') + '</a>' +
                         '</div>' +
                         '<span class="reactor-emoji-badge">' + reactionHtml + '</span>';
                     listContainer.appendChild(itemDiv);

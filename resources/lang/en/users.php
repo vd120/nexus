@@ -161,4 +161,36 @@ return [
     'app_security_desc' => 'Enhance your privacy with biometric authentication.',
     'privacy_lock' => 'Privacy Lock',
     'privacy_lock_desc' => 'Require Fingerprint to open the app',
+
+    // Online Status & Read Receipts
+    'show_online_status' => 'Show online status',
+    'show_online_status_desc' => 'Let others see when you\'re online. When off, you\'ll always appear offline to others.',
+    'show_read_receipts' => 'Read receipts',
+    'show_read_receipts_desc' => 'Let others see when you\'ve read their messages. When off, "Seen" will never appear on your side.',
+
+    // Two-Factor Authentication (edit-profile card)
+    'two_factor_auth' => 'Two-Factor Authentication',
+    'two_factor_enabled' => '2FA is enabled',
+    'two_factor_enabled_desc' => 'Your account is protected with an authenticator app.',
+    'two_factor_not_enabled' => '2FA is not enabled',
+    'two_factor_not_enabled_desc' => 'Add an extra layer of security to your account.',
+    'enable_2fa' => 'Enable Two-Factor Authentication',
+    'disable_2fa' => 'Disable 2FA',
+    'two_factor_scan_desc' => 'Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code to confirm.',
+    'two_factor_cant_scan' => 'Can\'t scan? Enter key manually',
+    'two_factor_confirm' => 'Confirm',
+    'two_factor_save_codes_title' => 'Save your recovery codes',
+    'two_factor_save_codes_desc' => 'Store these codes somewhere safe. Each code can only be used once if you lose access to your authenticator app.',
+    'two_factor_done' => 'I\'ve saved my recovery codes — Done',
+    'disable_2fa_title' => 'Disable 2FA',
+    'disable_2fa_desc' => 'Enter your password to confirm disabling two-factor authentication.',
+    'disable' => 'Disable',
+    'your_password' => 'Your password',
+
+    // Data Export
+    'your_data' => 'Your Data',
+    'your_data_desc' => 'Download a copy of all your data — posts, comments, messages, followers, and profile information. You\'ll receive an email with a download link within 24 hours.',
+    'download_my_data' => 'Download my data',
+    'export_pending' => 'An export is already being prepared — you\'ll receive an email when it\'s ready.',
+    'export_queued' => 'Your data export has been queued. You\'ll receive an email within 24 hours with a download link.',
 ];

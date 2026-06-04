@@ -67,10 +67,10 @@
                 <img src="{{ $follower->follower->avatar_url }}" alt="{{ $follower->follower->username }}">
             </a>
             <div class="user-info">
-                <a href="{{ route('users.show', $follower->follower) }}">
-                    <div class="user-name">{{ $follower->follower->name }}</div>
+                <a href="{{ route('users.show', $follower->follower) }}" style="display:inline-flex;align-items:center;gap:.25em;">
+                    <div class="user-name">{{ $follower->follower->name }}</div><x-verified-badge :user="$follower->follower" size=".9em" />
                 </a>
-                <div class="user-meta"><span dir="ltr" style="display: inline-block;">@ {{ $follower->follower->username }}</span></div>
+                <div class="user-meta"><a href="{{ route('users.show', $follower->follower) }}" style="text-decoration:none;color:inherit;"><span dir="ltr" style="display: inline-block;">@ {{ $follower->follower->username }}</span></a></div>
             </div>
             <div class="user-actions">
                 @if(auth()->check() && auth()->id() !== $follower->follower->id)

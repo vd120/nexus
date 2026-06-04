@@ -2,13 +2,15 @@
 (function () {
     'use strict';
 
-    const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    function getCsrf() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    }
 
     function jsonHeaders() {
         return {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-CSRF-TOKEN': CSRF,
+            'X-CSRF-TOKEN': getCsrf(),
             'X-Requested-With': 'XMLHttpRequest',
         };
     }
@@ -48,20 +50,21 @@
         const err = $('#lcFormError', m);
         if (err) { err.hidden = true; err.textContent = ''; }
         if (mode === 'edit' && payload) {
-            title.textContent = title.dataset.editLabel || (window.lcStrings && window.lcStrings.edit) || title.textContent;
-            idF.value = payload.id || '';
-            emF.value = payload.emoji || '';
-            tF.value = payload.title || '';
-            sF.value = payload.starts_on || '';
-            eF.value = payload.ends_on || '';
-            dF.value = payload.description || '';
+            if (title) title.textContent = title.dataset.editLabel || title.textContent;
+            if (idF) idF.value = payload.id || '';
+            if (emF) emF.value = payload.emoji || '';
+            if (tF) tF.value = payload.title || '';
+            if (sF) sF.value = payload.starts_on || '';
+            if (eF) eF.value = payload.ends_on || '';
+            if (dF) dF.value = payload.description || '';
         } else {
-            idF.value = '';
-            emF.value = '';
-            tF.value = '';
-            sF.value = '';
-            eF.value = '';
-            dF.value = '';
+            if (title) title.textContent = title.dataset.addLabel || title.textContent;
+            if (idF) idF.value = '';
+            if (emF) emF.value = '';
+            if (tF) tF.value = '';
+            if (sF) sF.value = '';
+            if (eF) eF.value = '';
+            if (dF) dF.value = '';
         }
         m.hidden = false;
         document.body.style.overflow = 'hidden';
@@ -85,6 +88,47 @@
             description: card.dataset.lcDesc,
         };
     }
+
+    // Exposed globally so the save button's onclick="lcSaveChapter()" can reach it
+    window.lcSaveChapter = async function () {
+        const m = modal();
+        if (!m) return;
+        const err = $('#lcFormError', m);
+        if (err) { err.hidden = true; err.textContent = ''; }
+
+        const id = $('#lcFieldId', m)?.value.trim() || '';
+        const body = {
+            title: ($('#lcFieldTitle', m)?.value || '').trim(),
+            emoji: ($('#lcFieldEmoji', m)?.value || '').trim(),
+            starts_on: $('#lcFieldStarts', m)?.value || null,
+            ends_on: $('#lcFieldEnds', m)?.value || null,
+            description: ($('#lcFieldDesc', m)?.value || '').trim(),
+        };
+        if (!body.title) {
+            if (err) { err.hidden = false; err.textContent = 'Title is required'; }
+            return;
+        }
+        const url = id ? ('/api/chapters/' + id) : '/api/chapters';
+        const method = id ? 'PUT' : 'POST';
+
+        const saveBtn = $('#lcSaveBtn', m);
+        if (saveBtn) saveBtn.disabled = true;
+
+        const { ok, data } = await apiCall(method, url, body);
+
+        if (saveBtn) saveBtn.disabled = false;
+
+        if (!ok || !(data && data.success)) {
+            const msg = (data && data.errors)
+                ? Object.values(data.errors).flat().join(' ')
+                : (data && data.message) || 'Save failed';
+            if (err) { err.hidden = false; err.textContent = msg; }
+            return;
+        }
+        toast('Saved', 'success');
+        closeModal();
+        window.location.reload();
+    };
 
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-lc-open-create]')) {
@@ -113,52 +157,14 @@
         }
     });
 
-    document.addEventListener('submit', async function (e) {
+    // Keep the submit listener as a fallback (Enter key in form fields)
+    document.addEventListener('submit', function (e) {
         const form = e.target;
         if (form.id !== 'lcForm') return;
         e.preventDefault();
-        const m = modal();
-        const err = $('#lcFormError', m);
-        if (err) { err.hidden = true; err.textContent = ''; }
-
-        const id = $('#lcFieldId', m).value.trim();
-        const body = {
-            title: $('#lcFieldTitle', m).value.trim(),
-            emoji: $('#lcFieldEmoji', m).value.trim(),
-            starts_on: $('#lcFieldStarts', m).value || null,
-            ends_on: $('#lcFieldEnds', m).value || null,
-            description: $('#lcFieldDesc', m).value.trim(),
-        };
-        if (!body.title) {
-            if (err) { err.hidden = false; err.textContent = 'Title is required'; }
-            return;
-        }
-        const url = id ? ('/api/chapters/' + id) : '/api/chapters';
-        const method = id ? 'PUT' : 'POST';
-
-        const saveBtn = $('#lcSaveBtn', m);
-        if (saveBtn) saveBtn.disabled = true;
-
-        const { ok, data } = await apiCall(method, url, body);
-
-        if (saveBtn) saveBtn.disabled = false;
-
-        if (!ok || !(data && data.success)) {
-            const msg = (data && data.errors)
-                ? Object.values(data.errors).flat().join(' ')
-                : (data && data.message) || 'Save failed';
-            if (err) { err.hidden = false; err.textContent = msg; }
-            return;
-        }
-        toast('Saved', 'success');
-        closeModal();
-        // Simple, reliable: reload to re-render server-side partial
-        window.location.reload();
+        window.lcSaveChapter();
     });
 
-    // Hook our own delete success to reload counts. The community-admin-inline.js
-    // handler already does the DELETE + DOM removal — we just trigger a soft refresh
-    // when a chapter card disappears so the empty state can render if it was the last.
     const observer = new MutationObserver(() => {
         const shelf = document.getElementById('lcShelf');
         if (!shelf) return;

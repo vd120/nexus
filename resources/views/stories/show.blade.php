@@ -38,9 +38,10 @@
             <!-- Header -->
             <div class="story-header">
                 <div class="story-user">
-                    <img src="{{ $user->avatar_url }}" alt="Avatar" class="story-avatar">
+                    <a href="{{ route('users.show', $user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $user->avatar_url }}" alt="Avatar" class="story-avatar" style="pointer-events:none;"></a>
                     <div class="story-info">
-                        <span class="story-username">{{ $user->username }}</span>
+                        <a href="{{ route('users.show', $user) }}" class="story-fullname" style="text-decoration:none;display:inline-flex;align-items:center;gap:.2em;font-weight:600;font-size:.9rem;color:#fff;">{{ $user->profile?->full_name ?: $user->name }}<x-verified-badge :user="$user" size=".85em" /></a>
+                        <a href="{{ route('users.show', $user) }}" class="story-username" style="text-decoration:none;font-size:.75rem;opacity:.7;color:#fff;">{{ '@' . $user->username }}</a>
                         <span class="story-time" id="story-time"></span>
                     </div>
                 </div>

@@ -25,10 +25,10 @@
                 @foreach($members as $member)
                     <div class="admin-member-item" id="member-{{ $member->user->id }}">
                         <div class="user-info">
-                            <img src="{{ $member->user->avatar_url }}" alt="" class="admin-member-avatar">
+                            <a href="{{ route('users.show', $member->user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $member->user->avatar_url }}" alt="" class="admin-member-avatar" style="pointer-events:none;"></a>
                             <div class="meta">
                                 <div class="name-badge-row">
-                                    <strong class="admin-member-name">{{ $member->user->name }}</strong>
+                                    <a href="{{ route('users.show', $member->user) }}" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:.2em;"><strong class="admin-member-name">{{ $member->user->name }}</strong><x-verified-badge :user="$member->user" size=".85em" /></a>
                                     <div class="member-badges-list" id="member-badges-{{ $member->user->id }}">
                                         @foreach($member->badges as $badge)
                                             <span class="mini-badge" title="{{ $badge->name }}" style="color: {{ $badge->color }}; background: {{ $badge->color }}15;">
@@ -37,7 +37,7 @@
                                         @endforeach
                                     </div>
                                 </div>
-                                <span class="admin-member-handle">{{ '@' . $member->user->username }}</span>
+                                <a href="{{ route('users.show', $member->user) }}" class="admin-member-handle" style="text-decoration:none;color:var(--text-muted);">{{ '@' . $member->user->username }}</a>
                             </div>
                         </div>
                         

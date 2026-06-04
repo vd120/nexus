@@ -64,6 +64,7 @@ class StoryController extends Controller
                         'content' => $story->content,
                         'bgColor' => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         'timeAgo' => $story->created_at->diffForHumans(),
+                        'is_verified' => (bool) $user->is_verified,
                     ]);
                 }
             } catch (\Exception $e) {

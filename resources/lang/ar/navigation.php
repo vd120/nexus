@@ -29,7 +29,7 @@ return [
     'stories' => 'القصص',
     'messages' => 'الرسائل',
     'notifications' => 'الإشعارات',
-    'groups' => 'المجموعات',
+    'groups' => 'المجتمعات',
     'ai_assistant' => 'Nexus AI',
     'global_chat' => 'الدردشة العامة',
     'explore' => 'استكشاف المستخدمين',

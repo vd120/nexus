@@ -1,7 +1,7 @@
 <div class="member-item" id="member-{{ $member->user_id }}" style="display: flex; align-items: center; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; transition: all 0.2s; position: relative; overflow: visible;">
-    <img src="{{ $member->user->avatar_url }}" alt="" style="width: 44px; height: 44px; border-radius: 50%; margin-right: 16px;">
+    <a href="{{ route('users.show', $member->user) }}" style="display:flex;flex-shrink:0;margin-right:16px;"><img src="{{ $member->user->avatar_url }}" alt="" style="width: 44px; height: 44px; border-radius: 50%; pointer-events:none;"></a>
     <div style="flex: 1;">
-        <div style="font-weight: 700;">{{ $member->user->username }}</div>
+        <a href="{{ route('users.show', $member->user) }}" style="text-decoration:none;color:inherit;font-weight:700;display:inline-flex;align-items:center;gap:.2em;">{{ $member->user->username }}<x-verified-badge :user="$member->user" size=".85em" /></a>
         <div style="font-size: 13px; color: var(--text-muted);">
             {{ $member->role == 'admin' ? __('chat.administrator') : __('chat.member') }}
             @if($member->user_id == $group->creator_id) • {{ __('chat.owner') }} @endif

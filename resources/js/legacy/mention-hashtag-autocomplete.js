@@ -87,10 +87,11 @@
             const avatar = u.avatar_url
                 ? '<img src="' + escapeHtml(u.avatar_url) + '" alt="" class="mh-avatar">'
                 : '<div class="mh-avatar mh-avatar-fallback">' + escapeHtml(initial) + '</div>';
+            const vb = u.is_verified ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
             return '<div class="mh-item' + (idx === activeIndex ? ' mh-active' : '') + '" role="option" data-mh-index="' + idx + '">'
                 + avatar
                 + '<div class="mh-meta">'
-                +   '<span class="mh-primary">@' + escapeHtml(u.username || '') + '</span>'
+                +   '<span class="mh-primary" style="display:inline-flex;align-items:center;gap:.15em;">@' + escapeHtml(u.username || '') + vb + '</span>'
                 +   (u.name ? '<span class="mh-secondary">' + escapeHtml(u.name) + '</span>' : '')
                 + '</div>'
                 + '</div>';

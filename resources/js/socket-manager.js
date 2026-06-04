@@ -394,7 +394,7 @@ class SocketManager {
         this.socket.on('post:reacted', (data) => {
             const postCard = document.querySelector(`.post-card[data-post-id="${data.post_id}"]`);
             if (postCard && window.updatePostReactionSummary) {
-                window.updatePostReactionSummary(postCard, data.reaction_summaries);
+                window.updatePostReactionSummary(postCard, data.reaction_summaries, null, data.reactors);
             }
         });
 
@@ -411,11 +411,16 @@ class SocketManager {
 
         // Real-time new posts
         this.socket.on('post:new', (data) => {
+            // Skip if this is the current user's own post (they get owner HTML via AJAX response)
+            if (data.user_id && window.currentUserId && Number(data.user_id) === Number(window.currentUserId)) {
+                return;
+            }
+
             // Find appropriate container (home feed or group feed)
             const container = document.getElementById('posts-container') || document.getElementById('posts-feed');
-            
+
             if (container && data.html) {
-                // Check if post already exists (avoid duplicates if user is the poster)
+                // Check if post already exists
                 if (document.getElementById(`post-${data.id}`)) {
                     return;
                 }
@@ -512,6 +517,14 @@ class SocketManager {
         this.socket.on('comment:deleted', (data) => {
             if (window.handleCommentDeleted) {
                 window.handleCommentDeleted(data);
+            }
+        });
+
+        this.socket.on('poll:vote', (data) => {
+            if (window.updatePollUI) {
+                document.querySelectorAll(`.post-poll[data-post-slug="${data.post_slug}"]`).forEach(container => {
+                    window.updatePollUI(container, null, data.results, data.total_votes);
+                });
             }
         });
 

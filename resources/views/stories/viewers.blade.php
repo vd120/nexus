@@ -37,10 +37,11 @@
                 @foreach($viewerData as $viewer)
                 <div class="viewer-item">
                     <div class="viewer-avatar">
-                        <img src="{{ $viewer['user']->avatar_url }}" alt="Avatar">
+                        <a href="{{ route('users.show', $viewer['user']) }}" style="display:flex;flex-shrink:0;"><img src="{{ $viewer['user']->avatar_url }}" alt="Avatar" style="pointer-events:none;"></a>
                     </div>
                     <div class="viewer-info">
-                        <a href="{{ route('users.show', $viewer['user']) }}" class="viewer-name">{{ $viewer['user']->username }}</a>
+                        <a href="{{ route('users.show', $viewer['user']) }}" class="viewer-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $viewer['user']->profile?->full_name ?: $viewer['user']->name }}<x-verified-badge :user="$viewer['user']" size=".8em" /></a>
+                        <span class="viewer-username">{{ '@' . $viewer['user']->username }}</span>
                         @if($viewer['reaction'])
                             <span class="viewer-reaction">
                                 {{ __('messages.reaction') }}: {{ $viewer['reaction'] }}

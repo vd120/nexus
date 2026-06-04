@@ -33,6 +33,7 @@ return [
     'view_all' => 'عرض الكل',
     'open' => 'فتح',
     'top_communities' => 'أبرز المجتمعات',
+    'community_info' => 'المجتمع',
     'members' => 'عضو',
     'who_to_follow' => 'مقترحون للمتابعة',
     'not_following_anyone' => 'لسه متابع محدش. اختار حد ابدأ بيه، الفيد هيصحى.',
@@ -831,6 +832,7 @@ return [
     'my_chapters' => 'فصول حياتي',
     'add_chapter' => 'أضف فصل',
     'edit_chapter' => 'عدّل الفصل',
+    'delete_chapter' => 'احذف الفصل',
     'delete_chapter_confirm' => 'أكيد عايز تمسح الفصل ده؟ البوستات مش هتتمسح، بس هتفقد التصنيف ده.',
     'chapter_title' => 'اسم الفصل',
     'chapter_emoji' => 'إيموجي',
@@ -886,4 +888,46 @@ return [
     'pulse_already_answered' => 'جاوبت النهارده بالفعل',
     'deleted' => 'اتحذف',
     'edited'  => 'معدّل',
+
+    // Onboarding
+    'onboarding_welcome_title' => 'أهلاً، :name!',
+    'onboarding_welcome_subtitle' => 'خلينا نجهز بروفايلك عشان الناس تلاقيك.',
+    'onboarding_bio_label' => 'نبذة',
+    'onboarding_bio_optional' => 'اختياري',
+    'onboarding_bio_placeholder' => 'قول للناس حاجة عنك…',
+    'onboarding_save_continue' => 'حفظ ومتابعة',
+    'onboarding_skip' => 'تخطي',
+    'onboarding_who_to_follow' => 'مين تتابع',
+    'onboarding_follow_subtitle' => 'تابع بعض الناس عشان تبدأ بيهم الفيد.',
+    'onboarding_no_suggestions' => 'مفيش اقتراحات دلوقتي — تقدر تلاقي ناس من صفحة الاستكشاف.',
+    'onboarding_continue' => 'متابعة',
+    'onboarding_all_set' => 'خلاص، إنت جاهز!',
+    'onboarding_all_set_desc' => 'حسابك جاهز. ابدأ تستكشف وتتواصل مع الناس.',
+    'onboarding_security_tip' => 'حاجة تانية',
+    'onboarding_2fa_prompt' => 'فعّل التحقق بخطوتين عشان تحافظ على أمان حسابك.',
+    'onboarding_setup_2fa' => 'إعداد التحقق بخطوتين',
+    'onboarding_go_to_feed' => 'اتفرج على الفيد',
+
+    // Prompt nudge reminders
+    'nudge_reminder'     => 'تذكير',
+    'nudge_pulse_title'  => 'نبضة اليوم',
+    'nudge_pulse_sub'    => 'لم تشارك إجابتك اليومية بعد.',
+    'nudge_memory_title' => 'ذاكرة الأسبوع',
+    'nudge_memory_sub'   => 'لم تجب على ذاكرة هذا الأسبوع بعد.',
+
+    // Feature Flags (admin)
+    'feature_flags_title' => 'إعدادات الميزات',
+    'feature_flag_enabled' => 'مفعّل',
+    'feature_flag_disabled' => 'موقوف',
+    'feature_flag_toggle_failed' => 'فشل تغيير حالة الميزة.',
+
+    // Reactions
+    'you' => 'أنت',
+    'and' => 'و',
+    'others' => 'آخرين',
+    'show_content' => 'عرض المحتوى',
+    'created' => 'تأسس',
+    'navigate' => 'تنقل',
+    'rules' => 'القواعد',
+    'topics' => 'المواضيع',
 ];

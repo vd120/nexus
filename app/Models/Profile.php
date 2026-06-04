@@ -20,6 +20,17 @@ class Profile extends Model
         'gender',
         'is_private',
         'social_links',
+        'show_online_status',
+        'show_read_receipts',
+        'show_sensitive_content',
+    ];
+
+    protected $casts = [
+        'is_private'           => 'boolean',
+        'show_online_status'   => 'boolean',
+        'show_read_receipts'   => 'boolean',
+        'show_sensitive_content' => 'boolean',
+        'social_links'         => 'array',
     ];
 
     public function user()

@@ -151,12 +151,14 @@
             card.id = 'report-' + r.id;
             card.innerHTML = `
                 <div class="report-card-header">
-                    ${reporter.avatar_url
-                        ? `<img class="report-reporter-avatar" src="${escapeHtml(reporter.avatar_url)}" alt="">`
-                        : `<div class="report-reporter-avatar"></div>`}
+                    <a href="/users/${escapeHtml(reporter.username || '')}" style="display:flex;flex-shrink:0;">
+                        ${reporter.avatar_url
+                            ? `<img class="report-reporter-avatar" src="${escapeHtml(reporter.avatar_url)}" alt="" style="pointer-events:none;">`
+                            : `<div class="report-reporter-avatar"></div>`}
+                    </a>
                     <div>
-                        <div class="report-reporter-name">${escapeHtml(reporter.name || reporter.username || 'Unknown')}</div>
-                        <div class="report-reporter-handle">@${escapeHtml(reporter.username || '')}</div>
+                        <a href="/users/${escapeHtml(reporter.username || '')}" class="report-reporter-name" style="text-decoration:none;color:inherit;">${escapeHtml(reporter.name || reporter.username || 'Unknown')}</a>
+                        <a href="/users/${escapeHtml(reporter.username || '')}" class="report-reporter-handle" style="text-decoration:none;">@${escapeHtml(reporter.username || '')}</a>
                     </div>
                     <span class="report-time">${fmtTime(r.created_at)}</span>
                 </div>

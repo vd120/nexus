@@ -64,7 +64,7 @@
                         <img src="{{ $user->avatar_url }}" alt="">
                     </div>
                     <div class="user-details">
-                        <span class="user-name">{{ $user->username }}</span>
+                        <span class="user-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $user->username }}<x-verified-badge :user="$user" size=".8em" /></span>
                         @if($user->profile && $user->profile->bio)
                         <span class="user-bio">{{ Str::limit($user->profile->bio, 25) }}</span>
                         @endif

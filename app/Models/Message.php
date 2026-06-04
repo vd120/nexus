@@ -31,13 +31,15 @@ class Message extends Model
         'notified_at',
         'deleted_for',
         'deleted_by_sender',
+        'link_preview',
     ];
 
     protected $dates = ['read_at', 'delivered_at', 'notified_at', 'created_at', 'updated_at', 'deleted_at'];
 
     protected $casts = [
-        'deleted_for' => 'array',
+        'deleted_for'       => 'array',
         'deleted_by_sender' => 'boolean',
+        'link_preview'      => 'array',
         'waveform_peaks' => 'array',
         'read_at' => 'datetime',
         'delivered_at' => 'datetime',
@@ -172,6 +174,7 @@ class Message extends Model
                         'id' => $r->user_id,
                         'username' => $r->user->username ?? 'User',
                         'avatar_url' => $r->user->avatar_url ?? null,
+                        'is_verified' => isset($r->user) ? (bool)$r->user->is_verified : false,
                     ];
                 })->values()->toArray(),
             ];
@@ -191,11 +194,13 @@ class Message extends Model
             'content' => $this->content,
             'type' => $this->type,
             'media_path' => $this->media_path,
+            'link_preview' => $this->link_preview,
             'sender_id' => $this->sender_id,
             'sender' => [
                 'id' => $this->sender->id ?? null,
                 'username' => $this->sender->username ?? null,
                 'avatar_url' => $this->sender->avatar_url ?? null,
+                'is_verified' => isset($this->sender) ? (bool)$this->sender->is_verified : false,
             ],
             'created_at' => $this->created_at ? $this->created_at->toISOString() : null,
             'delivered_at' => $this->delivered_at ? $this->delivered_at->toISOString() : null,

@@ -27,7 +27,7 @@ class SuspiciousLoginController extends Controller
     {
         $challenge = Cache::get('suspicious_challenge_' . $uuid);
         if (!$challenge) {
-            return redirect()->route('login.view')->with('error', 'Login session expired.');
+            return redirect()->route('login.view')->with('error', __('auth.login_session_expired'));
         }
 
         return view('auth.suspicious-challenge', [
@@ -44,7 +44,7 @@ class SuspiciousLoginController extends Controller
     {
         $challenge = Cache::get('suspicious_challenge_' . $uuid);
         if (!$challenge) {
-            return redirect()->route('login.view')->with('error', 'Login session expired.');
+            return redirect()->route('login.view')->with('error', __('auth.login_session_expired'));
         }
 
         $limiterKey = 'suspicious_verify_user_' . $challenge['user_id'];
@@ -62,14 +62,14 @@ class SuspiciousLoginController extends Controller
         if ($challenge['type'] === 'manual') {
             $request->validate(['code' => 'required|string|size:6']);
             if ($request->code !== $challenge['email_code']) {
-                \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300); // 5 minutes block
-                return back()->withErrors(['code' => 'Invalid verification code.']);
+                \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300);
+                return back()->withErrors(['code' => __('auth.invalid_verification_code')]);
             }
         } else {
             $request->validate(['password' => 'required|string']);
             if (!$user->password || !Hash::check($request->password, $user->password)) {
-                \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300); // 5 minutes block
-                return back()->withErrors(['password' => 'Invalid account password.']);
+                \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300);
+                return back()->withErrors(['password' => __('auth.invalid_account_password')]);
             }
         }
 
@@ -126,9 +126,13 @@ class SuspiciousLoginController extends Controller
         $challenge['email_code'] = $code;
         Cache::put('suspicious_challenge_' . $uuid, $challenge, 600);
 
-        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user) {
-            $message->to($user->email)->subject(config('app.name') . ' - Security Verification Code');
+        $originalLocale = app()->getLocale();
+        if ($user->language) app()->setLocale($user->language);
+        $secSubject = __('emails.verification_code_security_subject', ['app' => config('app.name')]);
+        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $secSubject) {
+            $message->to($user->email)->subject($secSubject);
         });
+        app()->setLocale($originalLocale);
 
         return response()->json(['success' => true]);
     }

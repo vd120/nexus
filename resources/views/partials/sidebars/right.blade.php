@@ -36,50 +36,26 @@
 @endphp
 
 <aside class="feed-sidebar-right" id="feedSidebarRight" aria-label="Discover">
+
+    {{-- Collapse toggle only — no "Discover" title --}}
     <div class="fsr-header">
-        <span class="fsr-header-title">
-            <span class="fsr-header-dot" aria-hidden="true"></span>
-            {{ __('messages.discover') }}
-        </span>
         <button type="button" class="fsr-toggle" id="fsrToggle" aria-expanded="true" aria-controls="feedSidebarRight" title="{{ __('messages.collapse') }}">
             <i class="fas fa-chevron-right fsr-toggle-icon"></i>
         </button>
     </div>
 
-    {{-- Vertical icon rail: visible only when collapsed --}}
-    <div class="fsr-rail" aria-hidden="true">
-        <button type="button" class="fsr-rail-btn" data-label="{{ __('messages.following') }}">
-            <i class="fas fa-user-group"></i>
-        </button>
-        <button type="button" class="fsr-rail-btn" data-label="{{ __('messages.who_to_follow') }}">
-            <i class="fas fa-user-plus"></i>
-        </button>
-        <button type="button" class="fsr-rail-btn" data-label="{{ __('messages.top_communities') }}">
-            <i class="fas fa-users-rectangle"></i>
-        </button>
-        <button type="button" class="fsr-rail-btn" data-label="{{ __('hashtags.trending') }}">
-            <i class="fas fa-hashtag"></i>
-        </button>
-        <button type="button" class="fsr-rail-btn" data-label="{{ __('navigation.global_chat') }}">
-            <i class="fas fa-globe"></i>
-        </button>
-    </div>
-
     <div class="fsr-stack">
 
-        {{-- Pulse — daily community prompt (signature feature) --}}
+        {{-- Pulse — daily community prompt --}}
         @include('partials.pulse-card', ['variant' => 'sidebar'])
 
-        {{-- Memory Prompt — weekly contemplative question --}}
+        {{-- Memory Prompt --}}
         @include('partials.memory-prompt-card', ['variant' => 'sidebar'])
 
         {{-- Following / Online --}}
         <section class="fsr-card" data-fsr-section="following">
             <header class="fsr-card-head">
-                <h3 class="fsr-card-title">
-                    <span class="fsr-icon-pill"><i class="fas fa-user-group"></i></span>
-                    {{ __('messages.following') }}
-                </h3>
+                <h3 class="fsr-card-title">{{ __('messages.following') }}</h3>
                 <span class="fsr-card-badge {{ $rsOnlineCount > 0 ? 'is-active' : '' }}" title="{{ __('chat.online') }}">
                     <span class="fsr-pulse"></span>
                     {{ $rsOnlineCount }} {{ __('chat.online') }}
@@ -101,12 +77,8 @@
                 </div>
             @else
                 <div class="fsr-empty">
-                    <span class="fsr-empty-icon"><i class="fas fa-user-plus"></i></span>
                     <p>{{ __('messages.not_following_anyone') }}</p>
-                    <a href="{{ route('explore') }}" class="fsr-empty-cta">
-                        <i class="fas fa-compass"></i>
-                        {{ __('messages.find_people') ?? 'Find people' }}
-                    </a>
+                    <a href="{{ route('explore') }}" class="fsr-empty-cta">{{ __('messages.find_people') ?? 'Find people' }}</a>
                 </div>
             @endif
         </section>
@@ -114,10 +86,7 @@
         {{-- Who to follow --}}
         <section class="fsr-card" data-fsr-section="suggest">
             <header class="fsr-card-head">
-                <h3 class="fsr-card-title">
-                    <span class="fsr-icon-pill"><i class="fas fa-user-plus"></i></span>
-                    {{ __('messages.who_to_follow') }}
-                </h3>
+                <h3 class="fsr-card-title">{{ __('messages.who_to_follow') }}</h3>
                 <a href="{{ route('explore') }}" class="fsr-card-more">{{ __('messages.view_all') }}</a>
             </header>
             @if($rsSuggested->isNotEmpty())
@@ -137,16 +106,14 @@
                                 class="fsr-follow-btn"
                                 data-username="{{ $sug->username }}"
                                 aria-label="{{ __('messages.follow') }} {{ '@' . $sug->username }}">
-                            <i class="fas fa-plus fsr-fb-icon"></i>
-                            <span class="fsr-fb-label">{{ __('messages.follow') }}</span>
+                            {{ __('messages.follow') }}
                         </button>
                     </li>
                     @endforeach
                 </ul>
             @else
                 <div class="fsr-empty">
-                    <span class="fsr-empty-icon"><i class="fas fa-user-check"></i></span>
-                    <p>{{ __('messages.no_suggestions') ?? "You're up to date — no new people to suggest." }}</p>
+                    <p>{{ __('messages.no_suggestions') ?? "No new suggestions right now." }}</p>
                 </div>
             @endif
         </section>
@@ -154,10 +121,7 @@
         {{-- Top Communities --}}
         <section class="fsr-card" data-fsr-section="communities">
             <header class="fsr-card-head">
-                <h3 class="fsr-card-title">
-                    <span class="fsr-icon-pill"><i class="fas fa-users-rectangle"></i></span>
-                    {{ __('messages.top_communities') }}
-                </h3>
+                <h3 class="fsr-card-title">{{ __('messages.top_communities') }}</h3>
                 <a href="{{ route('communities.index') }}" class="fsr-card-more">{{ __('messages.view_all') }}</a>
             </header>
             @if($rsTopCommunities->isNotEmpty())
@@ -175,23 +139,17 @@
                             <span class="fsr-row-body">
                                 <span class="fsr-row-main">{{ $group->name }}</span>
                                 <span class="fsr-row-meta" data-fsr-members-count>
-                                    <i class="fas fa-user"></i>
                                     <span class="fsr-members-num">{{ number_format($group->members_count) }}</span> {{ __('messages.members') }}
                                 </span>
                             </span>
-                            <span class="fsr-row-cta" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
                         </a>
                     </li>
                     @endforeach
                 </ul>
             @else
                 <div class="fsr-empty">
-                    <span class="fsr-empty-icon"><i class="fas fa-users-rectangle"></i></span>
                     <p>{{ __('messages.no_communities_yet') ?? 'No communities yet.' }}</p>
-                    <a href="{{ route('communities.index') }}" class="fsr-empty-cta">
-                        <i class="fas fa-compass"></i>
-                        {{ __('messages.browse_communities') ?? 'Browse communities' }}
-                    </a>
+                    <a href="{{ route('communities.index') }}" class="fsr-empty-cta">{{ __('messages.browse_communities') ?? 'Browse' }}</a>
                 </div>
             @endif
         </section>
@@ -199,10 +157,7 @@
         {{-- Trending Hashtags --}}
         <section class="fsr-card" data-fsr-section="trending">
             <header class="fsr-card-head">
-                <h3 class="fsr-card-title">
-                    <span class="fsr-icon-pill fsr-icon-pill-fire"><i class="fas fa-fire"></i></span>
-                    {{ __('hashtags.trending') }}
-                </h3>
+                <h3 class="fsr-card-title">{{ __('hashtags.trending') }}</h3>
                 <a href="{{ route('hashtags.index') }}" class="fsr-card-more">{{ __('messages.view_all') }}</a>
             </header>
             @if($rsTopHashtags->isNotEmpty())
@@ -210,17 +165,10 @@
                     @foreach($rsTopHashtags as $i => $hashtag)
                     <li data-hashtag-slug="{{ $hashtag->slug }}" data-usage-count="{{ $hashtag->usage_count }}">
                         <a href="{{ route('hashtags.show', $hashtag->slug) }}" class="fsr-row fsr-row-trend" data-rank="{{ $i + 1 }}">
-                            <span class="fsr-trend-rank tier-{{ min($i + 1, 4) }}">
-                                @if($i === 0)
-                                    <i class="fas fa-fire"></i>
-                                @else
-                                    {{ $i + 1 }}
-                                @endif
-                            </span>
+                            <span class="fsr-trend-rank tier-{{ min($i + 1, 4) }}">{{ $i === 0 ? '🔥' : $i + 1 }}</span>
                             <span class="fsr-row-body">
                                 <span class="fsr-row-main">#{{ $hashtag->name }}</span>
                                 <span class="fsr-row-meta">
-                                    <i class="fas fa-arrow-trend-up"></i>
                                     <span class="fsr-usage-num">{{ number_format($hashtag->usage_count) }}</span> {{ __('messages.posts') }}
                                 </span>
                             </span>
@@ -230,31 +178,28 @@
                 </ul>
             @else
                 <div class="fsr-empty">
-                    <span class="fsr-empty-icon"><i class="fas fa-hashtag"></i></span>
-                    <p>{{ __('messages.no_trends_yet') ?? 'No trends yet — start posting!' }}</p>
+                    <p>{{ __('messages.no_trends_yet') ?? 'No trends yet.' }}</p>
                 </div>
             @endif
         </section>
 
-        {{-- Global Chat Preview (realtime) --}}
+        {{-- Global Chat Preview --}}
         <section class="fsr-card fsr-chat-card" data-fsr-section="chat">
             <header class="fsr-card-head">
                 <h3 class="fsr-card-title">
-                    <span class="fsr-icon-pill fsr-icon-pill-live"><i class="fas fa-comments"></i></span>
                     {{ __('navigation.global_chat') }}
                     <span class="fsr-live-dot" aria-hidden="true"></span>
                 </h3>
             </header>
             <div class="fsr-chat-list" id="global-chat-preview-list">
                 <div class="fsr-empty small">
-                    <span class="fsr-empty-icon"><i class="fas fa-comments"></i></span>
                     <p>{{ __('messages.no_messages') }}</p>
                 </div>
             </div>
             <div class="fsr-chat-footer">
                 <a href="{{ route('global-chat.index') }}" class="fsr-chat-open-btn">
-                    <i class="fas fa-arrow-up-right-from-square"></i>
                     {{ __('messages.open') }} {{ __('navigation.global_chat') }}
+                    <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
         </section>

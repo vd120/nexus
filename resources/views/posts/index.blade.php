@@ -218,6 +218,9 @@
                     <span class="pill-icon-btn" aria-hidden="true">
                         <i class="fas fa-image"></i>
                     </span>
+                    <span class="pill-icon-btn" id="pill-poll-btn" aria-label="{{ __('posts.add_poll') }}" title="{{ __('posts.add_poll') }}" role="button" tabindex="0">
+                        <i class="fas fa-poll"></i>
+                    </span>
                 </span>
             </button>
             {{-- Expanded full editor --}}
@@ -241,12 +244,53 @@
                             <i class="fas fa-image" aria-hidden="true"></i> <span>{{ __('messages.media') }}</span>
                         </label>
                         <input type="file" id="media" accept="image/*,video/*" multiple style="display: none;" onchange="previewMedia(this)">
+                        <button type="button" class="post-action-btn" id="poll-toggle-btn" onclick="togglePollBuilder()" title="{{ __('posts.add_poll') }}" aria-label="{{ __('posts.add_poll') }}">
+                            <i class="fas fa-poll" aria-hidden="true"></i> <span>{{ __('posts.add_poll') }}</span>
+                        </button>
+                        <button type="button" class="post-action-btn sensitive-pill" id="sensitive-toggle-btn" onclick="toggleSensitive()" aria-label="{{ __('posts.mark_as_sensitive') }}">
+                            <i class="fas fa-eye-slash" aria-hidden="true"></i>
+                            <span>{{ __('posts.mark_as_sensitive') }}</span>
+                        </button>
                     </div>
                     <button type="button" class="btn btn-primary" onclick="submitPost()">
                         {{ __('messages.post') }}
                     </button>
                 </div>
                 <input type="hidden" id="is-private" value="0">
+                <input type="hidden" id="is-sensitive" value="0">
+                {{-- Poll builder --}}
+                <div id="poll-builder"
+                    data-label-option="{{ __('posts.poll_option_placeholder') }}"
+                    data-label-max="{{ __('posts.poll_max_options') }}"
+                    style="display:none; margin-top:12px; padding:12px; border:1px solid var(--border-color,#2a2a3e); border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <strong style="font-size:.875rem;">{{ __('posts.poll_add_title') }}</strong>
+                        <button type="button" onclick="togglePollBuilder()" aria-label="{{ __('auth.close') }}" style="background:none;border:1px solid var(--border-color,#2a2a3e);border-radius:6px;cursor:pointer;color:inherit;opacity:.7;font-size:1rem;width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;transition:opacity .15s,background .15s;" onmouseover="this.style.opacity='1';this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.opacity='.7';this.style.background='none'">&times;</button>
+                    </div>
+                    <input type="text" id="poll-question" placeholder="{{ __('posts.poll_question_placeholder') }}" maxlength="255" style="width:100%;box-sizing:border-box;padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border-color,#2a2a3e);background:var(--input-bg,#12121f);color:inherit;font-size:.875rem;margin-bottom:8px;">
+                    <div id="poll-options-list">
+                        <div class="poll-opt-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                            <input type="text" class="poll-opt-input" placeholder="{{ __('posts.poll_option_placeholder', ['n' => 1]) }}" maxlength="255" style="flex:1;box-sizing:border-box;padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border-color,#2a2a3e);background:var(--input-bg,#12121f);color:inherit;font-size:.875rem;">
+                            <button type="button" onclick="removePollOption(this)" style="visibility:hidden;flex-shrink:0;background:none;border:1px solid var(--border-color,#2a2a3e);border-radius:6px;cursor:pointer;color:inherit;opacity:.6;font-size:.875rem;width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.opacity='1';this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.opacity='.6';this.style.background='none'">&times;</button>
+                        </div>
+                        <div class="poll-opt-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                            <input type="text" class="poll-opt-input" placeholder="{{ __('posts.poll_option_placeholder', ['n' => 2]) }}" maxlength="255" style="flex:1;box-sizing:border-box;padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border-color,#2a2a3e);background:var(--input-bg,#12121f);color:inherit;font-size:.875rem;">
+                            <button type="button" onclick="removePollOption(this)" style="visibility:hidden;flex-shrink:0;background:none;border:1px solid var(--border-color,#2a2a3e);border-radius:6px;cursor:pointer;color:inherit;opacity:.6;font-size:.875rem;width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.opacity='1';this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.opacity='.6';this.style.background='none'">&times;</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;flex-wrap:wrap;gap:8px;">
+                        <button type="button" id="add-poll-option" onclick="addPollOption()" style="font-size:.8rem;background:none;border:1px dashed var(--primary,#8b5cf6);border-radius:6px;cursor:pointer;color:var(--primary,#8b5cf6);padding:.3rem .65rem;transition:background .15s,opacity .15s;" onmouseover="this.style.background='rgba(139,92,246,.1)'" onmouseout="this.style.background='none'">{{ __('posts.poll_add_option') }}</button>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <label for="poll-expiry" style="font-size:.8rem;opacity:.7;">{{ __('posts.poll_ends_label') }}</label>
+                            <select id="poll-expiry" style="font-size:.8rem;padding:.25rem .5rem;border-radius:6px;border:1px solid var(--border-color,#2a2a3e);background:var(--input-bg,#12121f);color:inherit;">
+                                <option value="">{{ __('posts.poll_never') }}</option>
+                                <option value="1d">{{ __('posts.poll_1d') }}</option>
+                                <option value="3d">{{ __('posts.poll_3d') }}</option>
+                                <option value="7d">{{ __('posts.poll_7d') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div id="media-preview-container" style="display: none; margin-top: 12px;">
                     <div id="media-previews" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 </div>
@@ -373,7 +417,14 @@
     }
     document.addEventListener('DOMContentLoaded', function () {
         const pill = document.getElementById('composer-pill');
-        if (pill) pill.addEventListener('click', openComposer);
+        if (pill) pill.addEventListener('click', function (e) {
+            const openPoll = !!e.target.closest('#pill-poll-btn');
+            openComposer();
+            if (openPoll) {
+                const builder = document.getElementById('poll-builder');
+                if (builder && builder.style.display === 'none') togglePollBuilder();
+            }
+        });
     });
 })();
 
@@ -396,9 +447,91 @@ function togglePrivacy() {
     }
 }
 
+function toggleSensitive() {
+    const input = document.getElementById('is-sensitive');
+    const btn = document.getElementById('sensitive-toggle-btn');
+    if (input.value === '0') {
+        input.value = '1';
+        btn.classList.add('sensitive-pill--on');
+        if (window.showToast) showToast('Post will be marked as sensitive content.', 'info');
+    } else {
+        input.value = '0';
+        btn.classList.remove('sensitive-pill--on');
+    }
+}
+
+function togglePollBuilder() {
+    const builder = document.getElementById('poll-builder');
+    const btn = document.getElementById('poll-toggle-btn');
+    const isVisible = builder.style.display !== 'none';
+    builder.style.display = isVisible ? 'none' : 'block';
+    btn.style.opacity = isVisible ? '1' : '';
+    btn.style.color = isVisible ? '' : 'var(--accent,#6366f1)';
+}
+
+function addPollOption() {
+    const list = document.getElementById('poll-options-list');
+    const builder = document.getElementById('poll-builder');
+    const count = list.querySelectorAll('.poll-opt-input').length;
+    const maxMsg = builder?.dataset.labelMax || 'Maximum 4 poll options.';
+    const optionLabel = builder?.dataset.labelOption || 'Option :n';
+    if (count >= 4) { if (window.showToast) showToast(maxMsg, 'info'); return; }
+
+    const row = document.createElement('div');
+    row.className = 'poll-opt-row';
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;';
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'poll-opt-input';
+    inp.placeholder = optionLabel.replace(':n', count + 1);
+    inp.maxLength = 255;
+    inp.style.cssText = 'flex:1;box-sizing:border-box;padding:.5rem .75rem;border-radius:6px;border:1px solid var(--border-color,#2a2a3e);background:var(--input-bg,#12121f);color:inherit;font-size:.875rem;';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerHTML = '&times;';
+    btn.setAttribute('onclick', 'removePollOption(this)');
+    btn.style.cssText = 'flex-shrink:0;background:none;border:1px solid var(--border-color,#2a2a3e);border-radius:6px;cursor:pointer;color:inherit;opacity:.6;font-size:.875rem;width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;';
+    btn.onmouseover = function() { this.style.opacity='1'; this.style.background='rgba(255,255,255,.07)'; };
+    btn.onmouseout  = function() { this.style.opacity='.6'; this.style.background='none'; };
+
+    row.appendChild(inp);
+    row.appendChild(btn);
+    list.appendChild(row);
+
+    refreshPollDeleteButtons();
+    if (count + 1 >= 4) document.getElementById('add-poll-option').style.display = 'none';
+    inp.focus();
+}
+
+function removePollOption(btn) {
+    const list = document.getElementById('poll-options-list');
+    if (list.querySelectorAll('.poll-opt-input').length <= 2) return;
+    btn.closest('.poll-opt-row').remove();
+    refreshPollDeleteButtons();
+    document.getElementById('add-poll-option').style.display = '';
+    // Re-number placeholders
+    const builder = document.getElementById('poll-builder');
+    const optionLabel = builder?.dataset.labelOption || 'Option :n';
+    list.querySelectorAll('.poll-opt-input').forEach((inp, i) => {
+        if (!inp.value) inp.placeholder = optionLabel.replace(':n', i + 1);
+    });
+}
+
+function refreshPollDeleteButtons() {
+    const list = document.getElementById('poll-options-list');
+    const rows = list.querySelectorAll('.poll-opt-row');
+    const canDelete = rows.length > 2;
+    rows.forEach(row => {
+        const btn = row.querySelector('button');
+        if (btn) btn.style.visibility = canDelete ? 'visible' : 'hidden';
+    });
+}
+
 function viewStoryFromHome(username, slug) {
     if (window.NexusSoul) window.NexusSoul.feedback.open();
-    window.location.href = `/stories/${username}/${slug}`;
+    window.location.href = `/stories/${username}/${slug}?from=home`;
 }
 
 window.previewMedia = function(input) {
@@ -487,7 +620,10 @@ window.submitPost = async function() {
     const content = (contentEl?.value || '').trim();
     const isPrivate = isPrivateEl?.value || '0';
 
-    if (!content && uploadedFiles.length === 0) {
+    const pollBuilder = document.getElementById('poll-builder');
+    const hasPoll = pollBuilder && pollBuilder.style.display !== 'none';
+
+    if (!content && uploadedFiles.length === 0 && !hasPoll) {
         if (window.showToast) window.showToast('{{ __('messages.please_enter_content_or_media') }}', 'error');
         return;
     }
@@ -503,6 +639,24 @@ window.submitPost = async function() {
     formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
     formData.append('content', content);
     formData.append('is_private', isPrivate);
+    formData.append('is_sensitive', document.getElementById('is-sensitive')?.value || '0');
+
+    // Append poll data if builder is open
+    if (pollBuilder && pollBuilder.style.display !== 'none') {
+        const pollQ = document.getElementById('poll-question')?.value.trim();
+        if (pollQ) formData.append('poll_question', pollQ);
+        document.querySelectorAll('.poll-opt-input').forEach((inp, i) => {
+            const val = inp.value.trim();
+            if (val) formData.append(`poll_options[${i}]`, val);
+        });
+        const expiry = document.getElementById('poll-expiry')?.value;
+        if (expiry) {
+            const days = parseInt(expiry);
+            const expiresAt = new Date(Date.now() + days * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+            formData.append('poll_expires_at', expiresAt);
+        }
+    }
+
     uploadedFiles.forEach((file, i) => formData.append(`media[${i}]`, file));
 
     try {
@@ -545,6 +699,14 @@ window.submitPost = async function() {
 
             if (contentEl) contentEl.value = '';
             if (isPrivateEl) isPrivateEl.value = '0';
+            const sensitiveEl = document.getElementById('is-sensitive');
+            if (sensitiveEl) { sensitiveEl.value = '0'; }
+            const sensitiveBtn = document.getElementById('sensitive-toggle-btn');
+            if (sensitiveBtn) { sensitiveBtn.classList.remove('sensitive-pill--on'); }
+            const pollBuilder = document.getElementById('poll-builder');
+            if (pollBuilder) { pollBuilder.style.display = 'none'; }
+            const pollToggleBtn = document.getElementById('poll-toggle-btn');
+            if (pollToggleBtn) { pollToggleBtn.style.opacity = '1'; pollToggleBtn.style.color = ''; }
             uploadedFiles = [];
             updateFileInput();
             if (previews) previews.innerHTML = '';
@@ -704,11 +866,11 @@ window.globalChatPreviewMessages = @json($globalChatPreviewMessagesPayload);
         el.setAttribute('data-message-id', String(msg.id));
         el.innerHTML =
             '<div class="global-chat-avatar">' +
-                '<img src="' + escapeHtml(msg.avatar_url) + '" alt="' + escapeHtml(msg.username) + '" onerror="this.src=\'/images/default-avatar.svg\'">' +
+                '<a href="/users/' + encodeURIComponent(msg.username) + '" style="display:flex;flex-shrink:0;"><img src="' + escapeHtml(msg.avatar_url) + '" alt="' + escapeHtml(msg.username) + '" onerror="this.src=\'/images/default-avatar.svg\'" style="pointer-events:none;"></a>' +
             '</div>' +
             '<div class="global-chat-body">' +
                 '<div class="global-chat-header">' +
-                    '<span class="global-chat-username">' + escapeHtml(msg.username) + '</span>' +
+                    '<a href="/users/' + encodeURIComponent(msg.username) + '" class="global-chat-username" style="text-decoration:none;">' + escapeHtml(msg.username) + '</a>' +
                     '<span class="global-chat-time">' + escapeHtml(msg.time) + '</span>' +
                 '</div>' +
                 '<p>' + escapeHtml(msg.content || '') + '</p>' +

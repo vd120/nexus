@@ -110,6 +110,7 @@ class GlobalChatController extends Controller
                 'username' => auth()->user()->username,
                 'name' => auth()->user()->name,
                 'avatar_url' => auth()->user()->avatar_url,
+                'is_verified' => (bool)auth()->user()->is_verified,
             ],
             'reactions' => []
         ];
@@ -184,6 +185,7 @@ class GlobalChatController extends Controller
                             'username' => $r->user->username,
                             'name' => $r->user->name,
                             'avatar_url' => $r->user->avatar_url,
+                            'is_verified' => (bool) $r->user->is_verified,
                         ];
                     })->values()->toArray(),
                 ];

@@ -26,10 +26,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at',
         'language',
         'password',
-        'is_admin',
-        'is_suspended',
-        'verification_code',
-        'verification_code_expires_at',
         'last_active',
         'inactive_reminder_sent_at',
         'is_online',
@@ -54,12 +50,15 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'username_changed_at' => 'datetime',
-            'last_active' => 'datetime',
+            'email_verified_at'       => 'datetime',
+            'password'                => 'hashed',
+            'username_changed_at'     => 'datetime',
+            'last_active'             => 'datetime',
             'inactive_reminder_sent_at' => 'datetime',
-            'is_online' => 'boolean',
+            'is_online'               => 'boolean',
+            'is_verified'             => 'boolean',
+            'onboarding_completed_at' => 'datetime',
+            'two_factor_recovery_codes' => 'array',
         ];
     }
 
@@ -543,11 +542,19 @@ class User extends Authenticatable implements MustVerifyEmail
             'email' => $this->email,
         ], false));
 
-        $email = $this->email;
-        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl, 'url' => $resetUrl], function ($message) use ($email) {
-            $message->to($email)
-                    ->subject(config('app.name') . ' - Password Reset Request');
+        $originalLocale = app()->getLocale();
+        if ($this->language) {
+            app()->setLocale($this->language);
+        }
+
+        $subject = __('emails.password_reset_subject', ['app' => config('app.name')]);
+        $email   = $this->email;
+
+        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl, 'url' => $resetUrl], function ($message) use ($email, $subject) {
+            $message->to($email)->subject($subject);
         });
+
+        app()->setLocale($originalLocale);
     }
 
     /**

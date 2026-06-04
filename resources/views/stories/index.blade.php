@@ -59,7 +59,7 @@
                         <img src="{{ $latestStory->user->avatar_url }}" alt="Avatar">
                     </div>
                     <div class="story-meta">
-                        <span class="story-user">{{ $latestStory->user->username }}</span>
+                        <span class="story-user" style="display:inline-flex;align-items:center;gap:.2em;">{{ $latestStory->user->username }}<x-verified-badge :user="$latestStory->user" size=".8em" /></span>
                         <span class="story-time">{{ $latestStory->created_at->diffForHumans() }}</span>
                     </div>
                 </div>
@@ -101,7 +101,7 @@
                         <img src="{{ $user->avatar_url }}" alt="Avatar">
                     </div>
                     <div class="story-meta">
-                        <span class="story-user">{{ $user->username }}</span>
+                        <span class="story-user" style="display:inline-flex;align-items:center;gap:.2em;">{{ $user->username }}<x-verified-badge :user="$user" size=".8em" /></span>
                         <span class="story-time">{{ $latestStory->created_at->diffForHumans() }}</span>
                     </div>
                 </div>
@@ -222,7 +222,7 @@ function addStoryToSection(user) {
         `;
     }
 
-    const avatarUrl = user.avatarUrl || '/images/default-avatar.png';
+    const avatarUrl = user.avatarUrl || '/images/default-avatar.svg';
     const hasAvatar = user.avatarUrl && user.avatarUrl !== '';
 
     card.innerHTML = `
@@ -237,7 +237,7 @@ function addStoryToSection(user) {
                 }
             </div>
             <div class="story-meta">
-                <span class="story-user">${user.username}</span>
+                <span class="story-user" style="display:inline-flex;align-items:center;gap:.2em;">${user.username}${user.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}</span>
                 <span class="story-time">${user.timeAgo || 'Just now'}</span>
             </div>
         </div>

@@ -341,7 +341,6 @@ body {
     background: var(--bg);
     min-height: 100vh;
     overflow-x: clip;
-    /* Eliminate touch delay on mobile */
     touch-action: manipulation;
 }
 

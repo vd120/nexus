@@ -69,9 +69,9 @@
             @if($report->post && !$report->post->trashed())
             <div class="post-detail">
                 <div class="post-header">
-                    <img src="{{ $report->post->author->avatar_url }}" alt="" class="avatar">
+                    <a href="{{ route('users.show', $report->post->author) }}" style="display:flex;flex-shrink:0;"><img src="{{ $report->post->author->avatar_url }}" alt="" class="avatar" style="pointer-events:none;"></a>
                     <div class="post-meta">
-                        <span class="author">{{ $report->post->author->username }}</span>
+                        <a href="{{ route('users.show', $report->post->author) }}" class="author" style="text-decoration:none;">{{ $report->post->author->username }}</a>
                         <span class="date">{{ $report->post->created_at->diffForHumans() }}</span>
                         @if($report->post->is_private)
                         <span class="private-badge"><i class="fas fa-lock"></i> {{ __('messages.private') }}</span>

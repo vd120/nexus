@@ -1,6 +1,21 @@
 @extends('layouts.app')
 
-@section('title', __('messages.post_detail_page'))
+@section('title', ($post->user->name ?: $post->user->username) . ' on ' . config('app.name'))
+
+@push('meta')
+@php
+    $ogDescription = $post->content ? Str::limit(strip_tags($post->content), 200) : config('app.name') . ' — Social Platform';
+    $ogImage = $post->media->first()?->media_path ? asset('storage/' . $post->media->first()->media_path) : $post->user->avatar_url;
+@endphp
+<meta property="og:title" content="{{ e(($post->user->name ?: $post->user->username) . ': ' . Str::limit(strip_tags($post->content ?? ''), 100)) }}">
+<meta property="og:description" content="{{ e($ogDescription) }}">
+<meta property="og:image" content="{{ $ogImage }}">
+<meta property="og:url" content="{{ route('posts.show', $post) }}">
+<meta property="og:type" content="article">
+<meta name="twitter:title" content="{{ e(($post->user->name ?: $post->user->username) . ' on ' . config('app.name')) }}">
+<meta name="twitter:description" content="{{ e($ogDescription) }}">
+<meta name="twitter:image" content="{{ $ogImage }}">
+@endpush
 
 @section('content')
 

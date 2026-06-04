@@ -233,7 +233,13 @@ class ChatController extends Controller
             'media.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,mp4,mov,avi,webm,ogg,wav,weba|max:51200',
             'voice_message' => 'nullable|file|mimes:ogg,wav,weba,webm|max:10240',
             'duration' => 'nullable|integer|min:1|max:300',
-            'waveform_peaks' => 'nullable|string',
+            'waveform_peaks'  => 'nullable|string',
+            'link_preview'    => 'nullable|array',
+            'link_preview.url'         => 'nullable|url|max:2048',
+            'link_preview.title'       => 'nullable|string|max:300',
+            'link_preview.description' => 'nullable|string|max:500',
+            'link_preview.image'       => 'nullable|url|max:2048',
+            'link_preview.domain'      => 'nullable|string|max:253',
         ]);
 
         if (!$request->filled('content') && !$request->hasFile('media') && !$request->hasFile('voice_message')) {
@@ -309,6 +315,11 @@ class ChatController extends Controller
             $messageData['content'] = '';
         }
 
+        // Attach link preview if provided (and message has a URL)
+        if ($request->filled('link_preview') && $request->input('content')) {
+            $messageData['link_preview'] = $request->input('link_preview');
+        }
+
         $message = Message::create($messageData);
         $conversation->update(['last_message_at' => now()]);
 
@@ -353,6 +364,12 @@ class ChatController extends Controller
                 'is_group' => $conversation->is_group,
                 'display_name' => $conversation->is_group ? $conversation->display_name : auth()->user()->username,
                 'avatar_url' => $conversation->is_group ? ($conversation->group?->avatar ? asset('storage/' . $conversation->group->avatar) : null) : auth()->user()->avatar_url,
+                'sender' => $conversation->is_group ? null : [
+                    'id' => auth()->id(),
+                    'username' => auth()->user()->username,
+                    'avatar_url' => auth()->user()->avatar_url,
+                    'is_verified' => (bool) auth()->user()->is_verified,
+                ],
                 'last_message' => $previewData['text'],
                 'last_message_id' => $previewData['id'] ?? null,
                 'show_checkmarks' => $previewData['show_checkmarks'],
@@ -443,20 +460,38 @@ class ChatController extends Controller
         $emitData = [
             'conversation_id' => $conversation->id,
             'reader_id' => $userId,
-            'read_messages' => $readMessagesData, // New format with all_read info
-            'read_message_ids' => $messagesToMark->toArray(), // Keep for compatibility
+            'read_messages' => $readMessagesData,
+            'read_message_ids' => $messagesToMark->toArray(),
             'read_at' => $now->toISOString()
         ];
-        
-        // Emit to the conversation and the reader themselves to sync sidebar
-        app(\App\Services\SocketEmitService::class)->emitToConversation($conversation->id, 'chat:read', $emitData);
-        app(\App\Services\SocketEmitService::class)->emitToUser($userId, 'chat:read', $emitData);
-        
-        // Also emit to the sender specifically
-        $lastMessage = Message::where('conversation_id', $conversation->id)->orderBy('created_at', 'desc')->first();
-        if ($lastMessage && $lastMessage->sender_id !== $userId) {
-            app(\App\Services\SocketEmitService::class)->emitToUser($lastMessage->sender_id, 'chat:read', $emitData);
+
+        // Determine whether read receipts should be broadcast to others.
+        // Rule: if either party has show_read_receipts = false, suppress the broadcast.
+        $readerProfile = auth()->user()->profile;
+        $readerReceiptsOn = $readerProfile ? ($readerProfile->show_read_receipts ?? true) : true;
+
+        $otherReceiptsOn = true;
+        if (!$conversation->is_group) {
+            $otherId = $conversation->user1_id === $userId ? $conversation->user2_id : $conversation->user1_id;
+            $otherUser = \App\Models\User::with('profile')->find($otherId);
+            if ($otherUser?->profile) {
+                $otherReceiptsOn = $otherUser->profile->show_read_receipts ?? true;
+            }
         }
+
+        $broadcastToOthers = $readerReceiptsOn && $otherReceiptsOn;
+
+        if ($broadcastToOthers) {
+            // Full broadcast: conversation members + sender
+            app(\App\Services\SocketEmitService::class)->emitToConversation($conversation->id, 'chat:read', $emitData);
+            $lastMessage = Message::where('conversation_id', $conversation->id)->orderBy('created_at', 'desc')->first();
+            if ($lastMessage && $lastMessage->sender_id !== $userId) {
+                app(\App\Services\SocketEmitService::class)->emitToUser($lastMessage->sender_id, 'chat:read', $emitData);
+            }
+        }
+
+        // Always emit to the reader themselves so their own sidebar/unread count updates
+        app(\App\Services\SocketEmitService::class)->emitToUser($userId, 'chat:read', $emitData);
 
         // Also mark notifications for this conversation as read
         $notifications = auth()->user()->notifications()

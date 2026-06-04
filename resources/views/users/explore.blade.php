@@ -30,8 +30,15 @@
             </div>
             <div class="search-results" id="search-results" style="display: none;">
                 <div class="search-loading" id="search-loading" style="display: none;">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <span>{{ __('users.searching') }}</span>
+                    @for($i=0;$i<4;$i++)
+                    <div class="sk-sidebar-row" style="padding:10px 0;">
+                        <div class="sk sk-avatar"></div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+                            <div class="sk sk-line" style="width:55%;"></div>
+                            <div class="sk sk-line" style="width:35%;"></div>
+                        </div>
+                    </div>
+                    @endfor
                 </div>
                 <div class="search-empty" id="search-empty" style="display: none;">
                     <i class="fas fa-search"></i>
@@ -49,13 +56,13 @@
             @foreach($users as $user)
                 <div class="user-card">
                     <div class="user-avatar-section">
-                        <img src="{{ $user->avatar_url }}" alt="Avatar" class="user-avatar">
+                        <a href="{{ route('users.show', $user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $user->avatar_url }}" alt="Avatar" class="user-avatar" style="pointer-events:none;"></a>
                     </div>
 
                     <div class="user-content">
                         <div class="user-header">
                             <h3 class="user-name">
-                                <a href="{{ route('users.show', $user) }}">{{ $user->username }}</a>
+                                <a href="{{ route('users.show', $user) }}" style="display:inline-flex;align-items:center;gap:.2em;">{{ $user->username }}<x-verified-badge :user="$user" size=".85em" /></a>
                                 @if($user->is_suspended)
                                     <span class="suspension-badge">
                                         <i class="fas fa-exclamation-triangle"></i> {{ __('users.suspended') }}
@@ -929,10 +936,11 @@ window.runOnPageLoad( function() {
                 ? `<span class="search-user-bio">${user.profile.bio || ''}</span>`
                 : '';
 
+            const expVb = user.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".85em" height=".85em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
             userItem.innerHTML = `
                 ${avatarHtml}
                 <div class="search-user-info">
-                    <span class="search-user-name">${user.username}</span>
+                    <span class="search-user-name" style="display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(user.username)}${expVb}</span>
                     ${bioHtml}
                 </div>
             `;

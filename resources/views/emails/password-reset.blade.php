@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Your Password</title>
+    <title>{{ __('emails.password_reset_title') }}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -42,19 +42,19 @@
 </head>
 <body>
     <div class="container">
-        <h2>Reset Your Password</h2>
-        <p>Hello!</p>
-        <p>You are receiving this email because we received a password reset request for your account.</p>
-        
+        <h2>{{ __('emails.password_reset_title') }}</h2>
+        <p>{{ __('emails.password_reset_greeting') }}</p>
+        <p>{{ __('emails.password_reset_body') }}</p>
+
         <div style="text-align: center;">
-            <a href="{{ $url }}" class="btn">Reset Password</a>
+            <a href="{{ $url }}" class="btn">{{ __('emails.password_reset_button') }}</a>
         </div>
-        
-        <p>This password reset link will expire in 60 minutes.</p>
-        <p>If you did not request a password reset, no further action is required.</p>
-        
+
+        <p>{{ __('emails.password_reset_expire') }}</p>
+        <p>{{ __('emails.password_reset_ignore') }}</p>
+
         <div class="footer">
-            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. {{ __('emails.all_rights_reserved') }}</p>
         </div>
     </div>
 </body>

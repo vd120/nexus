@@ -51,7 +51,7 @@
                         <img src="{{ $comment->user->avatar_url }}" alt="">
                     </div>
                     <div class="user-details">
-                        <span class="user-name">{{ $comment->user->username }}</span>
+                        <span class="user-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $comment->user->username }}<x-verified-badge :user="$comment->user" size=".8em" /></span>
                         <span class="comment-time">{{ $comment->created_at->diffForHumans() }}</span>
                     </div>
                 </div>

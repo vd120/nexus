@@ -23,21 +23,13 @@
 
 <aside class="feed-sidebar-left" id="feedSidebarLeft" aria-label="{{ __('navigation.profile') }}">
     <div class="fsl-inner">
-        <div class="fsl-profile-card">
-            <div class="fsl-profile">
-                <a href="{{ route('users.show', $user) }}" class="fsl-avatar" title="{{ $user->username }}">
-                    <img src="{{ $user->avatar_url }}" alt="{{ $user->username }}">
-                </a>
-                <div class="fsl-identity">
-                    <a href="{{ route('users.show', $user) }}" class="fsl-fullname">{{ $fullName }}</a>
-                    <span class="fsl-username">{{ '@' . $user->username }}</span>
-                    @if($bio)
-                        <p class="fsl-bio">{{ $bio }}</p>
-                    @endif
-                </div>
-            </div>
-        </div>
 
+        {{-- Collapse / expand toggle — always visible at top --}}
+        <button type="button" class="fsl-toggle" id="fslToggle" aria-expanded="true" aria-controls="feedSidebarLeft" title="{{ __('messages.collapse') }}">
+            <i class="fas fa-chevron-left fsl-toggle-icon"></i>
+        </button>
+
+        {{-- Navigation --}}
         <nav class="fsl-nav">
             <a href="{{ route('users.show', $user) }}"
                class="fsl-link {{ $onOwnProfile ? 'active' : '' }}"
@@ -66,13 +58,13 @@
             <a href="{{ route('users.memories', $user) }}"
                class="fsl-link {{ request()->routeIs('users.memories') ? 'active' : '' }}"
                data-label="{{ __('messages.my_memories') }}">
-                <i class="fas fa-book-open"></i>
+                <i class="fas fa-clock-rotate-left"></i>
                 <span>{{ __('messages.my_memories') }}</span>
             </a>
             <a href="{{ route('explore') }}"
                class="fsl-link {{ request()->routeIs('explore') ? 'active' : '' }}"
                data-label="{{ __('users.explore_users') }}">
-                <i class="fas fa-users"></i>
+                <i class="fas fa-compass"></i>
                 <span>{{ __('users.explore_users') }}</span>
             </a>
             <a href="{{ route('hashtags.index') }}"
@@ -81,24 +73,25 @@
                 <i class="fas fa-hashtag"></i>
                 <span>{{ __('hashtags.hashtags') }}</span>
             </a>
-            <a href="{{ route('reports.my-reports') }}"
-               class="fsl-link {{ request()->routeIs('reports.my-reports') ? 'active' : '' }}"
-               data-label="{{ __('messages.my_reports') }}">
-                <i class="fas fa-flag"></i>
-                <span>{{ __('messages.my_reports') }}</span>
-            </a>
             <a href="{{ route('notifications.index') }}"
                class="fsl-link {{ request()->routeIs('notifications.index') ? 'active' : '' }}"
                data-label="{{ __('navigation.notifications') }}">
                 <i class="fas fa-bell"></i>
                 <span>{{ __('navigation.notifications') }}</span>
             </a>
+            <a href="{{ route('reports.my-reports') }}"
+               class="fsl-link {{ request()->routeIs('reports.my-reports') ? 'active' : '' }}"
+               data-label="{{ __('messages.my_reports') }}">
+                <i class="fas fa-flag"></i>
+                <span>{{ __('messages.my_reports') }}</span>
+            </a>
         </nav>
 
+        {{-- Communities shortcut --}}
         @if($myCommunities->isNotEmpty())
         <div class="fsl-section">
             <div class="fsl-section-head">
-                <h4 class="fsl-section-title">{{ __('messages.your_communities') ?? 'Your communities' }}</h4>
+                <h4 class="fsl-section-title">{{ __('messages.your_communities') ?? 'Communities' }}</h4>
                 <a href="{{ route('communities.index') }}" class="fsl-section-more">{{ __('messages.view_all') ?? 'All' }}</a>
             </div>
             <div class="fsl-shortcuts">
@@ -121,10 +114,22 @@
         </div>
         @endif
 
-        <button type="button" class="fsl-toggle" id="fslToggle" aria-expanded="true" aria-controls="feedSidebarLeft">
-            <i class="fas fa-chevron-left fsl-toggle-icon"></i>
-            <span class="fsl-toggle-label">{{ __('messages.collapse') }}</span>
-        </button>
+        {{-- Flex spacer — pushes profile card to the bottom --}}
+        <div class="fsl-spacer" aria-hidden="true"></div>
+
+        {{-- Profile card anchored to the bottom (Instagram-style) --}}
+        <div class="fsl-profile-card">
+            <a href="{{ route('users.show', $user) }}" class="fsl-profile-link" title="{{ $user->username }}">
+                <span class="fsl-avatar">
+                    <img src="{{ $user->avatar_url }}" alt="{{ $user->username }}">
+                </span>
+                <span class="fsl-identity">
+                    <span class="fsl-fullname">{{ $fullName }}<x-verified-badge :user="$user" size=".85em" /></span>
+                    <span class="fsl-username">{{ '@' . $user->username }}</span>
+                </span>
+            </a>
+        </div>
+
     </div>
 </aside>
 

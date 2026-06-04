@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Security Alert</title>
+    <title>{{ __('emails.security_alert_title') }}</title>
     <style>
         body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f1f5f9; }
         .wrapper { padding: 40px 20px; }
@@ -12,7 +12,7 @@
         .content { padding: 40px; }
         .info-box { background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px solid #e2e8f0; }
         .info-row { margin-bottom: 10px; font-size: 14px; }
-        .info-label { font-weight: 600; color: #64748b; width: 100px; display: inline-block; }
+        .info-label { font-weight: 600; color: #64748b; width: 120px; display: inline-block; }
         .footer { padding: 20px 40px; background-color: #f8fafc; text-align: center; font-size: 12px; color: #94a3b8; }
     </style>
 </head>
@@ -20,24 +20,24 @@
     <div class="wrapper">
         <div class="container">
             <div class="header">
-                <h2 style="margin:0;">Security Alert: Suspicious Login</h2>
+                <h2 style="margin:0;">{{ __('emails.security_alert_title') }}</h2>
             </div>
             <div class="content">
-                <p>Hello <strong>{{ $user->name }}</strong>,</p>
-                <p>We detected a login attempt that looks suspicious compared to your usual activity. As a security measure, we have temporarily blocked this access until it is verified.</p>
-                
+                <p>{{ __('emails.security_alert_greeting', ['name' => $user->name]) }}</p>
+                <p>{{ __('emails.security_alert_body') }}</p>
+
                 <div class="info-box">
-                    <div class="info-row"><span class="info-label">Device:</span> {{ $activity->device_type ?? 'Unknown' }} ({{ $activity->os ?? '' }})</div>
-                    <div class="info-row"><span class="info-label">Browser:</span> {{ $activity->browser ?? 'Unknown' }}</div>
-                    <div class="info-row"><span class="info-label">IP Address:</span> {{ $activity->ip_address ?? 'Unknown' }}</div>
-                    <div class="info-row"><span class="info-label">Location:</span> {{ $activity->city ?? 'Unknown' }}, {{ $activity->country ?? 'Unknown' }}</div>
-                    <div class="info-row"><span class="info-label">Time:</span> {{ $activity->logged_at->format('M d, Y H:i:s') }} UTC</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_device') }}:</span> {{ $activity->device_type ?? __('emails.unknown') }} ({{ $activity->os ?? '' }})</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_browser') }}:</span> {{ $activity->browser ?? __('emails.unknown') }}</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_ip') }}:</span> {{ $activity->ip_address ?? __('emails.unknown') }}</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_location') }}:</span> {{ $activity->city ?? __('emails.unknown') }}, {{ $activity->country ?? __('emails.unknown') }}</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_time') }}:</span> {{ $activity->logged_at->format('M d, Y H:i:s') }} UTC</div>
                 </div>
-                
-                <p>If this was you, please complete the verification on the login page. If you did not attempt to login, we recommend changing your password immediately.</p>
+
+                <p>{{ __('emails.security_alert_footer') }}</p>
             </div>
             <div class="footer">
-                <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+                <p>&copy; {{ date('Y') }} {{ config('app.name') }}. {{ __('emails.all_rights_reserved') }}</p>
             </div>
         </div>
     </div>

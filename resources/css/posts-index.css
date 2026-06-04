@@ -8,7 +8,7 @@
 .feed-layout {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    column-gap: 12px;
+    column-gap: 16px;
     width: 100vw;
     max-width: 100vw;
     margin-left: calc(50% - 50vw);
@@ -30,7 +30,7 @@ html[dir="rtl"] .feed-sidebar-left {
     max-width: var(--feed-w, 700px);
     width: 100%;
     min-width: 0;
-    transition: max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Widen the feed (and shrink empty gutter) when sidebars collapse */
@@ -43,12 +43,12 @@ html[dir="rtl"] .feed-sidebar-left {
 }
 
 /* ==========================================================================
-   LEFT SIDEBAR — profile + nav, collapsible icon rail
+   LEFT SIDEBAR — Instagram-style: no border, transparent bg, profile bottom
    ========================================================================== */
 .feed-sidebar-left {
     position: sticky;
     top: 72px;
-    width: 300px;
+    width: 244px;
     height: calc(100vh - 72px);
     max-height: calc(100vh - 72px);
     margin-top: -20px;
@@ -56,314 +56,132 @@ html[dir="rtl"] .feed-sidebar-left {
     align-self: start;
     overflow-y: auto;
     overflow-x: hidden;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    background: transparent;
+    border-right: none;
+    scrollbar-width: none;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.feed-sidebar-left::-webkit-scrollbar { display: none; }
 
 html[dir="rtl"] .feed-sidebar-left {
-    border-right: none;
-    border-left: 1px solid var(--border);
-}
-
-.feed-sidebar-left::-webkit-scrollbar { width: 6px; }
-.feed-sidebar-left::-webkit-scrollbar-track { background: transparent; }
-.feed-sidebar-left::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
-}
-.feed-sidebar-left::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    border-left: none;
 }
 
 .feed-sidebar-left.collapsed {
-    width: 68px;
+    width: 72px;
 }
 
+/* Inner: flex column, profile pinned to bottom */
 .fsl-inner {
-    padding: 40px 16px 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    overflow: hidden;
-    transition: padding 0.25s ease;
-    position: relative;
+    padding: 16px 8px 12px;
+    height: 100%;
+    gap: 0;
 }
 
 .feed-sidebar-left.collapsed .fsl-inner {
-    padding: 48px 8px 14px;
+    padding: 16px 8px 12px;
     align-items: center;
-    gap: 10px;
 }
 
-/* ---- Profile block (flat, no card) ---- */
-.fsl-profile-card {
-    padding: 0 0 16px;
-    width: 100%;
-}
-.feed-sidebar-left.collapsed .fsl-profile-card {
-    padding: 0;
+/* Flex spacer pushes profile card to the bottom */
+.fsl-spacer {
+    flex: 1;
+    min-height: 12px;
 }
 
-/* ---- Profile block (avatar + identity, horizontal) ---- */
-.fsl-profile {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-    padding: 0;
-    border-bottom: none;
-    width: 100%;
-}
-
-.feed-sidebar-left.collapsed .fsl-profile {
-    padding: 0;
-    gap: 0;
-    border-bottom: none;
-    justify-content: center;
-}
-
-/* ---- Online dot on profile avatar ---- */
-.fsl-avatar.online {
-    position: relative;
-}
-.fsl-avatar.online::after {
-    content: '';
-    position: absolute;
-    bottom: 1px;
-    right: 1px;
-    width: 11px;
-    height: 11px;
-    background: var(--green, #22c55e);
-    border: 2.5px solid var(--surface);
-    border-radius: 50%;
-    z-index: 1;
-}
-.feed-sidebar-left.collapsed .fsl-avatar.online::after {
-    width: 9px; height: 9px;
-    border-width: 2px;
-}
-
-.fsl-avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 2px solid transparent;
-    flex-shrink: 0;
-    display: block;
-    transition: width 0.25s ease, height 0.25s ease,
-                border-color 0.18s ease, transform 0.18s ease;
-}
-
-.fsl-avatar:hover {
-    border-color: var(--primary);
-    transform: scale(1.04);
-}
-
-.fsl-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.feed-sidebar-left.collapsed .fsl-avatar {
-    width: 36px;
-    height: 36px;
-}
-
-.fsl-identity {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    width: 100%;
-    min-width: 0;
-}
-
-.fsl-fullname {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: var(--text);
-    text-decoration: none;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.25;
-    transition: color 0.18s ease;
-}
-
-.fsl-fullname:hover {
-    color: var(--primary);
-}
-
-.fsl-username {
-    font-size: 12.5px;
-    color: var(--text-muted);
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    direction: ltr;
-    unicode-bidi: embed;
-}
-
-.fsl-bio {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.5;
-    text-align: start;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.feed-sidebar-left.collapsed .fsl-identity {
-    display: none;
-}
-
-/* ---- Profile stats grid (inside profile card) ---- */
-.fsl-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0;
-    width: 100%;
-    padding-top: 14px;
-    margin-top: 14px;
-    border-top: 1px solid var(--border);
-}
-.feed-sidebar-left.collapsed .fsl-stats { display: none; }
-.fsl-stat {
-    text-align: center;
-    text-decoration: none;
-    color: var(--text);
-    padding: 6px 4px;
-    border-radius: 8px;
-    transition: background var(--hover-dur, 180ms) ease-out;
-}
-.fsl-stat:hover { background: var(--surface-hover); }
-.fsl-stat strong {
-    display: block;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-}
-.fsl-stat span {
-    display: block;
-    font-size: 11px;
-    color: var(--text-muted);
-    text-transform: lowercase;
-    letter-spacing: 0.02em;
-    margin-top: 2px;
-}
-
-/* ---- Nav links (flat) ---- */
+/* ---- Nav links — Instagram feel ---- */
 .fsl-nav {
     display: flex;
     flex-direction: column;
     gap: 2px;
     width: 100%;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
-}
-.feed-sidebar-left.collapsed .fsl-nav {
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
 }
 
 .fsl-link {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 10px;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
     color: var(--text-muted);
     text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
     white-space: nowrap;
     position: relative;
-    transition: background 0.15s ease, color 0.15s ease;
+    will-change: transform;
+    /* gap animates closed during collapse — no display changes ever */
+    transition: background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                color      0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform  0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                gap        0.3s  cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fsl-link i {
-    width: 18px;
-    font-size: 17px;
+    width: 24px;
+    font-size: 22px;
     text-align: center;
     flex-shrink: 0;
-    color: var(--text-muted);
-    transition: color 0.15s ease;
+    color: inherit;
+    transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 
 .fsl-link span {
-    flex: 1;
+    /* max-width transition collapses the label width smoothly */
+    flex-shrink: 0;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
+    opacity: 1;
+    transition: opacity  0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                max-width 0.3s  cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fsl-link:hover {
     background: var(--surface-hover);
+    color: var(--text);
+    transform: translateX(3px);
 }
 
 .fsl-link:hover i {
-    color: var(--text);
+    transform: scale(1.12);
 }
 
+/* Active: full color + bold — no background, no accent bar */
 .fsl-link.active {
-    background: var(--primary-soft, rgba(99,102,241,0.10));
-    color: var(--primary);
+    background: transparent;
+    color: var(--text);
     font-weight: 600;
 }
 
-.fsl-link.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 18px;
-    background: var(--primary);
-    border-radius: 0 3px 3px 0;
-}
-
-html[dir="rtl"] .fsl-link.active::before {
-    left: auto;
-    right: 0;
-    border-radius: 3px 0 0 3px;
-}
-
 .fsl-link.active i {
-    color: var(--primary);
+    color: var(--text);
 }
 
+/* ---- Collapsed nav: gap closes, label fades — NO layout jumps ---- */
 .feed-sidebar-left.collapsed .fsl-link {
-    justify-content: center;
-    padding: 0;
     gap: 0;
-    width: 44px;
-    height: 44px;
+}
+
+.feed-sidebar-left.collapsed .fsl-link:hover {
+    transform: none;
 }
 
 .feed-sidebar-left.collapsed .fsl-link span {
-    display: none;
+    opacity: 0;
+    max-width: 0;
+    pointer-events: none;
 }
 
-/* Tooltip on hover when collapsed */
-.feed-sidebar-left.collapsed .fsl-link::after {
+/* Tooltip — slides in as it fades, only visible when collapsed */
+.fsl-link::after {
     content: attr(data-label);
     position: absolute;
     left: calc(100% + 10px);
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) translateX(-6px);
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
@@ -375,107 +193,119 @@ html[dir="rtl"] .fsl-link.active::before {
     box-shadow: var(--shadow);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 30;
 }
-
 .feed-sidebar-left.collapsed .fsl-link:hover::after {
     opacity: 1;
+    transform: translateY(-50%) translateX(0);
 }
-
-html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-link::after {
+html[dir="rtl"] .fsl-link::after {
     left: auto;
     right: calc(100% + 10px);
+    transform: translateY(-50%) translateX(6px);
+}
+html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-link:hover::after {
+    transform: translateY(-50%) translateX(0);
 }
 
-/* ---- Section: Your communities (flat) ---- */
+/* ---- Communities section ---- */
 .fsl-section {
     width: 100%;
-    padding: 14px 0 0;
-    border-top: 1px solid var(--border);
+    padding: 16px 0 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-}
-.feed-sidebar-left.collapsed .fsl-section {
-    border-top: 1px solid var(--border);
-    padding: 0;
+    gap: 4px;
 }
 
 .fsl-section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 6px;
+    padding: 0 16px 6px;
     gap: 8px;
+    overflow: hidden;
+    max-height: 32px;
+    opacity: 1;
+    transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                max-height 0.3s  cubic-bezier(0.4, 0, 0.2, 1),
+                padding    0.3s  cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fsl-section-title {
     margin: 0;
-    font-size: 10.5px;
-    font-weight: 700;
-    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.9px;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
 }
 
 .fsl-section-more {
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--primary);
     text-decoration: none;
-    padding: 3px 8px;
-    border-radius: 999px;
-    transition: background 0.15s ease;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
 }
+.fsl-section-more:hover { opacity: 0.75; }
 
-.fsl-section-more:hover {
-    background: var(--primary-glow);
+/* Section head collapses away smoothly */
+.feed-sidebar-left.collapsed .fsl-section-head {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none;
 }
 
 .fsl-shortcuts {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 0;
 }
 
 .fsl-shortcut {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 8px;
-    border-radius: 10px;
-    color: var(--text);
+    gap: 12px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    color: var(--text-muted);
     text-decoration: none;
-    font-size: 13.5px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 400;
     position: relative;
-    transition: background 0.15s ease;
+    will-change: transform;
+    transition: background  0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                color       0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform   0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                gap         0.3s  cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .fsl-shortcut:hover {
     background: var(--surface-hover);
+    color: var(--text);
+    transform: translateX(3px);
 }
 
 .fsl-shortcut-avatar {
     width: 28px;
     height: 28px;
-    border-radius: 8px;
+    border-radius: 50%;
     overflow: hidden;
-    background: var(--primary-glow);
-    color: var(--primary);
+    background: var(--surface-hover);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 11px;
     flex-shrink: 0;
-    border: 1px solid var(--border);
-    transition: border-color 0.18s ease;
+    transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1);
 }
-
-.fsl-shortcut:hover .fsl-shortcut-avatar {
-    border-color: var(--primary);
-}
+.fsl-shortcut:hover .fsl-shortcut-avatar { transform: scale(1.1); }
 
 .fsl-shortcut-avatar img {
     width: 100%;
@@ -485,54 +315,31 @@ html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-link::after {
 }
 
 .fsl-shortcut-name {
-    flex: 1;
-    min-width: 0;
+    flex-shrink: 0;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    opacity: 1;
+    transition: opacity   0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                max-width  0.3s  cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Collapsed state: hide title row, center small avatars, show tooltip */
-.feed-sidebar-left.collapsed .fsl-section {
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-    margin-top: 6px;
-    align-items: center;
-}
-
-.feed-sidebar-left.collapsed .fsl-section-head {
-    display: none;
-}
-
-.feed-sidebar-left.collapsed .fsl-shortcuts {
-    align-items: center;
-}
-
-.feed-sidebar-left.collapsed .fsl-shortcut {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    gap: 0;
-    justify-content: center;
-    border-radius: 10px;
-}
-
+/* Collapsed communities: gap closes, name fades — no display changes */
+.feed-sidebar-left.collapsed .fsl-shortcut { gap: 0; }
+.feed-sidebar-left.collapsed .fsl-shortcut:hover { transform: none; }
 .feed-sidebar-left.collapsed .fsl-shortcut-name {
-    display: none;
+    opacity: 0;
+    max-width: 0;
+    pointer-events: none;
 }
 
-.feed-sidebar-left.collapsed .fsl-shortcut-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-}
-
-.feed-sidebar-left.collapsed .fsl-shortcut::after {
+.fsl-shortcut::after {
     content: attr(data-label);
     position: absolute;
     left: calc(100% + 10px);
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) translateX(-6px);
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
@@ -544,96 +351,172 @@ html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-link::after {
     box-shadow: var(--shadow);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 30;
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 .feed-sidebar-left.collapsed .fsl-shortcut:hover::after {
     opacity: 1;
+    transform: translateY(-50%) translateX(0);
 }
-
-html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-shortcut::after {
+html[dir="rtl"] .fsl-shortcut::after {
     left: auto;
     right: calc(100% + 10px);
+    transform: translateY(-50%) translateX(6px);
+}
+html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-shortcut:hover::after {
+    transform: translateY(-50%) translateX(0);
 }
 
-/* ---- Collapse toggle ---- */
+/* ---- Collapse toggle — in the normal flow, right-aligned at the top ---- */
 .fsl-toggle {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border-radius: 50%;
+    align-self: flex-end;   /* right-aligns in the flex-column */
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
     background: transparent;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-dim);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 5;
-    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    margin-bottom: 6px;
+    transition: background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                color     0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .fsl-toggle:hover {
     background: var(--surface-hover);
-    color: var(--primary);
+    color: var(--text);
 }
 
-.fsl-toggle-label {
-    display: none;
+/* Collapsed: stays right-aligned, centered in the narrow sidebar */
+.feed-sidebar-left.collapsed .fsl-toggle {
+    align-self: center;
 }
+
+.fsl-toggle-label { display: none; }
 
 .fsl-toggle-icon {
-    font-size: 11px;
-    transition: transform 0.25s ease;
-}
-
-.feed-sidebar-left.collapsed .fsl-toggle {
-    top: 12px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.feed-sidebar-left.collapsed .fsl-toggle:hover {
-    transform: translateX(-50%);
-    background: var(--surface-hover);
+    font-size: 10px;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feed-sidebar-left.collapsed .fsl-toggle-icon {
     transform: rotate(180deg);
 }
 
-html[dir="rtl"] .fsl-toggle {
-    right: auto;
-    left: 10px;
+html[dir="rtl"] .fsl-toggle-icon { transform: rotate(180deg); }
+html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-toggle-icon { transform: rotate(0deg); }
+
+/* ---- Profile card — anchored at the very bottom ---- */
+.fsl-profile-card {
+    padding: 12px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    width: 100%;
+    flex-shrink: 0;
 }
 
-html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-toggle {
-    left: 50%;
+.fsl-profile-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--text);
+    will-change: transform;
+    /* gap animates on collapse */
+    transition: background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                transform  0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                gap        0.3s  cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fsl-profile-link:hover {
+    background: var(--surface-hover);
+    transform: translateX(3px);
 }
 
-html[dir="rtl"] .fsl-toggle-icon {
-    transform: rotate(180deg);
+.fsl-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: block;
+    background: var(--surface-hover);
+    transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.fsl-profile-link:hover .fsl-avatar { transform: scale(1.06); }
+
+.fsl-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-toggle-icon {
-    transform: rotate(0deg);
+.fsl-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+    max-width: 180px;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity   0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                max-width  0.3s  cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Identity fades as gap closes — profile link stays full row, no layout flip */
+.feed-sidebar-left.collapsed .fsl-profile-link {
+    gap: 0;
+    transform: none;
+}
+.feed-sidebar-left.collapsed .fsl-profile-link:hover {
+    background: var(--surface-hover);
+    transform: none;
+}
+.feed-sidebar-left.collapsed .fsl-identity {
+    opacity: 0;
+    max-width: 0;
+    pointer-events: none;
+}
+
+.fsl-fullname {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.fsl-username {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: ltr;
+    unicode-bidi: embed;
 }
 
 /* ==========================================================================
-   RIGHT SIDEBAR — discover stack, collapsible
+   RIGHT SIDEBAR — Instagram-style: transparent, no card chrome
    ========================================================================== */
 .feed-sidebar-right {
     position: sticky;
     top: 80px;
-    width: clamp(340px, 25vw, 420px);
+    width: clamp(280px, 22vw, 360px);
     align-self: start;
     min-height: 48px;
     height: calc(100vh - 96px);
@@ -641,232 +524,102 @@ html[dir="rtl"] .feed-sidebar-left.collapsed .fsl-toggle-icon {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feed-sidebar-right.collapsed {
-    width: 54px;
-    max-height: calc(100vh - 96px);
+    width: 48px;
     overflow: visible;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--elev-2);
-    padding: 8px 5px;
 }
 
-/* Header row (label + toggle) */
+/* Header: toggle only */
 .fsr-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 4px 6px 10px;
-    gap: 8px;
+    justify-content: flex-end;
+    padding: 0 4px 10px;
     flex-shrink: 0;
-}
-
-.fsr-header-title {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
-    color: var(--text);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.fsr-header-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), var(--secondary, #a855f7));
-    box-shadow: 0 0 8px var(--primary-glow);
+    transition: justify-content 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feed-sidebar-right.collapsed .fsr-header {
-    padding: 0 0 8px;
     justify-content: center;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 8px;
-    position: static;
-    background: transparent;
+    padding: 0 0 10px;
 }
 
-.feed-sidebar-right.collapsed .fsr-header-title {
-    display: none;
-}
-
-/* Vertical icon rail (visible only when collapsed) */
-.fsr-rail {
-    display: none;
-}
-
-.feed-sidebar-right.collapsed .fsr-rail {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-
-.fsr-rail-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    cursor: pointer;
-    position: relative;
-    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-}
-
-.fsr-rail-btn:hover {
-    background: var(--primary-glow);
-    color: var(--primary);
-    transform: scale(1.05);
-}
-
-.fsr-rail-btn::after {
-    content: attr(data-label);
-    position: absolute;
-    right: calc(100% + 10px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    box-shadow: var(--shadow);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 30;
-}
-
-.fsr-rail-btn:hover::after {
-    opacity: 1;
-}
-
-html[dir="rtl"] .fsr-rail-btn::after {
-    right: auto;
-    left: calc(100% + 10px);
-}
-
-/* Collapse toggle */
+/* Collapse toggle — matches left sidebar style */
 .fsr-toggle {
     width: 28px;
     height: 28px;
-    border-radius: 50%;
+    border-radius: 8px;
     background: transparent;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-dim);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
     flex-shrink: 0;
+    transition: background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                color     0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .fsr-toggle:hover {
     background: var(--surface-hover);
-    color: var(--primary);
+    color: var(--text);
 }
 
 .fsr-toggle-icon {
-    font-size: 11px;
-    transition: transform 0.25s ease;
+    font-size: 10px;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.feed-sidebar-right.collapsed .fsr-toggle-icon { transform: rotate(180deg); }
+html[dir="rtl"] .fsr-toggle-icon { transform: rotate(180deg); }
+html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon { transform: rotate(0deg); }
 
-.feed-sidebar-right.collapsed .fsr-toggle-icon {
-    transform: rotate(180deg);
-}
-
-html[dir="rtl"] .fsr-toggle-icon {
-    transform: rotate(180deg);
-}
-
-html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon {
-    transform: rotate(0deg);
-}
-
-/* Stack of cards */
+/* Stack — fades + collapses smoothly, no display:none */
 .fsr-stack {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
     flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 2px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-width: none;
+    opacity: 1;
+    max-height: 2000px;
+    transition: opacity   0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-.fsr-stack::-webkit-scrollbar { width: 6px; }
-.fsr-stack::-webkit-scrollbar-track { background: transparent; }
-.fsr-stack::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
-}
-.fsr-stack::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-}
-
-.fsr-quick-btns {
-    display: flex;
-    gap: 8px;
-}
-.fsr-quick-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-muted);
-    font-size: 12.5px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.fsr-quick-btn:hover,
-.fsr-quick-btn.active {
-    background: var(--primary-glow);
-    color: var(--primary);
-    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
-}
-.fsr-quick-btn i { font-size: 12px; }
+.fsr-stack::-webkit-scrollbar { display: none; }
 
 .feed-sidebar-right.collapsed .fsr-stack {
-    display: none;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
 }
 
-/* Card */
+/* Card — no background, no borders, just stacked sections */
 .fsr-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 11px 12px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 14px 8px;
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 10px;
     min-width: 0;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    position: relative;
     flex-shrink: 0;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Pulse and memory cards — no bg, no border, blends with page */
+.pulse-card,
+.memory-card {
+    border-radius: 0;
+    margin-bottom: 0;
 }
 
 /* ============================================================
@@ -875,12 +628,7 @@ html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon {
    ============================================================ */
 .pulse-card {
     position: relative;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
-    background: linear-gradient(135deg,
-        color-mix(in srgb, var(--primary) 12%, var(--surface)) 0%,
-        var(--surface) 65%);
-    padding: 14px 14px 12px;
+    padding: 12px 10px;
 }
 /* Pulse — mobile inline host (visible only when right sidebar is hidden) */
 .pulse-mobile-host { display: none; }
@@ -892,28 +640,8 @@ html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon {
 @media (max-width: 1180px) {
     .pulse-mobile-host { display: block; }
 }
-.pulse-card-bg {
-    position: absolute;
-    inset: -40%;
-    background: radial-gradient(circle at 20% 30%,
-                  color-mix(in srgb, var(--primary) 55%, transparent) 0%, transparent 45%),
-                radial-gradient(circle at 80% 70%,
-                  color-mix(in srgb, #f43f5e 40%, transparent) 0%, transparent 50%);
-    filter: blur(40px);
-    opacity: 0.55;
-    pointer-events: none;
-    animation: pulse-aurora 18s ease-in-out infinite;
-    z-index: 0;
-}
-@keyframes pulse-aurora {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33%      { transform: translate(6%, -4%) scale(1.08); }
-    66%      { transform: translate(-5%, 5%) scale(0.95); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .pulse-card-bg { animation: none; }
-}
 .pulse-card > * { position: relative; z-index: 1; }
+.memory-card-bg { display: none; }
 
 /* Pulse — close (dismiss) button */
 .pulse-close {
@@ -1056,100 +784,49 @@ html[dir="rtl"] .pulse-card-head { padding-right: 0; padding-left: 30px; }
     font-variant-numeric: tabular-nums;
 }
 
-.fsr-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%);
-}
-
-.fsr-card:hover {
-    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-    box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.35);
-}
-
 /* Card header */
 .fsr-card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 22px;
 }
 
 .fsr-card-title {
     margin: 0;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
-    letter-spacing: 0.1px;
     display: inline-flex;
     align-items: center;
-    gap: 9px;
+    gap: 6px;
     min-width: 0;
 }
 
-.fsr-icon-pill {
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    background: var(--primary-glow);
-    color: var(--primary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    flex-shrink: 0;
-}
-
-.fsr-icon-pill-fire {
-    background: linear-gradient(135deg, rgba(249,115,22,0.18), rgba(239,68,68,0.18));
-    color: #f97316;
-}
-
-.fsr-icon-pill-live {
-    background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(34,197,94,0.12));
-    color: #10b981;
-}
+/* Icon pills removed from HTML — hide any that remain */
+.fsr-icon-pill { display: none; }
 
 .fsr-card-more {
     font-size: 12px;
     font-weight: 600;
     color: var(--primary);
     text-decoration: none;
-    padding: 4px 10px;
-    border-radius: 999px;
-    transition: background 0.15s ease, color 0.15s ease;
     flex-shrink: 0;
+    transition: opacity 0.15s ease;
 }
+.fsr-card-more:hover { opacity: 0.75; }
 
-.fsr-card-more:hover {
-    background: var(--primary-glow);
-    color: var(--primary);
-}
-
-/* Live badge */
+/* Live badge — softer, no border */
 .fsr-card-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: var(--text-muted);
-    background: var(--surface-hover);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px 9px;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
     flex-shrink: 0;
 }
-
-.fsr-card-badge.is-active {
-    color: #16a34a;
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.3);
-}
+.fsr-card-badge.is-active { color: #16a34a; }
 
 .fsr-pulse {
     width: 6px;
@@ -1238,15 +915,9 @@ html[dir="rtl"] .pulse-card-head { padding-right: 0; padding-left: 30px; }
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    padding: 2px;
-    background: linear-gradient(135deg, var(--border), var(--border));
-    transition: background 0.2s ease;
+    background: var(--surface-hover);
     display: block;
-}
-
-.fsr-follow-item:hover .fsr-follow-avatar-wrap .fsr-follow-avatar,
-.fsr-follow-item:hover .fsr-follow-avatar {
-    background: linear-gradient(135deg, var(--primary), var(--secondary, #a855f7));
+    overflow: hidden;
 }
 
 .fsr-follow-avatar img {
@@ -1255,8 +926,6 @@ html[dir="rtl"] .pulse-card-head { padding-right: 0; padding-left: 30px; }
     object-fit: cover;
     border-radius: 50%;
     display: block;
-    border: 2px solid var(--surface);
-    background: var(--surface);
 }
 
 .fsr-online-dot {
@@ -1351,19 +1020,18 @@ html[dir="rtl"] .fsr-online-dot {
 }
 
 .fsr-suggest-avatar {
-    position: relative;
     width: 38px;
     height: 38px;
     border-radius: 50%;
     flex-shrink: 0;
-    padding: 2px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary, #a855f7));
-    display: inline-flex;
-    transition: transform 0.18s ease;
+    background: var(--surface-hover);
+    overflow: hidden;
+    display: block;
+    transition: transform 0.18s cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 
 .fsr-suggest-item:hover .fsr-suggest-avatar {
-    transform: scale(1.04);
+    transform: scale(1.06);
 }
 
 .fsr-suggest-avatar img {
@@ -1371,8 +1039,6 @@ html[dir="rtl"] .fsr-online-dot {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--surface);
-    background: var(--surface);
     display: block;
 }
 
@@ -1401,55 +1067,28 @@ html[dir="rtl"] .fsr-online-dot {
     text-overflow: ellipsis;
 }
 
-/* Inline Follow button */
+/* Follow button — plain text link (Instagram style) */
 .fsr-follow-btn {
     appearance: none;
-    border: 1px solid var(--primary);
+    border: none;
     background: transparent;
     color: var(--primary);
-    border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 700;
+    padding: 4px 2px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
     flex-shrink: 0;
-    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
 }
-
-.fsr-follow-btn .fsr-fb-icon {
-    font-size: 9px;
-}
-
-.fsr-follow-btn:hover {
-    background: var(--primary);
-    color: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px -4px var(--primary);
-}
-
-.fsr-follow-btn:active {
-    transform: translateY(0);
-}
+.fsr-follow-btn:hover { opacity: 0.7; }
 
 .fsr-follow-btn.is-loading {
     pointer-events: none;
-    opacity: 0.65;
+    opacity: 0.5;
 }
 
-.fsr-follow-btn.is-loading .fsr-fb-icon {
-    animation: fsrSpin 0.8s linear infinite;
-}
-
-@keyframes fsrSpin {
-    to { transform: rotate(360deg); }
-}
-
-.fsr-follow-btn:disabled {
-    cursor: default;
-}
+.fsr-follow-btn:disabled { cursor: default; }
 
 /* Communities / trending lists */
 .fsr-list {
@@ -1481,9 +1120,9 @@ html[dir="rtl"] .fsr-online-dot {
 .fsr-row-icon {
     width: 32px;
     height: 32px;
-    border-radius: 9px;
-    background: var(--primary-glow);
-    color: var(--primary);
+    border-radius: 50%;
+    background: var(--surface-hover);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1499,47 +1138,25 @@ html[dir="rtl"] .fsr-online-dot {
     display: block;
 }
 
-/* Hashtag rank chips with tier colors */
+/* Hashtag rank — minimal number or emoji */
 .fsr-trend-rank {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-    background: var(--surface-hover);
-    color: var(--text-muted);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11.5px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 700;
     flex-shrink: 0;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
-    border: 1px solid var(--border);
 }
 
-.fsr-trend-rank.tier-1 {
-    background: linear-gradient(135deg, #f97316, #ef4444);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.55);
-}
-
-.fsr-trend-rank.tier-2 {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 12px -6px rgba(245, 158, 11, 0.5);
-}
-
-.fsr-trend-rank.tier-3 {
-    background: linear-gradient(135deg, #c084fc, #8b5cf6);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 12px -6px rgba(139, 92, 246, 0.5);
-}
-
-.fsr-row-trend:hover .fsr-trend-rank {
-    transform: scale(1.06);
-}
+.fsr-trend-rank.tier-1 { color: var(--text-muted); font-size: 14px; }
+.fsr-trend-rank.tier-2 { color: var(--text-muted); }
+.fsr-trend-rank.tier-3 { color: var(--text-dim); }
+.fsr-trend-rank.tier-4 { color: var(--text-dim); }
 
 .fsr-row-body {
     display: flex;
@@ -1578,116 +1195,43 @@ html[dir="rtl"] .fsr-online-dot {
     opacity: 1;
 }
 
-/* Community row arrow CTA */
-.fsr-row-cta {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--primary-glow);
-    color: var(--primary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    flex-shrink: 0;
-    opacity: 0;
-    transform: translateX(-4px);
-    transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease, color 0.18s ease;
-}
+/* Row CTA removed from HTML — keep hidden if any remain */
+.fsr-row-cta { display: none; }
 
-.fsr-row-community:hover .fsr-row-cta {
-    opacity: 1;
-    transform: translateX(0);
-    background: var(--primary);
-    color: #fff;
-}
-
-html[dir="rtl"] .fsr-row-cta i {
-    transform: rotate(180deg);
-}
-
-/* Empty states */
+/* Empty states — minimal */
 .fsr-empty {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 16px 8px 10px;
-    color: var(--text-muted);
-    text-align: center;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 0 8px;
+    color: var(--text-dim);
 }
 
-.fsr-empty-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: var(--primary-glow);
-    color: var(--primary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    margin-bottom: 2px;
-}
+.fsr-empty-icon { display: none; }
 
 .fsr-empty p {
     margin: 0;
     font-size: 12.5px;
     line-height: 1.45;
-    color: var(--text-muted);
-    max-width: 240px;
+    color: var(--text-dim);
 }
 
-.fsr-empty.small {
-    padding: 12px 6px;
-    gap: 6px;
-}
-.fsr-empty.small .fsr-empty-icon {
-    width: 36px;
-    height: 36px;
-    font-size: 15px;
-    border-radius: 12px;
-}
+.fsr-empty.small { padding: 4px 0; }
 
 .fsr-empty-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-    padding: 7px 14px;
-    background: var(--primary);
-    color: #fff;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
     text-decoration: none;
-    transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-    box-shadow: 0 4px 14px -6px var(--primary);
+    transition: opacity 0.15s ease;
 }
+.fsr-empty-cta:hover { opacity: 0.75; }
 
-.fsr-empty-cta i {
-    font-size: 11px;
-}
-
-.fsr-empty-cta:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
-    color: #fff;
-    box-shadow: 0 6px 16px -6px var(--primary);
-}
-
-/* Global chat preview — fills remaining sidebar height */
+/* Global chat preview */
 .fsr-chat-card {
     flex: 1 1 auto;
-    min-height: 180px;
-    border-color: color-mix(in srgb, #10b981 20%, var(--border));
-    background: linear-gradient(160deg, var(--surface), color-mix(in srgb, #10b981 4%, var(--surface)));
-}
-
-.fsr-chat-card .fsr-card-head {
-    margin-bottom: 4px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    min-height: 160px;
 }
 
 .fsr-chat-list {
@@ -1812,29 +1356,14 @@ html[dir="rtl"] .fsr-row-cta i {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    width: 100%;
-    justify-content: center;
-    padding: 7px 12px;
-    border-radius: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: #10b981;
-    background: color-mix(in srgb, #10b981 10%, transparent);
-    border: 1px solid color-mix(in srgb, #10b981 25%, transparent);
+    color: var(--primary);
     text-decoration: none;
-    transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+    transition: opacity 0.15s ease;
 }
-
-.fsr-chat-open-btn:hover {
-    background: color-mix(in srgb, #10b981 18%, transparent);
-    border-color: color-mix(in srgb, #10b981 45%, transparent);
-    transform: translateY(-1px);
-    color: #10b981;
-}
-
-.fsr-chat-open-btn i {
-    font-size: 11px;
-}
+.fsr-chat-open-btn:hover { opacity: 0.75; }
+.fsr-chat-open-btn i { font-size: 11px; }
 
 .global-chat-message.is-new {
     animation: gcMsgIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -2536,6 +2065,23 @@ html[dir="rtl"] .fsr-row-cta i {
     font-size: 16px;
 }
 
+/* Sensitive toggle pill */
+.sensitive-pill {
+    color: var(--text-muted);
+    border: 1.5px solid transparent;
+    transition: color .15s, background .15s, border-color .15s;
+}
+
+.sensitive-pill--on {
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, .1) !important;
+    border-color: rgba(245, 158, 11, .35) !important;
+}
+
+.sensitive-pill--on i {
+    color: #f59e0b;
+}
+
 .privacy-btn {
     display: inline-flex;
     align-items: center;
@@ -2843,40 +2389,33 @@ html[dir="rtl"] .fsr-row-cta i {
     }
 
     .post-actions {
-        flex-direction: row;
-        gap: 8px;
-        margin-top: 12px;
-        padding-top: 0;
-        border-top: none;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
     }
 
     .post-actions-left {
         display: flex;
+        flex-wrap: wrap;
         gap: 6px !important;
         padding: 0;
         border-bottom: none;
-        overflow-x: auto;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        padding-bottom: 2px;
         flex: 1;
         min-width: 0;
     }
 
-    .post-actions-left::-webkit-scrollbar {
-        display: none;
-    }
-
     .post-action-btn {
         flex: 0 0 auto;
-        padding: 6px 10px;
-        font-size: 11px;
-        gap: 4px;
-        background: var(--surface-hover);
+        padding: 7px 11px;
+        font-size: 12px;
+        gap: 5px;
+        border-radius: 10px;
     }
 
     .post-action-btn span { display: inline; }
-    .post-action-btn i { font-size: 14px; }
+    .post-action-btn i { font-size: 13px; }
 
     .privacy-btn:hover {
         background: transparent;
@@ -2945,6 +2484,12 @@ html[dir="rtl"] .fsr-row-cta i {
         height: auto !important;
         border-radius: 8px !important;
     }
+}
+
+/* Very small phones: icon-only buttons to avoid overflow */
+@media (max-width: 380px) {
+    .post-action-btn span { display: none; }
+    .post-action-btn { padding: 8px 10px; }
 }
 
 /* Touch device: disable hover transforms */

@@ -16,10 +16,10 @@
                     <span class="comment-time" data-timestamp="{{ $comment->created_at->toIso8601String() }}">{{ $comment->created_at->diffInMinutes() < 1 ? __('messages.just_now') : $comment->created_at->diffForHumans(null, true, true) }}</span>
                 </div>
             @else
-                <img src="{{ $comment->user->avatar_url }}" alt="" class="comment-avatar" loading="lazy" decoding="async">
+                <a href="{{ route('users.show', $comment->user) }}" style="flex-shrink:0;display:flex;"><img src="{{ $comment->user->avatar_url }}" alt="" class="comment-avatar" loading="lazy" decoding="async" style="pointer-events:none;"></a>
                 <div class="comment-author-info">
                     <div class="comment-name-row">
-                        <a href="{{ route('users.show', $comment->user) }}" class="comment-name">{{ $comment->user->username }}</a>
+                        <a href="{{ route('users.show', $comment->user) }}" class="comment-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $comment->user->username }}<x-verified-badge :user="$comment->user" size=".85em" /></a>
 
                         {{-- Commenter Role Badges --}}
                         @php $role = $comment->author_role; @endphp

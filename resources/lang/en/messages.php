@@ -33,6 +33,7 @@ return [
     'view_all' => 'View All',
     'open' => 'Open',
     'top_communities' => 'Top Communities',
+    'community_info' => 'Community',
     'members' => 'members',
     'who_to_follow' => 'Who to follow',
     'not_following_anyone' => "Your circle is empty. Pick someone to follow and your feed wakes up.",
@@ -831,6 +832,7 @@ return [
     'my_chapters' => 'My Chapters',
     'add_chapter' => 'Add chapter',
     'edit_chapter' => 'Edit chapter',
+    'delete_chapter' => 'Delete chapter',
     'delete_chapter_confirm' => 'Delete this chapter? Posts will not be deleted, they will just lose this tag.',
     'chapter_title' => 'Chapter title',
     'chapter_emoji' => 'Emoji',
@@ -886,4 +888,46 @@ return [
     'pulse_already_answered' => 'You already answered today',
     'deleted' => 'Deleted',
     'edited'  => 'edited',
+
+    // Onboarding
+    'onboarding_welcome_title' => 'Welcome, :name!',
+    'onboarding_welcome_subtitle' => "Let's set up your profile so others can find you.",
+    'onboarding_bio_label' => 'Bio',
+    'onboarding_bio_optional' => 'optional',
+    'onboarding_bio_placeholder' => 'Tell people a bit about yourself…',
+    'onboarding_save_continue' => 'Save & Continue',
+    'onboarding_skip' => 'Skip',
+    'onboarding_who_to_follow' => 'Who to follow',
+    'onboarding_follow_subtitle' => 'Follow a few people to get started with your feed.',
+    'onboarding_no_suggestions' => 'No suggestions yet — you can find people from the Explore page.',
+    'onboarding_continue' => 'Continue',
+    'onboarding_all_set' => "You're all set!",
+    'onboarding_all_set_desc' => 'Your account is ready. Start exploring and connecting with people.',
+    'onboarding_security_tip' => 'One more thing',
+    'onboarding_2fa_prompt' => 'Enable Two-Factor Authentication to keep your account secure.',
+    'onboarding_setup_2fa' => 'Set up 2FA',
+    'onboarding_go_to_feed' => 'Go to my feed',
+
+    // Prompt nudge reminders
+    'nudge_reminder'     => 'Reminder',
+    'nudge_pulse_title'  => "Today's Pulse",
+    'nudge_pulse_sub'    => "You haven't shared your daily answer yet.",
+    'nudge_memory_title' => 'Weekly Memory',
+    'nudge_memory_sub'   => "You haven't answered this week's memory yet.",
+
+    // Feature Flags (admin)
+    'feature_flags_title' => 'Feature Flags',
+    'feature_flag_enabled' => 'Enabled',
+    'feature_flag_disabled' => 'Disabled',
+    'feature_flag_toggle_failed' => 'Failed to toggle flag.',
+
+    // Reactions
+    'you' => 'You',
+    'and' => 'and',
+    'others' => 'others',
+    'show_content' => 'Show content',
+    'created' => 'Created',
+    'navigate' => 'Navigate',
+    'rules' => 'Rules',
+    'topics' => 'Topics',
 ];

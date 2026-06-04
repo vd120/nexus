@@ -225,6 +225,10 @@ return [
     'post_already_deleted_message' => 'This post has been deleted. You can mark this report as reviewed to close it.',
     'mark_as_reviewed' => 'Mark as Reviewed',
 
+    // Verified Badge
+    'user_verified' => ':username is now verified.',
+    'user_unverified' => 'Verification removed from :username.',
+
     // Report Reasons
     'reasons' => [
         'spam' => 'Spam',

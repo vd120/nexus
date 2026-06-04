@@ -180,7 +180,7 @@
                             <img src="{{ $user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name">{{ $user->username }}</span>
+                            <span class="activity-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $user->username }}<x-verified-badge :user="$user" size=".8em" /></span>
                             <span class="activity-time">{{ $user->created_at->diffForHumans() }}</span>
                         </div>
                         <a href="{{ route('admin.users.show', $user) }}" class="activity-link">
@@ -205,7 +205,7 @@
                             <img src="{{ $post->user->avatar_url }}" alt="">
                         </div>
                         <div class="activity-details">
-                            <span class="activity-name">{{ $post->user->username }}</span>
+                            <span class="activity-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->username }}<x-verified-badge :user="$post->user" size=".8em" /></span>
                             <span class="activity-time">{{ Str::limit($post->content ?? __('admin.media_post'), 30) }}</span>
                         </div>
                         <a href="{{ route('admin.posts') }}" class="activity-link">

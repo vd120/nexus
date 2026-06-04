@@ -25,7 +25,7 @@ class HashtagController extends Controller
         
         $user = auth()->user();
         
-        $query = Post::with(['user.profile', 'media', 'likes', 'reactions', 'comments'])
+        $query = Post::with(['user.profile', 'media', 'likes', 'reactions.user:id,name,username', 'comments'])
             ->whereHas('hashtags', function ($q) use ($hashtag) {
                 $q->where('hashtag_id', $hashtag->id);
             });

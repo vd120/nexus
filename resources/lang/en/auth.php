@@ -161,4 +161,22 @@ return [
     'resend_code' => 'Resend Code',
     'wait' => 'Wait',
     'confirm_password_oauth_help' => 'Since you are logging in from a new location/device via Google, please confirm your account password.',
+    'code_sent_to_email' => 'A 6-digit code has been sent to',
+
+    // Login challenge / verification responses
+    'login_session_expired'           => 'Login session expired.',
+    'verification_code_sent_to_email' => 'Verification code sent to your email.',
+    'verification_code_expired'       => 'Verification code expired.',
+    'invalid_account_password'        => 'Invalid account password.',
+
+    // Two-Factor Challenge (login flow)
+    'two_factor_authentication' => 'Two-Factor Authentication',
+    'two_factor_challenge_desc' => 'Enter the 6-digit code from your authenticator app, or use one of your recovery codes.',
+    'two_factor_code_placeholder' => '000000 or recovery code',
+    'two_factor_verify' => 'Verify',
+    'two_factor_invalid_code' => 'Invalid code. Check your authenticator app or use a recovery code.',
+    'two_factor_session_expired' => 'Session expired. Please start again.',
+    'two_factor_enabled_success' => '2FA enabled successfully.',
+    'two_factor_disabled_success' => '2FA disabled.',
+    'sign_out' => 'Sign out',
 ];

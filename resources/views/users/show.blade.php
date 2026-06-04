@@ -1,6 +1,18 @@
 @extends('layouts.app')
 
-@section('title', $user->username . ' - ' . __('users.profile'))
+@section('title', ($user->name ?: $user->username) . ' (@' . $user->username . ') — ' . config('app.name'))
+
+@push('meta')
+@php $ogBio = $user->profile?->bio ? Str::limit($user->profile->bio, 160) : config('app.name') . ' — ' . $user->username; @endphp
+<meta property="og:title" content="{{ e($user->name ?: $user->username) }} (@{{ e($user->username) }})">
+<meta property="og:description" content="{{ e($ogBio) }}">
+<meta property="og:image" content="{{ $user->avatar_url }}">
+<meta property="og:url" content="{{ route('users.show', $user) }}">
+<meta property="og:type" content="profile">
+<meta name="twitter:title" content="{{ e($user->name ?: $user->username) }}">
+<meta name="twitter:description" content="{{ e($ogBio) }}">
+<meta name="twitter:image" content="{{ $user->avatar_url }}">
+@endpush
 
 @section('content')
 <style>
@@ -150,7 +162,7 @@
     <div class="profile-info">
         <div class="profile-details">
             <div class="profile-header-info">
-                <div class="profile-name">{{ $user->name }}</div>
+                <div class="profile-name" style="display:inline-flex;align-items:center;gap:.3em;">{{ $user->name }}<x-verified-badge :user="$user" size="1.1em" /></div>
                 <div class="profile-username"><span dir="ltr">@ {{ $user->username }}</span></div>
                 <div class="profile-badges">
                     @if(auth()->check() && $isBlocking)

@@ -94,7 +94,9 @@
         <div class="lc-modal-backdrop" data-lc-close></div>
         <div class="lc-modal-panel" role="dialog" aria-modal="true" aria-labelledby="lcModalTitle">
             <header class="lc-modal-header">
-                <h3 id="lcModalTitle" class="lc-modal-title">{{ __('messages.add_chapter') }}</h3>
+                <h3 id="lcModalTitle" class="lc-modal-title"
+                    data-add-label="{{ __('messages.add_chapter') }}"
+                    data-edit-label="{{ __('messages.edit_chapter') }}">{{ __('messages.add_chapter') }}</h3>
                 <button type="button" class="lc-modal-close" data-lc-close aria-label="Close">
                     <i class="fas fa-times"></i>
                 </button>
@@ -128,7 +130,7 @@
                 <div class="lc-modal-error" id="lcFormError" hidden></div>
                 <footer class="lc-modal-footer">
                     <button type="button" class="lc-btn lc-btn-ghost" data-lc-close>{{ __('messages.cancel') ?? 'Cancel' }}</button>
-                    <button type="submit" class="lc-btn lc-btn-primary" id="lcSaveBtn">
+                    <button type="button" class="lc-btn lc-btn-primary" id="lcSaveBtn" onclick="lcSaveChapter()">
                         <i class="fas fa-bookmark"></i>
                         <span>{{ __('messages.chapter_save') }}</span>
                     </button>

@@ -109,18 +109,34 @@ Route::post('/internal/user/status', function (Request $request) {
         
         $user->update($updateData);
         
+        // Respect the user's online status visibility preference
+        $showOnlineStatus = $user->profile ? ($user->profile->show_online_status ?? true) : true;
+
+        if (!$showOnlineStatus) {
+            // User has hidden their online status — don't broadcast to anyone
+            return response()->json([
+                'success' => true,
+                'notify_user_ids' => [],
+                'last_active' => $user->last_active->toIso8601String(),
+                'user_details' => [
+                    'username' => $user->username,
+                    'avatar_url' => $user->avatar_url,
+                ]
+            ]);
+        }
+
         // Get followers
         $followerIds = $user->followers()->pluck('follower_id')->toArray();
-        
+
         // Get conversation partners
         $directPartners = \App\Models\Conversation::where('user1_id', $user->id)
             ->pluck('user2_id')->toArray();
         $directPartners2 = \App\Models\Conversation::where('user2_id', $user->id)
             ->pluck('user1_id')->toArray();
-            
+
         // Merge and make unique
         $notifyUserIds = array_unique(array_merge($followerIds, $directPartners, $directPartners2));
-        
+
         // Remove current user ID if somehow included
         $notifyUserIds = array_diff($notifyUserIds, [$user->id]);
 

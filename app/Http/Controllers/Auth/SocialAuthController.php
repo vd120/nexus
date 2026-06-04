@@ -77,9 +77,13 @@ class SocialAuthController extends Controller
                 ], 600);
 
                 // Send Security Alert Email
-                \Illuminate\Support\Facades\Mail::send('emails.login-security-alert', ['activity' => $activity, 'user' => $user], function ($message) use ($user) {
-                    $message->to($user->email)->subject(config('app.name') . ' - Suspicious Login Detected');
+                $originalLocale = app()->getLocale();
+                if ($user->language) app()->setLocale($user->language);
+                $alertSubject = __('emails.security_alert_subject', ['app' => config('app.name')]);
+                \Illuminate\Support\Facades\Mail::send('emails.login-security-alert', ['activity' => $activity, 'user' => $user], function ($message) use ($user, $alertSubject) {
+                    $message->to($user->email)->subject($alertSubject);
                 });
+                app()->setLocale($originalLocale);
 
                 return redirect()->route('login.suspicious.view', $challengeUuid);
             }

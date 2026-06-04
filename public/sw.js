@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-cache-v2';
+const CACHE_NAME = 'nexus-cache-v3';
 
 const STATIC_ASSETS = [
     '/css/app-layout.css',
@@ -74,9 +74,10 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        }).catch((err) => {
-           // Fallback for failed network requests
-           return new Response('Network error', { status: 500 });
+        }).catch(() => {
+           // Network failed and no cache — return empty 404 so the browser
+           // handles it gracefully instead of the SW throwing an error.
+           return new Response('', { status: 404 });
         });
       })
     );

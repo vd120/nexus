@@ -61,10 +61,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Admin middleware alias
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'suspended' => \App\Http\Middleware\CheckUserSuspended::class,
-            'verified' => \App\Http\Middleware\CheckEmailVerified::class,
+            'admin'      => \App\Http\Middleware\AdminMiddleware::class,
+            'suspended'  => \App\Http\Middleware\CheckUserSuspended::class,
+            'verified'   => \App\Http\Middleware\CheckEmailVerified::class,
             'password.set' => \App\Http\Middleware\RequirePasswordSet::class,
+            '2fa'        => \App\Http\Middleware\EnsureTwoFactorAuthenticated::class,
         ]);
     })
     ->withCommands([
@@ -76,4 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e) {
             return response()->view('errors.404', [], 404);
         });
+
+        // Sentry error reporting
+        \Sentry\Laravel\Integration::handles($exceptions);
     })->create();

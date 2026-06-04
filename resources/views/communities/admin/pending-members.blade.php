@@ -17,10 +17,10 @@
             <div class="panel request-card" id="request-{{ $request->user->id }}">
                 <div class="panel-body request-card-inner">
                     <div class="request-user-box">
-                        <img src="{{ $request->user->avatar_url }}" alt="" class="request-avatar">
+                        <a href="{{ route('users.show', $request->user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $request->user->avatar_url }}" alt="" class="request-avatar" style="pointer-events:none;"></a>
                         <div class="request-text">
-                            <h3 class="request-name">{{ $request->user->name }}</h3>
-                            <span class="request-handle">{{ '@' . $request->user->username }}</span>
+                            <a href="{{ route('users.show', $request->user) }}" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:.2em;"><h3 class="request-name" style="margin:0;">{{ $request->user->name }}</h3><x-verified-badge :user="$request->user" size=".85em" /></a>
+                            <a href="{{ route('users.show', $request->user) }}" class="request-handle" style="text-decoration:none;">{{ '@' . $request->user->username }}</a>
                             <div class="request-meta-badge">
                                 <i class="far fa-clock"></i> {{ $request->created_at->diffForHumans() }}
                             </div>

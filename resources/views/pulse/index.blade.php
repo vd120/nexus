@@ -74,7 +74,7 @@
                                 @if($a->is_anonymous)
                                     <span class="pulse-anon-avatar"><i class="fas fa-user-secret"></i></span>
                                 @else
-                                    <img src="{{ $a->user->avatar_url }}" alt="" loading="lazy">
+                                    <a href="{{ route('users.show', $a->user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $a->user->avatar_url }}" alt="" loading="lazy" style="pointer-events:none;"></a>
                                 @endif
                             </div>
                             <div class="pulse-answer-body">
@@ -83,8 +83,8 @@
                                         @if($a->is_anonymous)
                                             {{ __('messages.anonymous_participant') }}
                                         @else
-                                            <span class="pulse-answer-fullname">{{ optional($a->user->profile)->full_name ?: $a->user->name }}</span>
-                                            <span class="pulse-answer-handle" dir="ltr">&#64;{{ $a->user->username }}</span>
+                                            <a href="{{ route('users.show', $a->user) }}" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:.2em;"><span class="pulse-answer-fullname">{{ optional($a->user->profile)->full_name ?: $a->user->name }}</span><x-verified-badge :user="$a->user" size=".85em" /></a>
+                                            <a href="{{ route('users.show', $a->user) }}" style="text-decoration:none;"><span class="pulse-answer-handle" dir="ltr">&#64;{{ $a->user->username }}</span></a>
                                         @endif
                                     </span>
                                     <div class="pulse-answer-head-right">
@@ -123,6 +123,7 @@
 @push('scripts')
 <script>
 (function () {
+    function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     // ── Prevent bfcache form restoration ───────────────────────────────────
     const taEl = document.getElementById('pulse-answer-input');
     let savedAnswer = @json($userAnswer?->content ?? '');
@@ -184,9 +185,10 @@
         const deleteBtn = isOwn ? `<button class="pulse-delete-btn" title="{{ __('messages.delete') }}"><i class="fas fa-trash-can"></i></button>` : '';
         const avatar = a.is_anonymous
             ? `<span class="pulse-anon-avatar"><i class="fas fa-user-secret"></i></span>`
-            : `<img src="${a.author.avatar_url}" alt="" loading="lazy">`;
+            : `<a href="/users/${encodeURIComponent(a.author.username)}" style="display:flex;flex-shrink:0;"><img src="${a.author.avatar_url}" alt="" loading="lazy" style="pointer-events:none;"></a>`;
+        const verifiedSvg = a.author && a.author.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".85em" height=".85em" style="display:inline-block;vertical-align:middle;margin-left:.2em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
         const nameHtml = a.is_anonymous ? anonLabel
-            : `<span class="pulse-answer-fullname">${a.author.name}</span><span class="pulse-answer-handle" dir="ltr">@${a.author.username}</span>`;
+            : `<a href="/users/${encodeURIComponent(a.author.username)}" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:.2em;"><span class="pulse-answer-fullname">${escapeHtml(a.author.name)}</span>${verifiedSvg}</a><a href="/users/${encodeURIComponent(a.author.username)}" style="text-decoration:none;"><span class="pulse-answer-handle" dir="ltr">@${escapeHtml(a.author.username)}</span></a>`;
         return `<li class="pulse-answer pulse-answer--new" data-answer-id="${a.id}">
             <div class="pulse-answer-avatar">${avatar}</div>
             <div class="pulse-answer-body">

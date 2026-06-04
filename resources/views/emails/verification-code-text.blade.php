@@ -1,20 +1,14 @@
-{{ config('app.name') }} - Email Verification
+{{ config('app.name') }} - {{ __('emails.verification_code_prompt') }}
 
 ========================================
 
-Welcome, {{ $user->name }}!
+{{ __('emails.verification_code_welcome', ['app' => config('app.name')]) }}
 
-Thank you for joining {{ config('app.name') }}! 
+{{ __('emails.verification_code_prompt') }} {{ $verificationCode }}
 
-YOUR VERIFICATION CODE: {{ $verificationCode }}
+{{ __('emails.verification_code_expire') }}
 
-This code expires in 10 minutes.
-
-How to verify:
-1. Enter the 6-digit code above
-2. Click verify to complete registration
-3. Start using {{ config('app.name') }}!
+{{ __('emails.verification_code_notice') }}
 
 ========================================
-You're receiving this because you registered for {{ config('app.name') }}.
-&copy; {{ date('Y') }} {{ config('app.name') }}
+&copy; {{ date('Y') }} {{ config('app.name') }}. {{ __('emails.all_rights_reserved') }}

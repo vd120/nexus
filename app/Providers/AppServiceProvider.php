@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Http\Request;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
         // Register model observers (auto-tag Life Chapter on Post/PulseAnswer creation)
         \App\Models\Post::observe(\App\Observers\PostObserver::class);
         \App\Models\PulseAnswer::observe(\App\Observers\PulseAnswerObserver::class);
+
+        // Pulse & memory reminder nudge
+        View::composer('layouts.app', \App\View\Composers\PromptNudgeComposer::class);
     }
 
     /**

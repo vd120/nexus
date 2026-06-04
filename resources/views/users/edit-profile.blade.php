@@ -275,6 +275,93 @@
                     <span>{{ __('users.private_account_desc') }}</span>
                 </div>
             </label>
+
+            <label class="form-checkbox">
+                <input type="checkbox" name="show_online_status" value="1" {{ (old('show_online_status', $user->profile->show_online_status ?? true)) ? 'checked' : '' }}>
+                <div class="form-checkbox-text">
+                    <strong>{{ __('users.show_online_status') }}</strong>
+                    <span>{{ __('users.show_online_status_desc') }}</span>
+                </div>
+            </label>
+
+            <label class="form-checkbox">
+                <input type="checkbox" name="show_read_receipts" value="1" {{ (old('show_read_receipts', $user->profile->show_read_receipts ?? true)) ? 'checked' : '' }}>
+                <div class="form-checkbox-text">
+                    <strong>{{ __('users.show_read_receipts') }}</strong>
+                    <span>{{ __('users.show_read_receipts_desc') }}</span>
+                </div>
+            </label>
+        </div>
+
+        {{-- Two-Factor Authentication --}}
+        <div class="edit-card" id="2fa-card">
+            <h3><i class="fas fa-shield-alt"></i> {{ __('users.two_factor_auth') }}</h3>
+
+            @if(auth()->user()->two_factor_secret)
+                <div id="2fa-enabled-state">
+                    <div style="display:flex; align-items:center; gap:.75rem; padding:.875rem 1rem; background:#22c55e15; border:1px solid #22c55e30; border-radius:8px; margin-bottom:1rem;">
+                        <i class="fas fa-check-circle" style="color:#22c55e; font-size:1.125rem;" aria-hidden="true"></i>
+                        <div>
+                            <strong style="display:block;">{{ __('users.two_factor_enabled') }}</strong>
+                            <span style="font-size:.8rem; opacity:.65;">{{ __('users.two_factor_enabled_desc') }}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn" onclick="show2FADisableModal()" style="background:#ef444420; color:#ef4444; border:1px solid #ef444440;">
+                        <i class="fas fa-times" aria-hidden="true"></i> {{ __('users.disable_2fa') }}
+                    </button>
+                </div>
+            @else
+                <div id="2fa-disabled-state">
+                    <div style="display:flex; align-items:center; gap:.75rem; padding:.875rem 1rem; background:var(--input-bg,#12121f); border:1px solid var(--border-color,#2a2a3e); border-radius:8px; margin-bottom:1rem;">
+                        <i class="fas fa-shield-alt" style="opacity:.4; font-size:1.125rem;" aria-hidden="true"></i>
+                        <div>
+                            <strong style="display:block;">{{ __('users.two_factor_not_enabled') }}</strong>
+                            <span style="font-size:.8rem; opacity:.65;">{{ __('users.two_factor_not_enabled_desc') }}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="setup2FA()">
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i> {{ __('users.enable_2fa') }}
+                    </button>
+                </div>
+                <div id="2fa-setup-state" style="display:none;">
+                    <p style="font-size:.875rem; margin:0 0 1rem;">{{ __('users.two_factor_scan_desc') }}</p>
+                    <div style="text-align:center; margin-bottom:1rem;">
+                        <img id="2fa-qr" src="" alt="QR Code" style="width:160px; height:160px; border-radius:8px; background:#fff; padding:8px;">
+                    </div>
+                    <details style="margin-bottom:1rem;">
+                        <summary style="font-size:.8rem; cursor:pointer; opacity:.6;">{{ __('users.two_factor_cant_scan') }}</summary>
+                        <code id="2fa-secret" style="font-size:.8rem; display:block; margin-top:.5rem; padding:.5rem; background:var(--input-bg,#12121f); border-radius:4px; word-break:break-all;"></code>
+                    </details>
+                    <div style="display:flex; flex-wrap:wrap; gap:.75rem; align-items:center;">
+                        <input type="text" id="2fa-code-input" inputmode="numeric" placeholder="000000" maxlength="6" aria-label="{{ __('users.two_factor_auth') }}" style="flex:1; min-width:120px; padding:.625rem .875rem; border-radius:8px; border:1px solid var(--border-color,#2a2a3e); background:var(--input-bg,#12121f); color:inherit; font-size:1rem; letter-spacing:.2em; text-align:center;">
+                        <button type="button" class="btn btn-primary" onclick="confirm2FA()" id="2fa-confirm-btn">{{ __('users.two_factor_confirm') }}</button>
+                        <button type="button" class="btn btn-ghost" onclick="cancel2FASetup()">{{ __('auth.cancel') }}</button>
+                    </div>
+                    <p id="2fa-error" style="color:#ef4444; font-size:.8rem; margin:.5rem 0 0; display:none;" role="alert"></p>
+                </div>
+                <div id="2fa-recovery-state" style="display:none;">
+                    <div style="background:#f59e0b15; border:1px solid #f59e0b30; border-radius:8px; padding:1rem; margin-bottom:1rem;">
+                        <strong style="display:block; margin-bottom:.5rem;"><i class="fas fa-exclamation-triangle" style="color:#f59e0b;" aria-hidden="true"></i> {{ __('users.two_factor_save_codes_title') }}</strong>
+                        <p style="font-size:.8rem; opacity:.8; margin:0 0 .75rem;">{{ __('users.two_factor_save_codes_desc') }}</p>
+                        <div id="2fa-recovery-codes" style="display:grid; grid-template-columns:1fr 1fr; gap:.375rem; font-family:monospace; font-size:.875rem;"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="finish2FASetup()"><i class="fas fa-check" aria-hidden="true"></i> {{ __('users.two_factor_done') }}</button>
+                </div>
+            @endif
+        </div>
+
+        {{-- 2FA Disable Modal --}}
+        <div id="2fa-disable-modal" role="dialog" aria-modal="true" aria-labelledby="2fa-disable-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:var(--card-bg,#1e1e2e); border:1px solid var(--border-color,#2a2a3e); border-radius:16px; padding:2rem; width:100%; max-width:400px; margin:1rem;">
+                <h3 id="2fa-disable-title" style="margin:0 0 .5rem;"><i class="fas fa-shield-alt" aria-hidden="true"></i> {{ __('users.disable_2fa_title') }}</h3>
+                <p style="font-size:.875rem; opacity:.65; margin:0 0 1rem;">{{ __('users.disable_2fa_desc') }}</p>
+                <input type="password" id="2fa-disable-password" placeholder="{{ __('users.your_password') }}" autocomplete="current-password" style="width:100%; box-sizing:border-box; padding:.625rem .875rem; border-radius:8px; border:1px solid var(--border-color,#2a2a3e); background:var(--input-bg,#12121f); color:inherit; font-size:.9375rem; margin-bottom:.75rem;">
+                <p id="2fa-disable-error" style="color:#ef4444; font-size:.8rem; margin:0 0 .75rem; display:none;" role="alert"></p>
+                <div style="display:flex; gap:.75rem;">
+                    <button type="button" class="btn" onclick="disable2FA()" style="flex:1; background:#ef444420; color:#ef4444; border:1px solid #ef444440;">{{ __('users.disable') }}</button>
+                    <button type="button" class="btn btn-ghost" onclick="close2FAModal()" style="flex:1;">{{ __('auth.cancel') }}</button>
+                </div>
+            </div>
         </div>
 
         {{-- Actions --}}
@@ -283,6 +370,22 @@
             <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> {{ __('users.save_changes') }}</button>
         </div>
     </form>
+
+    {{-- Data Export --}}
+    <div class="edit-card" style="margin-top:1.5rem;">
+        <h3><i class="fas fa-download" aria-hidden="true"></i> {{ __('users.your_data') }}</h3>
+        <p style="font-size:.875rem; opacity:.7; margin:0 0 1rem;">{{ __('users.your_data_desc') }}</p>
+        @php $pendingExport = App\Models\DataExportRequest::where('user_id', auth()->id())->whereIn('status', ['pending','processing'])->first(); @endphp
+        @if($pendingExport)
+            <div role="status" style="padding:.75rem 1rem; background:#f59e0b15; border:1px solid #f59e0b30; border-radius:8px; font-size:.875rem;">
+                <i class="fas fa-clock" style="color:#f59e0b;" aria-hidden="true"></i> {{ __('users.export_pending') }}
+            </div>
+        @else
+            <button type="button" id="export-data-btn" onclick="requestDataExport()" class="btn" style="background:var(--input-bg,#12121f); border:1px solid var(--border-color,#2a2a3e);">
+                <i class="fas fa-download" aria-hidden="true"></i> {{ __('users.download_my_data') }}
+            </button>
+        @endif
+    </div>
 
     {{-- Danger Zone --}}
     <div class="danger-zone">
@@ -554,6 +657,160 @@ function checkUsernameAvailability(username) {
         updateCooldownTimer();
         initUsernameCheck();
     });
+
+    // ── 2FA ──────────────────────────────────────────────────────────
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const i18n2fa = {
+        enable: '{{ addslashes(__("users.enable_2fa")) }}',
+        enabled: '{{ addslashes(__("users.two_factor_enabled")) }}',
+        enabledDesc: '{{ addslashes(__("users.two_factor_enabled_desc")) }}',
+        disable: '{{ addslashes(__("users.disable_2fa")) }}',
+        confirm: '{{ addslashes(__("users.two_factor_confirm")) }}',
+        enterCode: '{{ addslashes(__("auth.verification_code")) }}',
+        invalidCode: '{{ addslashes(__("auth.two_factor_invalid_code")) }}',
+        somethingWrong: '{{ addslashes(__("auth.error")) }}',
+        toastEnabled: '{{ addslashes(__("auth.success")) }}',
+        toastDisabled: '{{ addslashes(__("auth.success")) }}',
+        enterPassword: '{{ addslashes(__("users.your_password")) }}',
+    };
+
+    async function setup2FA() {
+        const btn = document.getElementById('2fa-disabled-state').querySelector('.btn-primary');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i>';
+        try {
+            const res = await fetch('{{ route("2fa.setup") }}', {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
+            });
+            const data = await res.json();
+            document.getElementById('2fa-qr').src = data.qr_code_uri;
+            document.getElementById('2fa-secret').textContent = data.secret;
+            document.getElementById('2fa-disabled-state').style.display = 'none';
+            document.getElementById('2fa-setup-state').style.display = 'block';
+        } catch(e) {
+            showToast(i18n2fa.somethingWrong, 'error');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-shield-alt" aria-hidden="true"></i> ' + i18n2fa.enable;
+    }
+
+    function cancel2FASetup() {
+        document.getElementById('2fa-setup-state').style.display = 'none';
+        document.getElementById('2fa-disabled-state').style.display = 'block';
+        document.getElementById('2fa-code-input').value = '';
+        document.getElementById('2fa-error').style.display = 'none';
+    }
+
+    async function confirm2FA() {
+        const code = document.getElementById('2fa-code-input').value.trim();
+        const errEl = document.getElementById('2fa-error');
+        const btn = document.getElementById('2fa-confirm-btn');
+        if (!code) { errEl.textContent = i18n2fa.enterCode; errEl.style.display = 'block'; return; }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i>';
+        errEl.style.display = 'none';
+
+        try {
+            const res = await fetch('{{ route("2fa.confirm") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ code }),
+            });
+            const data = await res.json();
+            if (!res.ok) { errEl.textContent = data.message || i18n2fa.invalidCode; errEl.style.display = 'block'; return; }
+
+            document.getElementById('2fa-setup-state').style.display = 'none';
+            const rcEl = document.getElementById('2fa-recovery-codes');
+            rcEl.innerHTML = data.recovery_codes.map(c => `<code style="background:var(--input-bg,#12121f);padding:.25rem .5rem;border-radius:4px;">${c}</code>`).join('');
+            document.getElementById('2fa-recovery-state').style.display = 'block';
+        } catch(e) {
+            errEl.textContent = i18n2fa.somethingWrong;
+            errEl.style.display = 'block';
+        }
+        btn.disabled = false;
+        btn.innerHTML = i18n2fa.confirm;
+    }
+
+    function finish2FASetup() {
+        document.getElementById('2fa-recovery-state').style.display = 'none';
+        document.getElementById('2fa-disabled-state').innerHTML = `
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.875rem 1rem;background:#22c55e15;border:1px solid #22c55e30;border-radius:8px;margin-bottom:1rem;">
+                <i class="fas fa-check-circle" style="color:#22c55e;font-size:1.125rem;" aria-hidden="true"></i>
+                <div><strong style="display:block;">${i18n2fa.enabled}</strong><span style="font-size:.8rem;opacity:.65;">${i18n2fa.enabledDesc}</span></div>
+            </div>
+            <button type="button" class="btn" onclick="show2FADisableModal()" style="background:#ef444420;color:#ef4444;border:1px solid #ef444440;"><i class="fas fa-times" aria-hidden="true"></i> ${i18n2fa.disable}</button>`;
+        document.getElementById('2fa-disabled-state').style.display = 'block';
+        showToast(i18n2fa.toastEnabled, 'success');
+    }
+
+    function show2FADisableModal() {
+        const modal = document.getElementById('2fa-disable-modal');
+        modal.style.display = 'flex';
+        document.getElementById('2fa-disable-password').focus();
+    }
+
+    function close2FAModal() {
+        document.getElementById('2fa-disable-modal').style.display = 'none';
+        document.getElementById('2fa-disable-password').value = '';
+        document.getElementById('2fa-disable-error').style.display = 'none';
+    }
+
+    async function disable2FA() {
+        const password = document.getElementById('2fa-disable-password').value;
+        const errEl = document.getElementById('2fa-disable-error');
+        if (!password) { errEl.textContent = i18n2fa.enterPassword; errEl.style.display = 'block'; return; }
+
+        try {
+            const res = await fetch('{{ route("2fa.disable") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ password }),
+            });
+            const data = await res.json();
+            if (!res.ok) { errEl.textContent = data.message || i18n2fa.invalidCode; errEl.style.display = 'block'; return; }
+            close2FAModal();
+            showToast(i18n2fa.toastDisabled, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch(e) {
+            errEl.textContent = i18n2fa.somethingWrong;
+            errEl.style.display = 'block';
+        }
+    }
+
+    // Close disable modal on overlay click
+    document.getElementById('2fa-disable-modal')?.addEventListener('click', function(e) {
+        if (e.target === this) close2FAModal();
+    });
+
+    // Data export
+    const exportLabel = '{{ addslashes(__("users.download_my_data")) }}';
+    const somethingWrong = '{{ addslashes(__("auth.error")) }}';
+
+    async function requestDataExport() {
+        const btn = document.getElementById('export-data-btn');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i>';
+        try {
+            const res = await fetch('{{ route("export.request") }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            });
+            const data = await res.json();
+            if (res.ok) {
+                btn.parentElement.innerHTML = `<div role="status" style="padding:.75rem 1rem;background:#22c55e15;border:1px solid #22c55e30;border-radius:8px;font-size:.875rem;"><i class="fas fa-check-circle" style="color:#22c55e;" aria-hidden="true"></i> ${data.message}</div>`;
+            } else {
+                showToast(data.message || somethingWrong, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download" aria-hidden="true"></i> ' + exportLabel;
+            }
+        } catch(e) {
+            showToast(somethingWrong, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-download" aria-hidden="true"></i> ' + exportLabel;
+        }
+    }
 
 </script>
 @endsection

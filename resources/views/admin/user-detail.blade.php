@@ -20,6 +20,14 @@
             </div>
         </div>
         <div class="header-actions">
+            <button type="button"
+                id="verify-btn"
+                onclick="toggleVerification()"
+                class="action-btn"
+                style="{{ $user->is_verified ? 'background:#6366f120;color:#6366f1;border:1px solid #6366f140;' : 'background:var(--input-bg,#12121f);color:var(--text-muted);border:1px solid var(--border-color);' }}">
+                <i class="fas fa-{{ $user->is_verified ? 'check-circle' : 'circle' }}"></i>
+                <span id="verify-label">{{ $user->is_verified ? 'Verified' : 'Not Verified' }}</span>
+            </button>
             <a href="{{ route('admin.users.edit', $user) }}" class="action-btn edit">
                 <i class="fas fa-edit"></i> {{ __('admin.edit_user') }}
             </a>
@@ -183,9 +191,13 @@
                     </div>
                     <div class="item-meta">
                         <span><i class="fas fa-heart"></i> {{ $comment->likes->count() }}</span>
-                        <span>{{ __('admin.on_post') }} {{ $comment->post->user->name }}{{ __('admin.post_owner') }}</span>
-                        <span>{{ $comment->created_at->diffForHumans() }}</span>
+                        @if($comment->post)
+                        <span>{{ __('admin.on_post') }} {{ $comment->post->user->name ?? '' }}{{ __('admin.post_owner') }}</span>
                         <a href="/posts/{{ $comment->post->slug }}" target="_blank" class="view-link">{{ __('admin.view_post') }} <i class="fas fa-external-link-alt"></i></a>
+                        @else
+                        <span style="opacity:.5">{{ __('admin.post_deleted') }}</span>
+                        @endif
+                        <span>{{ $comment->created_at->diffForHumans() }}</span>
                     </div>
                 </div>
                 @endforeach
@@ -244,5 +256,24 @@ window.runOnPageLoad( function() {
         });
     });
 });
+
+let isVerified = {{ $user->is_verified ? 'true' : 'false' }};
+async function toggleVerification() {
+    const url = isVerified
+        ? '{{ route("admin.users.unverify", $user) }}'
+        : '{{ route("admin.users.verify", $user) }}';
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' }
+    });
+    const data = await res.json();
+    isVerified = data.verified;
+    const btn = document.getElementById('verify-btn');
+    document.getElementById('verify-label').textContent = isVerified ? 'Verified' : 'Not Verified';
+    btn.querySelector('i').className = `fas fa-${isVerified ? 'check-circle' : 'circle'}`;
+    btn.style.cssText = isVerified
+        ? 'background:#6366f120;color:#6366f1;border:1px solid #6366f140;'
+        : 'background:var(--input-bg,#12121f);color:var(--text-muted);border:1px solid var(--border-color);';
+}
 </script>
 @endsection

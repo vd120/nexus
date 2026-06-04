@@ -163,4 +163,22 @@ return [
     'resend_code' => 'إعادة إرسال الكود',
     'wait' => 'انتظر',
     'confirm_password_oauth_help' => 'بما إنك بتسجل دخول من موقع أو جهاز جديد عن طريق Google، من فضلك اكتب كلمة سر حسابك للتأكيد.',
+    'code_sent_to_email' => 'تم إرسال كود مكون من 6 أرقام إلى',
+
+    // Login challenge / verification responses
+    'login_session_expired'           => 'الجلسة انتهت. حاول تاني.',
+    'verification_code_sent_to_email' => 'تم إرسال كود التحقق على إيميلك.',
+    'verification_code_expired'       => 'كود التحقق انتهت صلاحيته.',
+    'invalid_account_password'        => 'كلمة السر غلط.',
+
+    // Two-Factor Challenge (login flow)
+    'two_factor_authentication' => 'التحقق بخطوتين',
+    'two_factor_challenge_desc' => 'اكتب الكود المكون من 6 أرقام من تطبيق المصادقة، أو استخدم أحد أكواد الاسترداد.',
+    'two_factor_code_placeholder' => '000000 أو كود الاسترداد',
+    'two_factor_verify' => 'تأكيد',
+    'two_factor_invalid_code' => 'الكود غلط. شيك على تطبيق المصادقة أو استخدم كود الاسترداد.',
+    'two_factor_session_expired' => 'الجلسة انتهت. ابدأ من الأول.',
+    'two_factor_enabled_success' => 'تم تفعيل التحقق بخطوتين.',
+    'two_factor_disabled_success' => 'تم إيقاف التحقق بخطوتين.',
+    'sign_out' => 'تسجيل الخروج',
 ];

@@ -119,9 +119,9 @@
             <div class="report-content">
                 @if($report->post)
                 <div class="post-preview">
-                    <img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar">
+                    <a href="{{ route('users.show', $report->post->user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $report->post->user->avatar_url }}" alt="" class="avatar" style="pointer-events:none;"></a>
                     <div class="post-info">
-                        <span class="post-author">{{ $report->post->user->username }}</span>
+                        <a href="{{ route('users.show', $report->post->user) }}" class="post-author" style="text-decoration:none;">{{ $report->post->user->username }}</a>
                         <span class="post-date">{{ $report->post->created_at->format('M d, Y') }}</span>
                     </div>
                     @if($report->post->media->count() > 0)

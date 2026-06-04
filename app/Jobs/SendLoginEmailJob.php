@@ -75,6 +75,11 @@ class SendLoginEmailJob implements ShouldQueue
                 return;
             }
 
+            // Set locale so the email renders in the user's language
+            if ($user->language) {
+                app()->setLocale($user->language);
+            }
+
             // Send email (URL generation handled by mailable)
             Mail::to($user->email)->send(new LoginSecurityAlert($activity));
 

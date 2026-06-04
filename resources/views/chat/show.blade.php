@@ -81,15 +81,16 @@ $chatTitle = $isGroup
                     @else
                         <div class="chat-avatar">
                             @if($conversation->other_user)
-                                <img src="{{ $conversation->other_user->avatar_url }}" alt="Avatar">
+                                <a href="{{ route('users.show', $conversation->other_user) }}" style="display:flex;flex-shrink:0;"><img src="{{ $conversation->other_user->avatar_url }}" alt="Avatar" style="pointer-events:none;"></a>
                             @else
                                 <div class="avatar-fallback">{{ substr('U', 0, 1) }}</div>
                             @endif
                         </div>
                         <div class="chat-details">
-                            <h3>{{ $conversation->other_user->username ?? __('chat.user') }}</h3>
+                            <a href="{{ route('users.show', $conversation->other_user) }}" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:.25em;"><h3 style="margin:0;">{{ $conversation->other_user->username ?? __('chat.user') }}</h3>@if($conversation->other_user)<x-verified-badge :user="$conversation->other_user" size=".95em" />@endif</a>
 @php
-    $isUserOnline = $conversation->other_user && (bool)$conversation->other_user->is_online;
+    $otherUserShowsOnline = $conversation->other_user?->profile?->show_online_status ?? true;
+    $isUserOnline = $conversation->other_user && (bool)$conversation->other_user->is_online && $otherUserShowsOnline;
 @endphp
 <span class="status {{ $isUserOnline ? 'online' : 'offline' }}" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}">
     <span class="status-dot"></span>
@@ -179,13 +180,13 @@ $chatTitle = $isGroup
                         <div class="message {{ $message->is_mine ? 'own' : 'other' }} group-invite" data-message-id="{{ $message->id }}" data-sender-name="{{ $message->is_mine ? __('chat.you') : ($message->sender->username ?? 'User') }}">
                             @if(!$message->is_mine && $message->sender && $isGroup)
                                 <div class="message-avatar">
-                                    <img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}">
+                                    <a href="{{ route('users.show', $message->sender) }}" style="display:flex;flex-shrink:0;"><img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}" style="pointer-events:none;"></a>
                                 </div>
                             @endif
                             <div class="message-bubble {{ $hasReactions ? 'has-reactions' : '' }}">
 
                                 @if(!$message->is_mine && $message->sender && $isGroup)
-                                    <div class="sender-name">{{ $message->sender->username ?? 'User' }}</div>
+                                    <a href="{{ route('users.show', $message->sender) }}" class="sender-name" style="text-decoration:none;display:inline-flex;align-items:center;gap:.2em;">{{ $message->sender->username ?? 'User' }}<x-verified-badge :user="$message->sender" size=".8em" /></a>
                                 @endif
                                 <div class="invite-card">
                                     <div class="invite-icon"><i class="fas fa-users"></i></div>
@@ -230,13 +231,13 @@ $chatTitle = $isGroup
                             @endphp
                             @if(!$message->is_mine && $message->sender && $isGroup)
                                 <div class="message-avatar">
-                                    <img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}">
+                                    <a href="{{ route('users.show', $message->sender) }}" style="display:flex;flex-shrink:0;"><img src="{{ $message->sender->avatar_url }}" alt="{{ $message->sender->username }}" style="pointer-events:none;"></a>
                                 </div>
                             @endif
                             <div class="message-bubble {{ $hasReactions ? 'has-reactions' : '' }}">
 
                                 @if(!$message->is_mine && $message->sender && $isGroup)
-                                    <div class="sender-name" dir="auto">{{ $message->sender->username ?? 'User' }}</div>
+                                    <a href="{{ route('users.show', $message->sender) }}" class="sender-name" dir="auto" style="text-decoration:none;display:inline-flex;align-items:center;gap:.2em;">{{ $message->sender->username ?? 'User' }}<x-verified-badge :user="$message->sender" size=".8em" /></a>
                                 @endif
                                 <div class="message-content {{ ($mediaItems || $message->type === 'image' || $message->type === 'video') ? 'has-media' : '' }} {{ ($message->content && $message->content !== '' && $message->type !== 'group_invite' && $message->content !== 'system_cleared') ? 'has-text' : '' }}">
                                     @if($message->trashed())
@@ -362,12 +363,23 @@ $chatTitle = $isGroup
                                                 $storyReplyContent = $isStoryReply ? trim(str_replace('📸 Reply to your story:', '', $message->content)) : null;
                                             @endphp
                                             
+                                            @php
+                                                if (!function_exists('chatLinkify')) {
+                                                    function chatLinkify(string $text): string {
+                                                        return preg_replace_callback(
+                                                            '/(https?:\/\/[^\s<>"\']{4,})/i',
+                                                            fn($m) => '<a href="' . e($m[1]) . '" target="_blank" rel="noopener noreferrer" class="chat-link">' . e($m[1]) . '</a>',
+                                                            e($text)
+                                                        );
+                                                    }
+                                                }
+                                            @endphp
                                             @if($isReply)
                                                 <div class="replied-message-box" onclick="scrollToMessage(event, '{{ $replyData['reply_to']['id'] }}')">
                                                     <span class="replied-user">{{ $replyData['reply_to']['username'] ?? $replyData['reply_to']['sender_name'] ?? $replyData['reply_to']['user'] ?? 'User' }}</span>
                                                     <span class="replied-content">{{ $replyData['reply_to']['content'] ?? '' }}</span>
                                                 </div>
-                                                <span class="text">{{ $displayContent }}</span>
+                                                <span class="text">{!! chatLinkify($displayContent) !!}</span>
                                             @elseif($isStoryReply)
                                                 <div class="story-reply-message">
                                                     <div class="story-reply-header">
@@ -376,8 +388,21 @@ $chatTitle = $isGroup
                                                     <div class="story-reply-content">{{ $storyReplyContent }}</div>
                                                 </div>
                                             @else
-                                                <span class="text" dir="auto">{{ $message->content }}</span>
+                                                <span class="text" dir="auto">{!! chatLinkify($message->content) !!}</span>
                                             @endif
+                                        @endif
+                                        @if($message->link_preview && ($message->link_preview['title'] ?? $message->link_preview['image'] ?? null))
+                                            @php $lp = $message->link_preview; @endphp
+                                            <a href="{{ e($lp['url'] ?? '#') }}" target="_blank" rel="noopener noreferrer" class="lp-card">
+                                                @if(!empty($lp['image']))
+                                                    <div class="lp-img"><img src="{{ e($lp['image']) }}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>
+                                                @endif
+                                                <div class="lp-body">
+                                                    @if(!empty($lp['domain']))<div class="lp-domain">{{ $lp['domain'] }}</div>@endif
+                                                    @if(!empty($lp['title']))<div class="lp-title">{{ $lp['title'] }}</div>@endif
+                                                    @if(!empty($lp['description']))<div class="lp-desc">{{ Str::limit($lp['description'], 120) }}</div>@endif
+                                                </div>
+                                            </a>
                                         @endif
                                     @endif
                                     <span class="message-time">
@@ -490,6 +515,19 @@ $chatTitle = $isGroup
                         </button>
                     </div>
                 </div>
+                {{-- Link preview card --}}
+                <div id="link-preview-card" style="display:none; margin:.5rem .75rem; background:var(--input-bg,#12121f); border:1px solid var(--border-color,#2a2a3e); border-radius:8px; overflow:hidden; position:relative;">
+                    <button type="button" onclick="dismissLinkPreview()" style="position:absolute;top:.375rem;right:.375rem;background:none;border:none;cursor:pointer;opacity:.5;font-size:.875rem;z-index:1;" aria-label="Dismiss preview">&times;</button>
+                    <div style="display:flex; gap:.75rem; padding:.75rem;">
+                        <img id="lp-image" src="" alt="" style="width:72px; height:72px; object-fit:cover; border-radius:6px; flex-shrink:0; display:none;">
+                        <div style="min-width:0; flex:1;">
+                            <div id="lp-domain" style="font-size:.7rem; opacity:.5; margin-bottom:.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+                            <div id="lp-title" style="font-size:.875rem; font-weight:600; line-height:1.3; margin-bottom:.25rem; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"></div>
+                            <div id="lp-desc" style="font-size:.78rem; opacity:.6; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="mediaPreview" class="media-preview" style="display: none;">
                         <div class="preview-carousel">
                             <button type="button" class="carousel-arrow left" onclick="movePreview(-1)" title="{{ __('chat.previous') }}">
@@ -1695,6 +1733,44 @@ body:has(.chat-page) .mobile-bottom-nav {
     background: var(--wa-message-in);
     clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
+
+/* Inline links inside messages */
+.chat-link {
+    color: #60a5fa;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+.chat-link:hover { color: #93c5fd; }
+
+/* Link preview card */
+.lp-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    text-decoration: none;
+    color: inherit;
+    margin-top: 6px;
+    max-width: 280px;
+    transition: background 0.15s ease;
+}
+.lp-card:hover { background: rgba(255,255,255,0.07); }
+.lp-img { width: 100%; max-height: 140px; overflow: hidden; }
+.lp-img img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.lp-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+.lp-domain { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.04em; }
+.lp-title { font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.9); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lp-desc { font-size: 11.5px; color: rgba(255,255,255,0.5); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+[data-theme="light"] .lp-card { border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.03); }
+[data-theme="light"] .lp-card:hover { background: rgba(0,0,0,0.06); }
+[data-theme="light"] .lp-domain { color: rgba(0,0,0,0.4); }
+[data-theme="light"] .lp-title { color: rgba(0,0,0,0.85); }
+[data-theme="light"] .lp-desc { color: rgba(0,0,0,0.5); }
+[data-theme="light"] .chat-link { color: #2563eb; }
+[data-theme="light"] .chat-link:hover { color: #1d4ed8; }
 
 .message-content .text {
     word-wrap: break-word;
@@ -4729,15 +4805,16 @@ document.getElementById('userSearch')?.addEventListener('input', function() {
     .then(r => r.json())
     .then(data => {
         if (data.success && data.users.length) {
-            results.innerHTML = data.users.map(u => `
-                <div class="result-item" onclick="startChat(${u.id})">
+            results.innerHTML = data.users.map(u => {
+                const vb = u.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+                return `<div class="result-item" onclick="startChat(${u.id})">
                     <img src="${escapeHtml(u.avatar_url)}">
                     <div class="result-info">
-                        <div class="result-name">${escapeHtml(u.username)}</div>
+                        <div class="result-name" style="display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(u.username)}${vb}</div>
                         ${u.username ? `<div class="result-fullname">@${escapeHtml(u.username)}</div>` : ''}
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
     });
 });
@@ -4746,6 +4823,15 @@ function escapeHtml(t) {
     const d = document.createElement('div');
     d.textContent = t || '';
     return d.innerHTML;
+}
+
+function linkifyText(text) {
+    if (!text) return '';
+    const escaped = escapeHtml(text);
+    return escaped.replace(
+        /(https?:\/\/[^\s<>"']{4,})/gi,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" class="chat-link">$1</a>'
+    );
 }
 
 function startChat(id) { window.location.href = '/chat/start/' + id; }
@@ -4844,7 +4930,10 @@ function processMessageQueue() {
     const body = { content: messageData.content };
     if (replyingTo) {
         body.reply_to_id = replyingTo.id;
-        cancelReply(); // Clear after queuing/sending
+        cancelReply();
+    }
+    if (messageData.link_preview) {
+        body.link_preview = messageData.link_preview;
     }
 
     fetch(`{{ route('chat.store', $conversation) }}`, {
@@ -4919,17 +5008,30 @@ function sendMessage(e) {
 
     // Create a promise for this message
     return new Promise((resolve, reject) => {
-        // Add to queue
-        messageSendQueue.push({
-            content: content,
-            input: input,
-            sendButton: sendButton,
-            resolve: resolve,
-            reject: reject
-        });
+        // If a preview fetch is in-flight, wait for it before sending (max 3s)
+        const pendingFetch = lpFetchPromise;
+        const doQueue = (resolvedLpData) => {
+            dismissLinkPreview();
+            lpDismissed = false;
+            lpFetchPromise = null;
+            messageSendQueue.push({
+                content: content,
+                link_preview: resolvedLpData,
+                input: input,
+                sendButton: sendButton,
+                resolve: resolve,
+                reject: reject
+            });
+            processMessageQueue();
+        };
 
-        // Process queue
-        processMessageQueue();
+        if (!lpData && pendingFetch) {
+            // Wait for the fetch but cap at 3s so slow sites don't block sending
+            const timeout = new Promise(r => setTimeout(() => r(null), 3000));
+            Promise.race([pendingFetch, timeout]).then(data => doQueue(data || lpData));
+        } else {
+            doQueue(lpData);
+        }
     });
 }
 
@@ -5101,13 +5203,14 @@ window.addMessage = function(msg) {
     // Avatar for other users
     if (!isOwn && msg.sender && window.isGroupChat) {
         const username = msg.sender.username || 'U';
-        const avatar = `<img src="${escapeHtml(msg.sender.avatar_url)}" alt="${escapeHtml(username)}">`;
+        const avatar = `<a href="/users/${escapeHtml(username)}" style="display:flex;flex-shrink:0;"><img src="${escapeHtml(msg.sender.avatar_url)}" alt="${escapeHtml(username)}" style="pointer-events:none;"></a>`;
         avatarHtml = `<div class="message-avatar">${avatar}</div>`;
     }
 
     // Sender name for other users
     if (!isOwn && msg.sender && window.isGroupChat) {
-        senderNameHtml = `<div class="sender-name">${escapeHtml(msg.sender.username || 'User')}</div>`;
+        const sndVerified = msg.sender.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+        senderNameHtml = `<a href="/users/${escapeHtml(msg.sender.username || '')}" class="sender-name" style="text-decoration:none;display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(msg.sender.username || 'User')}${sndVerified}</a>`;
     }
 
     // Handle system messages
@@ -5280,7 +5383,7 @@ window.addMessage = function(msg) {
                         <span class="replied-user">${escapeHtml(replyData.reply_to.username || replyData.reply_to.sender_name || replyData.reply_to.user || 'User')}</span>
                         <span class="replied-content">${escapeHtml(replyData.reply_to.content || '')}</span>
                     </div>
-                    <span class="text" dir="auto">${escapeHtml(replyData.content)}</span>
+                    <span class="text" dir="auto">${linkifyText(replyData.content)}</span>
                 `;
             } catch (e) {
                 console.error('Error parsing reply JSON:', e);
@@ -5297,9 +5400,26 @@ window.addMessage = function(msg) {
                     <div class="story-reply-content">${escapeHtml(storyReplyContent)}</div>
                 </div>`;
             } else {
-                contentHtml += `<span class="text" dir="auto">${escapeHtml(msg.content)}</span>`;
+                contentHtml += `<span class="text" dir="auto">${linkifyText(msg.content)}</span>`;
             }
         }
+    }
+
+    // Link preview card
+    if (msg.link_preview && (msg.link_preview.title || msg.link_preview.image)) {
+        const lp = msg.link_preview;
+        const lpDomain = escapeHtml(lp.domain || '');
+        const lpTitle = escapeHtml(lp.title || '');
+        const lpDesc = lp.description ? `<div class="lp-desc">${escapeHtml(lp.description)}</div>` : '';
+        const lpImg = lp.image ? `<div class="lp-img"><img src="${escapeHtml(lp.image)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>` : '';
+        contentHtml += `<a href="${escapeHtml(lp.url)}" target="_blank" rel="noopener noreferrer" class="lp-card">
+            ${lpImg}
+            <div class="lp-body">
+                <div class="lp-domain">${lpDomain}</div>
+                <div class="lp-title">${lpTitle}</div>
+                ${lpDesc}
+            </div>
+        </a>`;
     }
 
     // Time and Status
@@ -5897,9 +6017,9 @@ function renderMessageInfoUsers(containerId, users, showTime) {
         
         html += `
             <div class="info-user-item">
-                <img src="${u.avatar_url}" alt="${u.name}" class="info-user-avatar">
+                <a href="/users/${escapeHtml(u.username)}" style="display:flex;flex-shrink:0;"><img src="${u.avatar_url}" alt="${u.name}" class="info-user-avatar" style="pointer-events:none;"></a>
                 <div class="info-user-details">
-                    <span class="info-user-name">${escapeHtml(u.username)}</span>
+                    <a href="/users/${escapeHtml(u.username)}" class="info-user-name" style="text-decoration:none;">${escapeHtml(u.username)}</a>
                     ${showTime ? `<span class="info-user-time">${timeStr}</span>` : ''}
                 </div>
             </div>
@@ -6225,10 +6345,89 @@ window.chatTranslations = Object.assign(window.chatTranslations || {}, {
 let typingTimeout;
 let isTyping = false;
 
+// Link preview state — declared at outer scope so sendMessage() can access them
+let lpDebounce = null, lpDismissed = false, lpData = null, lpFetchPromise = null;
+const lpCache = {}; // client-side URL cache so repeated URLs are instant
+let lpCurrentUrl = null;
+
+function dismissLinkPreview() {
+    const lpCard = document.getElementById('link-preview-card');
+    if (lpCard) lpCard.style.display = 'none';
+    lpDismissed = true;
+    lpData = null;
+    lpCurrentUrl = null;
+    lpFetchPromise = null;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Link preview
+    const lpCard = document.getElementById('link-preview-card');
+
+    function showLinkPreview(data) {
+        lpData = data;
+        document.getElementById('lp-domain').textContent = data.domain || '';
+        document.getElementById('lp-title').textContent = data.title || data.url;
+        document.getElementById('lp-desc').textContent = data.description || '';
+        const img = document.getElementById('lp-image');
+        if (data.image) { img.src = data.image; img.style.display = ''; }
+        else img.style.display = 'none';
+        if (lpCard) lpCard.style.display = 'block';
+    }
+
+    const URL_PATTERN = /https?:\/\/[^\s<>'"]{4,}/gi;
+
     const messageInput = document.getElementById('messageInput');
     if (messageInput) {
         messageInput.addEventListener('input', function() {
+            // Link preview detection
+            const val = this.value;
+            const matches = val.match(URL_PATTERN);
+            if (!matches || lpDismissed) {
+                if (!matches && lpCard) { lpCard.style.display = 'none'; lpData = null; lpDismissed = false; lpCurrentUrl = null; lpFetchPromise = null; }
+            } else {
+                const url = matches[0];
+                // Skip if same URL already loaded
+                if (url === lpCurrentUrl) return;
+                lpCurrentUrl = url;
+                clearTimeout(lpDebounce);
+                lpFetchPromise = null;
+
+                // Instant hit from client-side cache
+                if (lpCache[url]) {
+                    showLinkPreview(lpCache[url]);
+                    return;
+                }
+
+                const doFetch = () => {
+                    lpFetchPromise = fetch('{{ route("link-preview") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ url }),
+                    })
+                    .then(async res => {
+                        if (res.ok) {
+                            const data = await res.json();
+                            lpCache[url] = data; // cache for instant re-use
+                            if (lpCurrentUrl === url) showLinkPreview(data);
+                            return data;
+                        }
+                        return null;
+                    })
+                    .catch(() => null);
+                };
+
+                // Fire immediately if URL was just pasted (input event with large delta),
+                // otherwise use short debounce so mid-word typing doesn't trigger
+                const isPaste = (this.value.length - (this._prevLen || 0)) > 5;
+                this._prevLen = this.value.length;
+                if (isPaste) doFetch();
+                else lpDebounce = setTimeout(doFetch, 250);
+            }
+
             if (!isTyping) {
                 isTyping = true;
                 sendTypingStatus(true);
@@ -7004,9 +7203,9 @@ function appendVoiceMessage(message) {
 
     const messageHtml = `
         <div class="message ${isOwn ? 'own' : 'other'}" data-message-id="${message.id}" data-sender-name="${escapeHtml(senderName)}">
-            ${!isOwn ? `<div class="message-avatar"><img src="${escapeHtml(message.sender.avatar_url)}" alt="${escapeHtml(message.sender.username)}"></div>` : ''}
+            ${!isOwn ? `<div class="message-avatar"><a href="/users/${escapeHtml(message.sender.username)}" style="display:flex;flex-shrink:0;"><img src="${escapeHtml(message.sender.avatar_url)}" alt="${escapeHtml(message.sender.username)}" style="pointer-events:none;"></a></div>` : ''}
             <div class="message-bubble">
-                ${(!isOwn && window.isGroupChat) ? `<div class="sender-name">${escapeHtml(message.sender.username)}</div>` : ''}
+                ${(!isOwn && window.isGroupChat) ? `<a href="/users/${escapeHtml(message.sender.username)}" class="sender-name" style="text-decoration:none;display:inline-flex;align-items:center;gap:.15em;">${escapeHtml(message.sender.username)}${message.sender.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}</a>` : ''}
                 <div class="message-content">
                     <div class="voice-message" data-audio-url="${audioUrl}" data-duration="${duration}">
                         <button class="voice-play-btn" onclick="toggleVoiceMessage(this)">
@@ -7503,16 +7702,19 @@ window.showMessageReactors = function(messageId) {
             group.users.forEach((user) => {
                 const isMe = String(user.id) === String(window.currentUserId);
                 const avatar = user.avatar_url || '/images/default-avatar.svg';
-                const usernameLabel = isMe ? `<span style="color: var(--wa-accent);">(${window.chatTranslations?.you || 'You'})</span> ${user.username || 'User'}` : (user.username || 'User');
+                const userVerifiedBadge = user.is_verified ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width=".8em" height=".8em" style="display:inline-block;vertical-align:middle;margin-left:.15em;flex-shrink:0;" aria-label="Verified" role="img"><circle cx="12" cy="12" r="10.5" fill="#1d9bf0"/><path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+                const usernameLabel = isMe ? `<span style="color: var(--wa-accent);">(${window.chatTranslations?.you || 'You'})</span> ${user.username || 'User'}` : ((user.username || 'User') + userVerifiedBadge);
                 const emoji = group.reaction_type || '❓';
                 
                 const clickAttr = isMe ? `onclick="toggleMessageReaction('${messageId}', '${emoji}'); closeReactorsModal();"` : '';
                 const removeLabel = isMe ? `<div style="font-size: 11px; color: var(--wa-red); opacity: 0.8; margin-top: 2px;">${window.chatTranslations?.click_to_remove || 'Click to remove'}</div>` : '';
+                const wrapStart = !isMe ? `<a href="/users/${encodeURIComponent(user.username || '')}" style="text-decoration:none;color:inherit;display:contents;">` : '';
+                const wrapEnd = !isMe ? `</a>` : '';
 
                 html += `
                     <div class="global-reactor-item" ${clickAttr} style="${isMe ? 'cursor: pointer;' : 'cursor: default;'}">
-                        <div class="global-reactor-avatar">
-                            <img src="${avatar}" alt="${user.username}" onerror="this.src='/images/default-avatar.svg'">
+                        ${wrapStart}<div class="global-reactor-avatar">
+                            <img src="${avatar}" alt="${user.username}" onerror="this.src='/images/default-avatar.svg'" style="${!isMe ? 'pointer-events:none;' : ''}">
                         </div>
                         <div class="global-reactor-info">
                             <div class="global-reactor-name">${usernameLabel}</div>
@@ -7520,7 +7722,7 @@ window.showMessageReactors = function(messageId) {
                         </div>
                         <div class="global-reactor-emoji">
                             ${emoji}
-                        </div>
+                        </div>${wrapEnd}
                     </div>
                 `;
             });

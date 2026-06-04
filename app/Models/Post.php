@@ -51,16 +51,18 @@ class Post extends Model
         'is_anonymous',
         'is_approved',
         'is_comments_disabled',
+        'is_sensitive',
     ];
     
     protected $appends = ['author'];
 
     protected $casts = [
         'pinned_at' => 'datetime',
-        'is_private' => 'boolean',
-        'is_anonymous' => 'boolean',
-        'is_approved' => 'boolean',
+        'is_private'           => 'boolean',
+        'is_anonymous'         => 'boolean',
+        'is_approved'          => 'boolean',
         'is_comments_disabled' => 'boolean',
+        'is_sensitive'         => 'boolean',
     ];
 
     protected static function boot()
@@ -181,6 +183,45 @@ class Post extends Model
     public function pendingReports()
     {
         return $this->hasMany(PostReport::class)->where('status', PostReport::STATUS_PENDING);
+    }
+
+    public function poll()
+    {
+        return $this->hasOne(Poll::class);
+    }
+
+    public function views()
+    {
+        return $this->hasMany(PostView::class);
+    }
+
+    public function getViewsCountAttribute(): int
+    {
+        return $this->views()->count();
+    }
+
+    public function recordView(?int $userId, ?string $ipHash = null): void
+    {
+        if ($userId) {
+            PostView::firstOrCreate(
+                ['post_id' => $this->id, 'user_id' => $userId],
+                ['viewed_at' => now(), 'ip_hash' => null]
+            );
+        } elseif ($ipHash) {
+            // Anonymous view — deduplicate by ip_hash within 24h
+            $exists = PostView::where('post_id', $this->id)
+                ->where('ip_hash', $ipHash)
+                ->where('viewed_at', '>=', now()->subHours(24))
+                ->exists();
+            if (!$exists) {
+                PostView::create([
+                    'post_id'   => $this->id,
+                    'user_id'   => null,
+                    'ip_hash'   => $ipHash,
+                    'viewed_at' => now(),
+                ]);
+            }
+        }
     }
 
     public function hashtags()

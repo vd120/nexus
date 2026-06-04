@@ -19,9 +19,11 @@
                     <div class="user-cell">
                         <img src="{{ $post->is_anonymous ? 'https://ui-avatars.com/api/?name=Anon&background=374151&color=9ca3af' : $post->user->avatar_url }}" alt="" class="mod-avatar">
                         <div class="mod-meta">
-                            <strong class="mod-username">
+                            <strong class="mod-username" style="display:inline-flex;align-items:center;gap:.2em;">
                                 {{ $post->is_anonymous ? __('community_admin.anonymous_member') : $post->user->username }}
-                                @if($post->is_anonymous) <i class="fas fa-user-secret anon-icon"></i> @endif
+                                @if($post->is_anonymous) <i class="fas fa-user-secret anon-icon"></i>
+                                @elseif($post->user) <x-verified-badge :user="$post->user" size=".8em" />
+                                @endif
                             </strong>
                             <span class="mod-time"><i class="far fa-clock"></i> {{ $post->created_at->diffForHumans() }}</span>
                         </div>
