@@ -14,6 +14,23 @@
     const ICE_SERVERS = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        // TURN relay — required for users behind symmetric NAT (most mobile networks).
+        // Using Open Relay (free, no sign-up): https://www.metered.ca/tools/openrelay/
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
     ];
 
     // ---------------------------------------------------------------------------
@@ -120,8 +137,10 @@
         el.loop   = true;
         el.volume = 0.9;
         el.setAttribute('playsinline', '');
-        el.preload = 'auto';
-        el.load();
+        // preload=none: src is a data URI already in memory — no fetch needed.
+        // Omitting load() prevents the browser from claiming an audio session at
+        // page-load time, which would duck background music on iOS/Android.
+        el.preload = 'none';
         document.body.appendChild(el);
         return el;
     })();

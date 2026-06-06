@@ -64,6 +64,9 @@ class SocketManager {
             if (!this.initialized) {
                 this.initialize();
                 this.initialized = true;
+                // Signal other scripts (call-manager.js) that the socket is ready.
+                // Must fire AFTER initialize() so all socket listeners are in place.
+                window.dispatchEvent(new CustomEvent('socket:ready'));
             }
 
             // Join admin room if applicable
