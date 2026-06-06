@@ -96,5 +96,16 @@ return [
     'report_rejected_message' => 'Your report was reviewed but not accepted.',
     'dnd' => 'Do Not Disturb',
     'connecting' => 'Connecting to real-time server...',
+
+    // Community Notifications
+    'group_join_requested'              => ':user requested to join :group.',
+    'group_join_accepted'               => 'Your request to join :group has been accepted!',
+    'group_post_approved'               => 'Your post in :group has been approved.',
+    'group_post_rejected'               => 'Your post in :group was not approved.',
+    'group_post_pending'                => 'New post pending approval in :group from :user.',
+    'group_member_role_changed_admin'       => 'You have been promoted to Admin in :group.',
+    'group_member_role_changed_moderator'   => 'You have been made a Moderator in :group.',
+    'group_member_role_changed_member'      => 'Your role in :group has been changed to Member.',
+    'community_report_new'              => ':user reported a post in :group.',
     'loading' => 'Loading',
 ];

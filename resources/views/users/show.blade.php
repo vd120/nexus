@@ -141,6 +141,15 @@
         .pinned-posts-section { padding: 0; }
         .pinned-posts-header { padding: 0 16px; }
     }
+.btn-call-profile {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 20px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white; cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-call-profile:hover { background: rgba(255,255,255,0.1); }
 </style>
 
 <div class="profile-container">
@@ -214,6 +223,13 @@
                     <i class="fas fa-user-{{ $isFollowing ? 'check' : 'plus' }}"></i> <span>{{ $isFollowing ? __('users.following') : __('users.follow') }}</span>
                 </button>
                 <a href="{{ route('chat.start', $user->id) }}" class="btn"><i class="fas fa-envelope"></i> {{ __('users.message') }}</a>
+                <button
+                    onclick="initiateCallFromProfile({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ $user->avatar_url }}')"
+                    class="btn-call-profile"
+                    title="{{ __('messages.voice_call') }}">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>{{ __('messages.voice_call') }}</span>
+                </button>
                 <button class="btn" onclick="profileBlockUser('{{ $user->username }}')" style="background: var(--danger); color: white;">
                     <i class="fas fa-ban"></i> <span>{{ __('users.block') }}</span>
                 </button>
@@ -517,6 +533,36 @@ function closeQrCodeModal(event) {
     
     // Reset loading state for next open
     loading.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>';
+}
+
+function initiateCallFromProfile(calleeId, calleeName, calleeAvatar) {
+    if (window.CallManager) window.CallManager.unlockAudioNow();
+
+    fetch('/call/initiate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ callee_id: calleeId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error === 'busy') {
+            const t = window.CallTranslations || {};
+            alert(t.user_busy || 'User is already in a call.');
+        } else if (data.callId && window.CallManager) {
+            window.CallManager.startCall(
+                data.callId,
+                calleeId,
+                data.conversationId,
+                calleeName  || data.calleeName,
+                calleeAvatar || data.calleeAvatar
+            );
+        }
+    })
+    .catch(err => console.error('Call initiation failed', err));
 }
 
 // Close modals on Escape key

@@ -393,19 +393,48 @@ class ReportController extends Controller
     private function notifyAdminsOfNewReport(PostReport $report)
     {
         $reporter = $report->reporter;
-        $post = $report->post;
+        $post     = $report->post;
 
-        // Only emit real-time socket event for online admins
-        // Persistent notifications are removed as per user request
+        // Real-time socket event for online platform admins
         app(\App\Services\SocketEmitService::class)->emit('admin', 'admin:report:new', [
-            'report_id' => $report->id,
-            'report_slug' => $report->slug,
-            'reason' => $report->reason,
+            'report_id'         => $report->id,
+            'report_slug'       => $report->slug ?? null,
+            'reason'            => $report->reason,
             'reporter_username' => $reporter->username,
-            'post_id' => $post->id,
-            'created_at' => $report->created_at->toISOString(),
-            'pending_count' => PostReport::where('status', PostReport::STATUS_PENDING)->count()
+            'post_id'           => $post->id,
+            'created_at'        => $report->created_at->toISOString(),
+            'pending_count'     => PostReport::where('status', PostReport::STATUS_PENDING)->count(),
         ]);
+
+        // Persistent notification for community admins/moderators when the
+        // reported post belongs to a community — ensures offline admins see it too
+        if ($post && $post->social_group_id) {
+            $group = $post->socialGroup;
+            if ($group) {
+                $communityAdmins = $group->members()
+                    ->whereIn('role', ['admin', 'moderator'])
+                    ->where('status', 'approved')
+                    ->get();
+
+                foreach ($communityAdmins as $adminMember) {
+                    if ($adminMember->user_id === $reporter->id) continue;
+
+                    NotificationController::createNotification(
+                        $adminMember->user_id,
+                        'community_report_new',
+                        [
+                            'group_id'      => $group->id,
+                            'group_name'    => $group->name,
+                            'group_slug'    => $group->slug,
+                            'reporter_name' => $reporter->username,
+                            'reason'        => $report->reason,
+                            'post_id'       => $post->id,
+                            'report_id'     => $report->id,
+                        ]
+                    );
+                }
+            }
+        }
     }
 
     /**

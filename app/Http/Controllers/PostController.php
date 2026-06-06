@@ -1030,7 +1030,7 @@ class PostController extends Controller
                     $q->select('id', 'post_id', 'user_id', 'reaction_type')->with('user:id,name,username');
                 },
                 'comments' => function($q) {
-                    $q->latest()->limit(5)->with('user');
+                    $q->withCount('likes')->latest()->limit(5)->with('user');
                 }
             ])
             ->approved()

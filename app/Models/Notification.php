@@ -107,10 +107,13 @@ class Notification extends Model
             'chat_reaction' => $this->getChatReactionNotificationMessage(),
             'report_accepted' => $this->getReportAcceptedNotificationMessage(),
             'report_rejected' => __('notifications.report_rejected_message'),
-            'group_join_requested' => $this->getGroupJoinRequestedMessage(),
-            'group_join_accepted' => $this->getGroupJoinAcceptedMessage(),
-            'group_post_approved' => $this->getGroupPostApprovedMessage(),
-            'group_post_pending' => $this->getGroupPostPendingMessage(),
+            'group_join_requested'      => $this->getGroupJoinRequestedMessage(),
+            'group_join_accepted'       => $this->getGroupJoinAcceptedMessage(),
+            'group_post_approved'       => $this->getGroupPostApprovedMessage(),
+            'group_post_rejected'       => $this->getGroupPostRejectedMessage(),
+            'group_post_pending'        => $this->getGroupPostPendingMessage(),
+            'group_member_role_changed' => $this->getGroupMemberRoleChangedMessage(),
+            'community_report_new'      => $this->getCommunityReportNewMessage(),
             'report_action_owner' => $this->data['message'] ?? __('messages.new_notification'),
             default => __('messages.new_notification')
         };
@@ -295,28 +298,53 @@ class Notification extends Model
 
     private function getGroupJoinRequestedMessage(): string
     {
-        $user = $this->data['requester_name'] ?? 'Someone';
-        $group = $this->data['group_name'] ?? 'a community';
-        return "{$user} requested to join {$group}.";
+        $user  = $this->data['requester_name'] ?? __('chat.someone');
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.group_join_requested', ['user' => $user, 'group' => $group]);
     }
 
     private function getGroupJoinAcceptedMessage(): string
     {
-        $group = $this->data['group_name'] ?? 'a community';
-        return "Your request to join {$group} has been accepted!";
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.group_join_accepted', ['group' => $group]);
     }
 
     private function getGroupPostApprovedMessage(): string
     {
-        $group = $this->data['group_name'] ?? 'a community';
-        return "Your post in {$group} has been approved.";
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.group_post_approved', ['group' => $group]);
+    }
+
+    private function getGroupPostRejectedMessage(): string
+    {
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.group_post_rejected', ['group' => $group]);
     }
 
     private function getGroupPostPendingMessage(): string
     {
-        $user = $this->data['author_name'] ?? 'Someone';
-        $group = $this->data['group_name'] ?? 'a community';
-        return "New post pending approval in {$group} from {$user}.";
+        $user  = $this->data['author_name'] ?? __('chat.someone');
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.group_post_pending', ['user' => $user, 'group' => $group]);
+    }
+
+    private function getGroupMemberRoleChangedMessage(): string
+    {
+        $group   = $this->data['group_name'] ?? __('messages.a_community');
+        $newRole = $this->data['new_role'] ?? 'member';
+        $key = match ($newRole) {
+            'admin'     => 'notifications.group_member_role_changed_admin',
+            'moderator' => 'notifications.group_member_role_changed_moderator',
+            default     => 'notifications.group_member_role_changed_member',
+        };
+        return __($key, ['group' => $group]);
+    }
+
+    private function getCommunityReportNewMessage(): string
+    {
+        $user  = $this->data['reporter_name'] ?? __('chat.someone');
+        $group = $this->data['group_name'] ?? __('messages.a_community');
+        return __('notifications.community_report_new', ['user' => $user, 'group' => $group]);
     }
 
 
@@ -324,6 +352,7 @@ class Notification extends Model
     public function getLinkAttribute(): ?string
     {
         $link = match($this->type) {
+            // Chat — base link to the conversation; message anchor added below
             'message', 'chat_reaction' => ($this->data['conversation_id'] ?? null) ? url('/chat/' . $this->data['conversation_id']) : null,
             'like', 'post_reaction', 'comment', 'comment_reply', 'comment_like', 'mention' => 
                 ($this->data['post_slug'] ?? null) 
@@ -333,7 +362,24 @@ class Notification extends Model
             'group_invite' => $this->data['invite_link'] ?? null,
             'story_reaction' => ($this->data['story_slug'] ?? null) ? url('/stories/' . ($this->data['story_owner_username'] ?? 'user') . '/' . $this->data['story_slug'] . '/viewers') : null,
             'report_accepted', 'report_rejected', 'report_action_owner' => url('/my-reports'),
-            'group_join_requested', 'group_join_accepted', 'group_post_approved', 'group_post_pending' => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
+            // Admin receives → go straight to the moderation queue
+            'group_post_pending' => ($this->data['group_slug'] ?? null)
+                ? url('/communities/' . $this->data['group_slug'] . '/admin/moderation/posts')
+                : null,
+            'group_join_requested' => ($this->data['group_slug'] ?? null)
+                ? url('/communities/' . $this->data['group_slug'] . '/admin/moderation/members')
+                : null,
+            'community_report_new' => ($this->data['group_slug'] ?? null)
+                ? url('/communities/' . $this->data['group_slug'] . '/admin/reports')
+                : null,
+
+            // Member receives → go to the specific post or community page
+            'group_post_approved' => ($this->data['post_slug'] ?? null)
+                ? url('/posts/' . $this->data['post_slug'])
+                : (($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null),
+            'group_join_accepted'      => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
+            'group_post_rejected'      => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
+            'group_member_role_changed' => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
             default => null
         };
 
@@ -352,6 +398,20 @@ class Notification extends Model
             }
         } elseif ($this->type === 'mention' && ($this->data['comment_id'] ?? null)) {
             $link .= '#comment-' . $this->data['comment_id'];
+        }
+
+        // Add anchors for chat message / reaction notifications
+        // chat_reaction stores message_id in data; message type stores it in related_id
+        if ($this->type === 'chat_reaction') {
+            $messageId = $this->data['message_id'] ?? $this->related_id ?? null;
+            if ($messageId) {
+                $link .= '#message-' . $messageId;
+            }
+        } elseif ($this->type === 'message') {
+            $messageId = $this->related_id ?? $this->data['message_id'] ?? null;
+            if ($messageId) {
+                $link .= '#message-' . $messageId;
+            }
         }
 
         return $link;

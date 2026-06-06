@@ -93,7 +93,7 @@
                     <div class="badge-actions-section" style="display:flex;gap:6px;">
                         <button type="button" class="btn-icon-danger-sm"
                                 data-admin-edit data-target="#badge-{{ $badge->id }}"
-                                title="{{ __('community_admin.edit') ?? 'Edit' }}">
+                                title="{{ __('community_admin.edit') }}">
                             <i class="fas fa-pen"></i>
                         </button>
                         <button type="button" class="btn-icon-danger-sm"
@@ -122,7 +122,7 @@
                                 data-admin-save
                                 data-url="{{ route('communities.admin.badges.update', [$group->slug, $badge->id]) }}"
                                 data-target="#badge-{{ $badge->id }}">
-                            {{ __('community_admin.save') ?? 'Save' }}
+                            {{ __('community_admin.save') }}
                         </button>
                         <button type="button" class="btn-text"
                                 data-admin-cancel data-target="#badge-{{ $badge->id }}">

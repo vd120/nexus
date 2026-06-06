@@ -329,6 +329,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::get('/posts/{post}/analytics', [PostController::class, 'analytics'])->name('posts.analytics')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/api/link-preview', [App\Http\Controllers\LinkPreviewController::class, 'fetch'])->name('link-preview')->middleware('throttle:60,1');
     Route::post('/settings/export-data', [App\Http\Controllers\DataExportController::class, 'request'])->name('export.request')->middleware('throttle:3,60');
+    Route::post('/settings/privacy-toggle', [UserController::class, 'privacyToggle'])->name('settings.privacy-toggle');
     Route::get('/posts/{post}/likers', [PostController::class, 'getLikers'])->name('posts.likers')->where('post', '[a-zA-Z0-9]{24}');
     Route::post('/comments', [CommentController::class, 'store'])->name('comments.store')->middleware('throttle:comments');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
@@ -428,6 +429,14 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         Route::delete('/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('destroy');
         Route::delete('/', [App\Http\Controllers\NotificationController::class, 'clearAll'])->name('clear-all');
     });
+
+    // VoIP Calls
+    Route::get('/call/pending', [\App\Http\Controllers\CallController::class, 'pending'])->name('call.pending');
+    Route::post('/call/initiate', [\App\Http\Controllers\CallController::class, 'initiate'])->name('call.initiate')->middleware('throttle:10,1');
+    Route::post('/call/{call}/accept', [\App\Http\Controllers\CallController::class, 'accept'])->name('call.accept');
+    Route::post('/call/{call}/reject', [\App\Http\Controllers\CallController::class, 'reject'])->name('call.reject');
+    Route::post('/call/{call}/end', [\App\Http\Controllers\CallController::class, 'end'])->name('call.end');
+    Route::get('/call/check/{user}', [\App\Http\Controllers\CallController::class, 'checkAvailability'])->name('call.check');
 
     // Chat routes
     Route::post('/chat/confirm-delivery', [App\Http\Controllers\ChatController::class, 'confirmDelivery'])->name('chat.message-delivered');
@@ -564,9 +573,6 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         Route::delete('/stories/{story}', [App\Http\Controllers\AdminController::class, 'deleteStory'])->name('stories.delete');
         Route::post('/create-admin', [App\Http\Controllers\AdminController::class, 'createAdminAccount'])->name('create-admin');
 
-        // Feature flags
-        Route::get('/feature-flags', [App\Http\Controllers\Admin\FeatureFlagController::class, 'index'])->name('feature-flags.index');
-        Route::post('/feature-flags/{name}/toggle', [App\Http\Controllers\Admin\FeatureFlagController::class, 'toggle'])->name('feature-flags.toggle');
 
         // User verification badge
         Route::post('/users/{user}/verify', [App\Http\Controllers\AdminController::class, 'verifyUser'])->name('users.verify');

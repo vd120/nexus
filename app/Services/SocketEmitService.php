@@ -83,4 +83,35 @@ class SocketEmitService
     {
         return $this->emit("conversation:{$conversationId}", $event, $data);
     }
+
+    /**
+     * Emit a call-related event to a specific user
+     */
+    public function emitCallEvent(int $userId, string $event, array $data = []): bool
+    {
+        return $this->emitToUser($userId, $event, $data);
+    }
+
+    /**
+     * Tell the socket server whether a user should appear in users:online bulk syncs
+     */
+    public function setUserVisibility(int $userId, bool $visible): bool
+    {
+        if (empty($this->secret) || empty($this->url)) return false;
+
+        $payload = ['userId' => $userId, 'visible' => $visible];
+        $jsonPayload = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $signature = 'sha256=' . hash_hmac('sha256', $jsonPayload, $this->secret);
+
+        try {
+            Http::withHeaders([
+                'X-Hub-Signature-256' => $signature,
+                'Content-Type' => 'application/json',
+            ])->post($this->url . '/internal/set-visibility', $payload);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('SocketEmitService: setUserVisibility failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
 }

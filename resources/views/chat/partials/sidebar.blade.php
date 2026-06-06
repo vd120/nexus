@@ -203,7 +203,12 @@
                             <p class="conv-preview {{ $conv->unread_count > 0 ? 'unread-text' : '' }}">
                                 <span class="preview-content-wrapper">
                                     @if(!$showReactionPreview && $latestMessage && $latestMessage->sender_id === auth()->id())
-                                        <i class="fas {{ $latestMessage->read_at ? 'fa-check-double read' : ($latestMessage->delivered_at ? 'fa-check-double sent' : 'fa-check sent') }}"></i>
+                                        @php
+                                            $myReceipts = auth()->user()->profile?->show_read_receipts ?? true;
+                                            $otherReceipts = !$isGroup && $conv->other_user ? ($conv->other_user->profile?->show_read_receipts ?? true) : true;
+                                            $sidebarShowRead = ($myReceipts && $otherReceipts) && (bool)$latestMessage->read_at;
+                                        @endphp
+                                        <i class="fas {{ $sidebarShowRead ? 'fa-check-double read' : ($latestMessage->delivered_at ? 'fa-check-double sent' : 'fa-check sent') }}"></i>
                                     @endif
                                     @if($latestMessage)
                                         <span class="preview-text" dir="auto">

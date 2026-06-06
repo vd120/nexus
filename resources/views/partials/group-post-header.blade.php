@@ -86,6 +86,11 @@
                 <button type="button" id="unpin-menu-item-{{ $post->id }}" class="menu-item {{ $isBroadcast ? 'context-owner' : '' }}" onclick="unpinPost(event, {{ $post->id }})" style="{{ ($isBroadcast || $post->isPinned()) ? '' : 'display: none;' }}">
                     <i class="fas fa-thumbtack" style="transform: rotate(45deg);"></i> {{ __('users.unpin_post') }}
                 </button>
+                @if($isOwner && !$isBroadcast)
+                <button type="button" class="menu-item" onclick="window.location.href='{{ route('posts.analytics', $post) }}'">
+                    <i class="fas fa-chart-bar"></i> {{ __('posts.post_analytics') }}
+                </button>
+                @endif
                 <button type="button" class="menu-item {{ $isBroadcast ? 'context-owner' : '' }}" onclick="deletePost('{{ $post->slug }}', this)" @if($isBroadcast) style="display: none;" @endif>
                     <i class="fas fa-trash"></i> {{ __('messages.delete_post') }}
                 </button>

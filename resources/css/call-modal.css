@@ -1,0 +1,365 @@
+/* ============================================================
+   CALL MODAL — Full-screen Nexus VoIP UI
+   ============================================================ */
+
+/* ── Animations ── */
+@keyframes call-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes call-ring-pulse {
+    0%   { transform: scale(1);    opacity: 0.55; }
+    70%  { transform: scale(1.7);  opacity: 0; }
+    100% { transform: scale(1.7);  opacity: 0; }
+}
+
+@keyframes call-mute-glow {
+    0%, 100% { box-shadow: 0 0 0 0   rgba(244,63,94,0.5); }
+    50%       { box-shadow: 0 0 0 8px rgba(244,63,94,0); }
+}
+
+@keyframes pill-pop-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+/* ============================================================
+   FULL-SCREEN MODAL
+   ============================================================ */
+#call-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;           /* switched to flex by JS */
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+
+    /* Deep dark gradient background */
+    background: linear-gradient(160deg, #0d0d14 0%, #111827 50%, #0d1117 100%);
+    animation: call-fade-in 0.25s ease both;
+    overflow: hidden;
+}
+
+/* Subtle noise texture overlay */
+#call-modal::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+}
+
+/* ============================================================
+   TOP BAR (minimize button)
+   ============================================================ */
+.call-topbar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 16px 20px 0;
+    position: relative;
+    z-index: 1;
+    min-height: 56px;
+    flex-shrink: 0;
+}
+
+.call-topbar-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.6);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    direction: ltr;
+}
+.call-topbar-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+/* ============================================================
+   CALL STATES  (flex column, fills available space)
+   ============================================================ */
+.call-state {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 32px 40px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ============================================================
+   AVATAR AREA
+   ============================================================ */
+.call-avatar-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.call-avatar-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 160px;
+    height: 160px;
+}
+
+.call-avatar-wrapper--active {
+    width: 140px;
+    height: 140px;
+}
+
+.call-avatar {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.15);
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    background: #1e1e2e;   /* fallback while image loads */
+}
+
+.call-avatar-wrapper--active .call-avatar {
+    width: 110px;
+    height: 110px;
+}
+
+/* Pulse rings (incoming & calling states) */
+.call-ring-pulse {
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    border: 2px solid var(--green, #22c55e);
+    animation: call-ring-pulse 1.8s ease-out infinite;
+    z-index: 1;
+}
+.call-ring-pulse--delay {
+    animation-delay: 0.7s;
+}
+
+/* ============================================================
+   INFO  (name + status / timer)
+   ============================================================ */
+.call-info {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.call-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.01em;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.call-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+}
+
+.call-timer {
+    font-family: 'Menlo','Consolas','SF Mono',monospace;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--primary, #818cf8);
+    letter-spacing: 0.06em;
+    margin: 0;
+}
+
+.call-status-text {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    margin: 0;
+}
+
+/* ============================================================
+   ACTION BUTTONS
+   ============================================================ */
+.call-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 36px;
+    width: 100%;
+    padding-bottom: 8px;
+}
+
+.call-actions--incoming {
+    justify-content: space-around;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+.call-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.call-btn-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    max-width: 80px;
+}
+
+.call-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, filter 0.15s ease;
+    flex-shrink: 0;
+    direction: ltr;
+}
+.call-btn:active  { transform: scale(0.88); }
+.call-btn:hover   { filter: brightness(1.15); }
+
+/* Accept — green */
+.call-btn-accept {
+    background: #22c55e;
+    color: #fff;
+    box-shadow: 0 6px 24px rgba(34,197,94,0.45);
+}
+
+/* Decline / End — red */
+.call-btn-decline,
+.call-btn-end {
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 6px 24px rgba(239,68,68,0.45);
+}
+
+/* Mute / Speaker — dark */
+.call-btn-mute {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+}
+.call-btn-mute:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+/* Muted state */
+.call-btn-mute.is-muted {
+    background: rgba(244,63,94,0.2);
+    color: #f43f5e;
+    border-color: rgba(244,63,94,0.4);
+    animation: call-mute-glow 2s ease-in-out infinite;
+}
+
+/* Speaker active */
+.call-btn-mute.is-speaker-on {
+    color: var(--primary, #818cf8) !important;
+    background: rgba(129,140,248,0.15);
+    border-color: rgba(129,140,248,0.3);
+}
+
+/* ============================================================
+   MINIMIZED PILL
+   ============================================================ */
+#call-minimized {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 50px;
+    background: #1a1a2e;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    cursor: pointer;
+    animation: pill-pop-in 0.22s cubic-bezier(0.34,1.28,0.64,1) both;
+}
+#call-minimized:hover { background: #222236; }
+
+.call-minimized-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: call-mute-glow 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.call-minimized-icon {
+    color: #22c55e;
+    font-size: 0.85rem;
+}
+
+#call-minimized-timer {
+    font-family: 'Menlo','Consolas','SF Mono',monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #f5f5f7;
+    letter-spacing: 0.04em;
+}
+
+.call-minimized-end {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.72rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    direction: ltr;
+    flex-shrink: 0;
+    transition: transform 0.12s;
+}
+.call-minimized-end:hover { transform: scale(1.12); }
+
+/* ============================================================
+   MOBILE TWEAKS
+   ============================================================ */
+@media (max-width: 480px) {
+    .call-name   { font-size: 1.35rem; }
+    .call-btn    { width: 64px; height: 64px; font-size: 1.2rem; }
+    .call-actions { gap: 28px; }
+    .call-avatar { width: 110px; height: 110px; }
+    .call-avatar-wrapper { width: 140px; height: 140px; }
+}

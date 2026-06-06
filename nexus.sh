@@ -28,7 +28,7 @@ pkill -f "node src/index.js"
 pkill -f "node proxy.cjs"
 pkill -f "frankenphp"
 
-echo "● Starting Services for https://nexusocial.qzz.io/"
+echo "● Starting Services for https://nxs.qzz.io/"
 mkdir -p storage/logs
 
 # Set Node to ignore deprecation warnings from libraries
@@ -47,7 +47,7 @@ node proxy.cjs >> storage/logs/proxy.log 2>&1 &
 echo "  > Started Proxy (8080)"
 
 # 4. Start Tunnel
-cloudflared tunnel --config .cloudflared/config.yml run nexusocial > tunnel.log 2>&1 &
+cloudflared tunnel --config /home/awad/.cloudflared/config.yaml run nxs-tunnel > tunnel.log 2>&1 &
 echo "  > Started Tunnel"
 
 # 5. Warm-up

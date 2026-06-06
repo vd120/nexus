@@ -403,9 +403,38 @@ class UserController extends Controller
         return redirect()->route('users.show', $user)->with('success', __('messages.profile_updated'));
     }
 
-    /**
-     * Delete profile avatar
-     */
+    public function privacyToggle(Request $request)
+    {
+        $request->validate([
+            'setting' => 'required|in:show_online_status,show_read_receipts',
+            'value'   => 'present|in:0,1',
+        ]);
+
+        $user    = auth()->user();
+        $setting = $request->setting;
+        $value   = (bool)(int) $request->value;
+
+        $user->profile()->updateOrCreate(
+            ['user_id' => $user->id],
+            [$setting => $value]
+        );
+
+        $socketService = app(\App\Services\SocketEmitService::class);
+
+        if ($setting === 'show_online_status') {
+            // Update the socket server's hiddenUsers set — it handles the broadcast
+            $socketService->setUserVisibility($user->id, $value);
+        }
+
+        if ($setting === 'show_read_receipts') {
+            $socketService->emitToUser($user->id, 'user:receipts_changed', [
+                'userId'             => $user->id,
+                'show_read_receipts' => $value,
+            ]);
+        }
+
+        return response()->json(['success' => true, 'setting' => $setting, 'value' => $value]);
+    }
     public function deleteAvatar()
     {
         $user = auth()->user();
@@ -499,12 +528,11 @@ class UserController extends Controller
         $ids = array_slice(array_filter(array_map('intval', (array) $request->input('ids', []))), 0, 100);
         if (empty($ids)) return response()->json(['success' => true, 'statuses' => []]);
 
-        $users = User::whereIn('id', $ids)->get(['id', 'is_online', 'last_active']);
-        $now = now();
+        $users = User::whereIn('id', $ids)->with('profile:user_id,show_online_status')->get(['id', 'is_online', 'last_active']);
         $statuses = [];
         foreach ($users as $user) {
-            $isOnline = (bool) $user->is_online;
-            $statuses[(string) $user->id] = $isOnline;
+            $showOnline = $user->profile ? ($user->profile->show_online_status ?? true) : true;
+            $statuses[(string) $user->id] = $showOnline && (bool) $user->is_online;
         }
 
         return response()->json(['success' => true, 'statuses' => $statuses]);
@@ -518,7 +546,8 @@ class UserController extends Controller
         $user = User::find($userId);
         if (!$user) return response()->json(['success' => false, 'message' => __('messages.user_not_found')], 404);
 
-        $isOnline = (bool) $user->is_online;
+        $showOnline = $user->profile ? ($user->profile->show_online_status ?? true) : true;
+        $isOnline = $showOnline && (bool) $user->is_online;
 
         return response()->json([
             'success' => true,

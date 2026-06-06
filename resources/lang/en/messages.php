@@ -279,6 +279,7 @@ return [
     'create_community_subtitle' => 'Start a new space for your interests',
     'enter' => 'Enter',
     'community_name' => 'Community Name',
+    'a_community' => 'a community',
     'community_name_placeholder' => 'e.g. Gamers Hub',
     'description_placeholder' => 'What is this community about?',
     'privacy_level_label' => 'Privacy Level',
@@ -352,6 +353,7 @@ return [
 
     // Flash Messages - Profile
     'profile_updated' => 'Profile updated successfully!',
+    'settings_saved' => 'Settings saved',
     'avatar_deleted' => 'Avatar deleted successfully',
     'cover_deleted' => 'Cover image deleted successfully',
     'no_avatar_to_delete' => 'No avatar to delete',
@@ -930,4 +932,30 @@ return [
     'navigate' => 'Navigate',
     'rules' => 'Rules',
     'topics' => 'Topics',
+
+    // VoIP / Calls — modal UI
+    'calling'           => 'Calling...',
+    'incoming_call'     => 'Incoming call',
+    'accept_call'       => 'Accept',
+    'decline_call'      => 'Decline',
+    'end_call'          => 'End call',
+    'toggle_mute'       => 'Mute / Unmute',
+    'toggle_speaker'    => 'Speaker',
+    'voice_call'        => 'Voice call',
+
+    // VoIP / Calls — status messages (shown in modal after call ends)
+    'call_declined'     => 'Call declined',
+    'call_no_answer'    => 'No answer',
+    'call_ended'        => 'Call ended',
+    'call_lost'         => 'Call ended (connection lost)',
+    'user_busy'         => 'User is already in a call',
+
+    // VoIP / Calls — system messages (written into conversation)
+    'system_call_declined'  => 'Call declined',
+    'system_missed_call'    => 'Missed call',
+    'system_call_ended'     => 'Call ended · :duration',
+
+    // VoIP / Calls — errors
+    'call_mic_denied'       => 'Microphone access denied. Please allow microphone permissions.',
+    'call_start_failed'     => 'Could not start the call. Please try again.',
 ];

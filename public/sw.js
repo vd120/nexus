@@ -13,6 +13,111 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch(err => {
+        console.warn('Failed to pre-cache some assets:', err);
+      });
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+// ── Push notification received ──────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try { payload = event.data.json(); } catch (e) { return; }
+
+  const title   = payload.title || 'Nexus';
+  const options = {
+    body:             payload.body || '',
+    icon:             payload.icon || '/favicon.ico',
+    badge:            payload.badge || '/favicon.ico',
+    tag:              payload.tag || 'nexus-notification',
+    requireInteraction: payload.requireInteraction || false,
+    silent:           payload.silent || false,
+    data:             payload.data || {},
+    // Show action buttons for incoming calls
+    actions: payload.data && payload.data.type === 'call' ? [
+      { action: 'accept', title: '✅ Accept' },
+      { action: 'decline', title: '❌ Decline' },
+    ] : [],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// ── Notification click ──────────────────────────────────────────────────────
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data   = event.notification.data || {};
+  const url    = data.url || '/';
+  const action = event.action;
+
+  // Handle call action buttons
+  if (data.type === 'call' && data.callId) {
+    if (action === 'decline') {
+      // POST decline in background
+      event.waitUntil(
+        fetch('/call/' + data.callId + '/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        }).catch(() => {})
+      );
+      return;
+    }
+    // accept or tap — fall through to open the page
+  }
+
+  // Open or focus the target page
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // If a window for this URL is already open, focus it
+      for (const client of windowClients) {
+        if (client.url.includes(url) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
+  );
+});
+
+const STATIC_ASSETS = [
+    '/css/app-layout.css',
+    '/css/comments.css',
+    '/css/partial-posts.css',
+    '/css/mobile-header.css',
+    '/css/modals.css',
+    '/vendor/fontawesome/css/all.min.css',
+    '/fonts/cairo/cairo-arabic.woff2',
+    '/fonts/cairo/cairo-latin-ext.woff2',
+    '/fonts/cairo/cairo-latin.woff2'
+];
+
+self.addEventListener('install', (event) => {
   // Pre-cache core layout assets and local fonts on install
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {

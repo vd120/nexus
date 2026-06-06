@@ -49,7 +49,7 @@
                     <div class="topic-actions" style="display:flex;gap:6px;">
                         <button type="button" class="btn-icon-danger-sm"
                                 data-admin-edit data-target="#topic-{{ $topic->id }}"
-                                title="{{ __('community_admin.edit') ?? 'Edit' }}">
+                                title="{{ __('community_admin.edit') }}">
                             <i class="fas fa-pen"></i>
                         </button>
                         <button type="button" class="btn-icon-danger-sm"
@@ -70,7 +70,7 @@
                                 data-admin-save
                                 data-url="{{ route('communities.admin.topics.update', [$group->slug, $topic->id]) }}"
                                 data-target="#topic-{{ $topic->id }}">
-                            {{ __('community_admin.save') ?? 'Save' }}
+                            {{ __('community_admin.save') }}
                         </button>
                         <button type="button" class="btn-text"
                                 data-admin-cancel data-target="#topic-{{ $topic->id }}">

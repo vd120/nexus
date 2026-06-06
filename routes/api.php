@@ -154,6 +154,58 @@ Route::post('/internal/user/status', function (Request $request) {
     return response()->json(['error' => 'User not found'], 404);
 });
 
+// Internal: socket server notifies Laravel when a user disconnects mid-ring
+// so stale 'initiated' calls get cancelled and the caller can re-call immediately
+Route::post('/internal/call/cleanup', function (Request $request) {
+    $secret = config('services.socket.secret');
+    if (str_starts_with($secret, 'base64:')) {
+        $secret = base64_decode(substr($secret, 7));
+    }
+    $signature = $request->header('X-Hub-Signature-256');
+    $payload   = $request->getContent();
+    if (!$signature || $signature !== 'sha256=' . hash_hmac('sha256', $payload, $secret)) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    $userId = (int) $request->input('user_id');
+    if (!$userId) return response()->json(['error' => 'user_id required'], 422);
+
+    // Find any call where this user is the callee and it's still ringing
+    $calls = \App\Models\Call::where('callee_id', $userId)
+        ->where('status', 'initiated')
+        ->get();
+
+    foreach ($calls as $call) {
+        $call->update(['status' => 'missed', 'ended_at' => now()]);
+
+        // Insert missed call system message
+        $msg = \App\Models\Message::create([
+            'conversation_id' => $call->conversation_id,
+            'sender_id'       => $call->caller_id,
+            'type'            => 'system',
+            'content'         => __('messages.system_missed_call'),
+        ]);
+
+        // Notify caller that callee disconnected
+        app(\App\Services\SocketEmitService::class)->emitToUser($call->caller_id, 'call:no-answer', [
+            'callId' => $call->id,
+        ]);
+
+        // Broadcast system message to conversation in real-time
+        app(\App\Services\SocketEmitService::class)->emitToConversation($call->conversation_id, 'chat:message', [
+            'id'              => $msg->id,
+            'conversation_id' => $call->conversation_id,
+            'sender_id'       => $call->caller_id,
+            'type'            => 'system',
+            'content'         => $msg->content,
+            'created_at'      => $msg->created_at->toISOString(),
+            'sender'          => null,
+        ]);
+    }
+
+    return response()->json(['cleaned' => $calls->count()]);
+});
+
 Route::post('/internal/chat/delivered', function (Request $request) {
     $secret = config('services.socket.secret');
     if (str_starts_with($secret, 'base64:')) {

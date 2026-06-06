@@ -1224,7 +1224,7 @@ html[dir="rtl"] .nav-user-btn {
 .notif-item.unread::after {
     content: '';
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     top: 50%;
     transform: translateY(-50%);
     width: 8px;
@@ -1233,10 +1233,7 @@ html[dir="rtl"] .nav-user-btn {
     border-radius: 50%;
 }
 
-[dir="rtl"] .notif-item.unread::after {
-    left: auto;
-    right: 0;
-}
+/* inset-inline-start handles RTL automatically — override removed */
 
 .notif-icon {
     width: 44px;
@@ -1836,22 +1833,7 @@ body.light-theme .btn-primary:hover {
 }
 
 @media (max-width: 900px) {
-    .nav-links {
-        display: none;
-    }
-
-    .mobile-nav {
-        display: block;
-    }
-
-    .app-layout {
-        padding: 0 16px 100px;
-    }
-
-    .app-layout.full-width {
-        padding: 0 0 100px;
-    }
-
+    /* Touch-device hover resets — keep at 900px for tablets/phones */
     .nav-links a:hover,
     .nav-links a.active {
         background: transparent;
@@ -1885,6 +1867,48 @@ body.light-theme .btn-primary:hover {
 
     .btn-primary:hover {
         background: var(--primary);
+    }
+}
+
+/* Tablet/small-desktop 481–900px: icon-only top nav to save space */
+@media (min-width: 481px) and (max-width: 900px) {
+    .header {
+        padding: 10px 20px;
+    }
+    .nav-links {
+        display: flex;
+    }
+    .nav-links a {
+        font-size: 0;
+        gap: 0;
+        padding: 8px 12px;
+    }
+    .nav-links a i {
+        font-size: 18px;
+        direction: ltr;
+    }
+    .desktop-msg-badge {
+        top: -4px;
+        right: -4px;
+    }
+}
+
+/* True mobile ≤480px: hide top nav, show bottom mobile nav */
+@media (max-width: 480px) {
+    .nav-links {
+        display: none;
+    }
+
+    .mobile-nav {
+        display: block;
+    }
+
+    .app-layout {
+        padding: 0 16px 100px;
+    }
+
+    .app-layout.full-width {
+        padding: 0 0 100px;
     }
 }
 

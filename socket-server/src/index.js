@@ -26,6 +26,21 @@ const PORT = process.env.SOCKET_IO_PORT || 3001;
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET;
 
 const activeUsers = new Map(); // userId -> Set of socketIds
+const hiddenUsers = new Set(); // userIds with show_online_status=false
+const userInCall  = new Map(); // userId -> { callId, otherUserId, startedAt }
+
+// Purge stale userInCall entries every 5 minutes (covers ICE failures
+// where neither party disconnects cleanly and call:end is never emitted)
+setInterval(() => {
+    const staleMs = 5 * 60 * 1000;
+    const now = Date.now();
+    for (const [uid, entry] of userInCall.entries()) {
+        if (now - entry.startedAt > staleMs) {
+            logger.warn({ uid, callId: entry.callId }, 'Purging stale userInCall entry');
+            userInCall.delete(uid);
+        }
+    }
+}, 60 * 1000);
 
 const getActualSecret = () => {
     if (!INTERNAL_SECRET) return null;
@@ -96,14 +111,18 @@ io.on('connection', async (socket) => {
     // If first connection for this user
     if (userSockets.size === 1) {
         updateLaravelStatus(userId, 'online').then(data => {
-            io.emit('user:online', { 
-                userId, 
-                last_active: data?.last_active 
-            });
+            // notify_user_ids === [] means show_online_status is off — track and skip broadcast
+            if (data && Array.isArray(data.notify_user_ids) && data.notify_user_ids.length === 0) {
+                hiddenUsers.add(userId);
+                return;
+            }
+            hiddenUsers.delete(userId);
+            io.emit('user:online', { userId, last_active: data?.last_active });
         });
     }
 
-    const onlineUserIds = Array.from(activeUsers.keys());
+    // Filter hidden users out of the bulk sync so reloads don't resurrect hidden users
+    const onlineUserIds = Array.from(activeUsers.keys()).filter(id => !hiddenUsers.has(id));
     socket.emit('users:online', { userIds: onlineUserIds });
 
     socket.on('admin:join', () => {
@@ -185,6 +204,54 @@ io.on('connection', async (socket) => {
         }
     });
 
+    // VoIP: relay WebRTC SDP offer to callee
+    socket.on('call:offer', ({ targetUserId, callId, sdp }) => {
+        if (!targetUserId || !sdp) return;
+        io.to(`user:${targetUserId}`).emit('call:offer', {
+            fromUserId: userId,
+            callId,
+            sdp
+        });
+        // Track that this user is in a call
+        userInCall.set(userId, { callId, otherUserId: String(targetUserId), startedAt: Date.now() });
+    });
+
+    // VoIP: relay WebRTC SDP answer to caller
+    socket.on('call:answer', ({ targetUserId, callId, sdp }) => {
+        if (!targetUserId || !sdp) return;
+        io.to(`user:${targetUserId}`).emit('call:answer', {
+            fromUserId: userId,
+            callId,
+            sdp
+        });
+        // Track callee in call too
+        userInCall.set(userId, { callId, otherUserId: String(targetUserId), startedAt: Date.now() });
+    });
+
+    // VoIP: relay ICE candidates
+    socket.on('call:ice-candidate', ({ targetUserId, callId, candidate }) => {
+        if (!targetUserId || !candidate) return;
+        io.to(`user:${targetUserId}`).emit('call:ice-candidate', {
+            fromUserId: userId,
+            callId,
+            candidate
+        });
+    });
+
+    // VoIP: either party ended the call via socket (e.g. browser crash fallback)
+    socket.on('call:end', ({ targetUserId, callId }) => {
+        if (!targetUserId) return;
+        io.to(`user:${targetUserId}`).emit('call:ended', {
+            fromUserId: userId,
+            callId,
+            reason: 'hung_up'
+        });
+        userInCall.delete(userId);
+        // Clean up the other party's entry to prevent duplicate call:ended on their disconnect
+        const tId = String(targetUserId);
+        if (userInCall.get(tId)?.otherUserId === userId) userInCall.delete(tId);
+    });
+
     socket.on('disconnecting', () => {
         const rooms = Array.from(socket.rooms);
         rooms.forEach(roomName => {
@@ -202,6 +269,19 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('disconnect', () => {
+        // VoIP cleanup on unexpected disconnect
+        if (userInCall.has(userId)) {
+            const { callId, otherUserId } = userInCall.get(userId);
+            io.to(`user:${otherUserId}`).emit('call:ended', {
+                fromUserId: userId,
+                callId,
+                reason: 'disconnected'
+            });
+            userInCall.delete(userId);
+            // Clean up the other party's entry to prevent a second call:ended when they disconnect
+            if (userInCall.get(otherUserId)?.otherUserId === userId) userInCall.delete(otherUserId);
+        }
+
         const userSockets = activeUsers.get(userId);
         if (userSockets) {
             userSockets.delete(socket.id);
@@ -215,11 +295,24 @@ io.on('connection', async (socket) => {
                     if (socketCount === 0) {
                         logger.info({ userId }, 'Timeout finished: User still has no sockets, broadcasting OFFLINE');
                         activeUsers.delete(userId);
+                        hiddenUsers.delete(userId);
+
+                        // Cancel any ringing calls where this user is the callee
+                        // so the caller can re-call immediately after a refresh
+                        const secret = getActualSecret();
+                        if (secret) {
+                            const cleanupPayload = { user_id: userId };
+                            const cleanupJson = JSON.stringify(cleanupPayload);
+                            const cleanupSig = 'sha256=' + require('crypto').createHmac('sha256', secret).update(cleanupJson).digest('hex');
+                            axios.post(`${INTERNAL_APP_URL}/api/internal/call/cleanup`, cleanupPayload, {
+                                headers: { 'X-Hub-Signature-256': cleanupSig, 'Content-Type': 'application/json' }
+                            }).catch(err => logger.warn({ err: err.message }, 'call/cleanup failed'));
+                        }
+
                         const data = await updateLaravelStatus(userId, 'offline');
-                        io.emit('user:offline', { 
-                            userId, 
-                            last_active: data?.last_active 
-                        });
+                        // Only broadcast if user had show_online_status on (notify_user_ids non-empty)
+                        if (data && Array.isArray(data.notify_user_ids) && data.notify_user_ids.length === 0) return;
+                        io.emit('user:offline', { userId, last_active: data?.last_active });
                     } else {
                         logger.info({ userId, socketCount }, 'Timeout finished: User reconnected, cancelling OFFLINE broadcast');
                     }
@@ -238,6 +331,25 @@ io.on('connection', async (socket) => {
 app.post('/internal/emit', validateInternalSignature, (req, res) => {
     const { room, event, data } = req.body;
     io.to(room).emit(event, data);
+    res.json({ success: true });
+});
+
+// Internal endpoint to update a user's online-status visibility in real-time
+app.post('/internal/set-visibility', validateInternalSignature, (req, res) => {
+    const { userId, visible } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const id = String(userId);
+    if (visible) {
+        hiddenUsers.delete(id);
+        // If user is connected, broadcast online to everyone now
+        if (activeUsers.has(id)) {
+            io.emit('user:online', { userId: id });
+        }
+    } else {
+        hiddenUsers.add(id);
+        // Broadcast offline so existing viewers update immediately
+        io.emit('user:offline', { userId: id });
+    }
     res.json({ success: true });
 });
 

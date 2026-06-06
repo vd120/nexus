@@ -71,12 +71,14 @@
                     <i class="fas fa-info-circle"></i>
                     <span>{{ __('messages.about') }}</span>
                 </a>
+                @if($group->privacy_level === 'public' || $userMember)
                 <a href="{{ route('communities.members', $group->slug) }}"
                    class="csl-link {{ request()->routeIs('communities.members') ? 'active' : '' }}"
                    data-label="{{ __('messages.group_members') }}">
                     <i class="fas fa-users"></i>
                     <span>{{ __('messages.group_members') }}</span>
                 </a>
+                @endif
                 @if($userMember && $userMember->status === 'approved')
                 <a href="{{ route('communities.settings', $group->slug) }}"
                    class="csl-link {{ request()->routeIs('communities.settings') ? 'active' : '' }}"
@@ -195,10 +197,12 @@
                    class="ch-tab {{ request()->routeIs('communities.about') ? 'active' : '' }}">
                     <i class="fas fa-info-circle"></i><span>{{ __('messages.about') }}</span>
                 </a>
+                @if($group->privacy_level === 'public' || $userMember)
                 <a href="{{ route('communities.members', $group->slug) }}"
                    class="ch-tab {{ request()->routeIs('communities.members') ? 'active' : '' }}">
                     <i class="fas fa-users"></i><span>{{ __('messages.group_members') }}</span>
                 </a>
+                @endif
                 @if($userMember && $userMember->status === 'approved')
                 <a href="{{ route('communities.settings', $group->slug) }}"
                    class="ch-tab {{ request()->routeIs('communities.settings') ? 'active' : '' }}">
@@ -300,7 +304,8 @@
                 </div>
             </div>
 
-            {{-- Members card --}}
+            {{-- Members card — hidden from non-members of private communities --}}
+            @if($group->privacy_level === 'public' || $userMember)
             <div class="csr-card">
                 <div class="csr-card-head">
                     <span class="csr-card-title">
@@ -322,6 +327,9 @@
                                 <div class="csr-member-name">
                                     {{ $member->user->profile?->full_name ?: $member->user->name }}
                                 </div>
+                                <div class="csr-member-username">
+                                    {{ '@' . $member->user->username }}
+                                </div>
                                 <div class="csr-member-role csr-member-role--{{ $member->role }}">
                                     {{ ucfirst($member->role) }}
                                 </div>
@@ -331,6 +339,7 @@
                     @endforeach
                 </div>
             </div>
+            @endif
 
             {{-- Media card --}}
             @if($recentMedia->count() > 0)

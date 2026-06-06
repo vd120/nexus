@@ -96,7 +96,8 @@ class ChatController extends Controller
     {
         if (!$conversation->isMember(auth()->id())) abort(403);
 
-        $afterId = $request->query('after_id');
+        $afterId  = $request->query('after_id');
+        $beforeId = $request->query('before_id');
         $query = Message::where('conversation_id', $conversation->id)
             ->with('sender.profile')
             ->where(function($q) {
@@ -104,7 +105,8 @@ class ChatController extends Controller
             })
             ->orderBy('id', 'desc');
 
-        if ($afterId) $query->where('id', '>', $afterId);
+        if ($afterId)  $query->where('id', '>', $afterId);
+        if ($beforeId) $query->where('id', '<', $beforeId);
 
         $messages = $query->limit(50)->get()->reverse()->values()->map(function ($message) {
             return [
@@ -482,11 +484,19 @@ class ChatController extends Controller
         $broadcastToOthers = $readerReceiptsOn && $otherReceiptsOn;
 
         if ($broadcastToOthers) {
-            // Full broadcast: conversation members + sender
+            // Broadcast to conversation room (covers members currently in the room)
             app(\App\Services\SocketEmitService::class)->emitToConversation($conversation->id, 'chat:read', $emitData);
-            $lastMessage = Message::where('conversation_id', $conversation->id)->orderBy('created_at', 'desc')->first();
-            if ($lastMessage && $lastMessage->sender_id !== $userId) {
-                app(\App\Services\SocketEmitService::class)->emitToUser($lastMessage->sender_id, 'chat:read', $emitData);
+
+            // Also directly notify every unique sender of the messages being marked read —
+            // reliable fallback for users not currently in the conversation socket room.
+            if ($messagesToMark->isNotEmpty()) {
+                $senderIds = Message::whereIn('id', $messagesToMark->toArray())
+                    ->where('sender_id', '!=', $userId)
+                    ->distinct()
+                    ->pluck('sender_id');
+                foreach ($senderIds as $senderId) {
+                    app(\App\Services\SocketEmitService::class)->emitToUser($senderId, 'chat:read', $emitData);
+                }
             }
         }
 
@@ -1048,7 +1058,7 @@ class ChatController extends Controller
                 'text' => ($conversation->is_group ? ($name . ': ') : '') . $icon . $truncated,
                 'id' => $latestMessage->id,
                 'show_checkmarks' => $isOwn && !in_array($latestMessage->type, ['system']),
-                'checkmark_class' => $latestMessage->read_at ? 'fa-check-double read' : ($latestMessage->delivered_at ? 'fa-check-double sent' : 'fa-check sent')
+                'checkmark_class' => $this->resolveCheckmarkClass($latestMessage, $conversation, $userId)
             ];
         }
         
@@ -1056,6 +1066,22 @@ class ChatController extends Controller
             'text' => __('chat.no_messages_yet'),
             'show_checkmarks' => false
         ];
+    }
+
+    private function resolveCheckmarkClass($message, $conversation, $userId): string
+    {
+        if (!$message->read_at) {
+            return $message->delivered_at ? 'fa-check-double sent' : 'fa-check sent';
+        }
+        // For group chats, always show read tick
+        if ($conversation->is_group) {
+            return 'fa-check-double read';
+        }
+        // For 1-1 chats, hide the blue tick if either party disabled receipts
+        $myReceiptsOn = \App\Models\User::find($userId)?->profile?->show_read_receipts ?? true;
+        $otherId = $conversation->user1_id === $userId ? $conversation->user2_id : $conversation->user1_id;
+        $otherReceiptsOn = \App\Models\User::find($otherId)?->profile?->show_read_receipts ?? true;
+        return ($myReceiptsOn && $otherReceiptsOn) ? 'fa-check-double read' : 'fa-check-double sent';
     }
 
     /**

@@ -50,7 +50,7 @@
                         <div class="rule-card-actions" style="display:flex;gap:6px;">
                             <button type="button" class="btn-icon-danger-sm"
                                     data-admin-edit data-target="#rule-{{ $rule->id }}"
-                                    title="{{ __('community_admin.edit') ?? 'Edit' }}">
+                                    title="{{ __('community_admin.edit') }}">
                                 <i class="fas fa-pen"></i>
                             </button>
                             <button type="button" class="btn-icon-danger-sm"

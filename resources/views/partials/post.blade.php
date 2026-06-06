@@ -152,13 +152,16 @@
     @php
         $viewerAutoReveal = auth()->check() && (auth()->user()->profile->show_sensitive_content ?? false);
         $isSensitive = $post->is_sensitive && !$viewerAutoReveal;
+        $hasMedia = $post->media && $post->media->count() > 0;
+        $isTextOnlySensitive = $isSensitive && !$hasMedia && !$post->poll;
     @endphp
 
     @if($isSensitive)
-    <div class="sensitive-wrapper" id="sensitive-{{ $post->id }}">
+    <div class="sensitive-wrapper {{ $isTextOnlySensitive ? 'sensitive-text-only' : '' }}" id="sensitive-{{ $post->id }}">
         <div class="sensitive-overlay" id="overlay-{{ $post->id }}"
              onclick="revealSensitive('{{ $post->id }}')"
              role="button" tabindex="0" aria-label="{{ __('posts.sensitive_content') }}"
+             data-text-only="{{ $isTextOnlySensitive ? '1' : '0' }}"
              onkeydown="if(event.key==='Enter'||event.key===' ')revealSensitive('{{ $post->id }}')">
             <div class="sensitive-card">
                 <div class="sensitive-card-icon"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></div>
@@ -170,7 +173,17 @@
                 </button>
             </div>
         </div>
-        <script>if(sessionStorage.getItem('revealed_post_{{ $post->id }}'))document.getElementById('overlay-{{ $post->id }}').remove();</script>
+        <script>
+            (function(){
+                if(!sessionStorage.getItem('revealed_post_{{ $post->id }}')) return;
+                var o=document.getElementById('overlay-{{ $post->id }}');
+                if(o) o.remove();
+                @if($isTextOnlySensitive)
+                var w=document.getElementById('sensitive-{{ $post->id }}');
+                if(w){w.classList.remove('sensitive-text-only');w.style.minHeight='0';}
+                @endif
+            })();
+        </script>
     @endif
 
     @if($post->content)
@@ -255,6 +268,10 @@
         </div>
     @endif
 
+    @if($isSensitive)
+    </div>{{-- /sensitive-wrapper --}}
+    @endif
+
     @if($hasEngagement)
         <div class="post-engagement-bar">
             @if($totalReactions > 0)
@@ -301,10 +318,6 @@
                 </span>
             @endif
         </div>
-    @endif
-
-    @if($isSensitive)
-    </div>{{-- /sensitive-wrapper --}}
     @endif
 
     <div class="post-actions">
@@ -394,7 +407,9 @@
     <div class="post-comments-section">
         <div class="comments-list" data-comments-list>
             @php
-                $sortedComments = $post->comments->sortByDesc('created_at');
+                $sortedComments = $post->comments->sortByDesc(
+                    fn($c) => $c->likes_count ?? ($c->relationLoaded('likes') ? $c->likes->count() : 0)
+                );
                 $visibleComments = $sortedComments->take(1);
                 $hasMore = $sortedComments->count() > 1;
             @endphp

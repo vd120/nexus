@@ -33,7 +33,6 @@ export default defineConfig(({ mode }) => {
                     'resources/js/legacy/mention-hashtag-autocomplete.js',
                     'resources/js/legacy/community-admin-inline.js',
                     'resources/js/legacy/life-chapters.js',
-                    'resources/js/keyboard-shortcuts.js',
                     // CSS
                     'resources/css/app-layout.css',
                     'resources/css/mobile-header.css',
@@ -74,6 +73,7 @@ export default defineConfig(({ mode }) => {
                     'resources/css/communities.css',
                     'resources/css/communities-admin.css',
                     'resources/css/life-chapters.css',
+                    'resources/css/call-modal.css',
                 ],
                 refresh: true,
             }),

@@ -351,10 +351,6 @@
             </div>
         </div>
         <div class="notif-list" id="notif-list">
-            <div class="notif-empty">
-                <i class="fas fa-bell-slash"></i>
-                <p>{{ __('notifications.no_notifications') }}</p>
-            </div>
         </div>
         <div class="notif-footer" style="padding: 12px 16px; border-top: 1px solid var(--border);">
             <a href="{{ route('notifications.index') }}" style="display: block; text-align: center; color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 600;">
@@ -858,7 +854,7 @@
         };
     </script>
 
-    @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js', 'resources/js/keyboard-shortcuts.js'])
+    @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js'])
     @auth
         @vite(['resources/js/socket-manager.js'])
     @endauth
@@ -946,6 +942,11 @@
                 
                 menu.classList.add('show');
                 document.getElementById('dropdownOverlay').classList.add('active');
+                // Show skeleton immediately — don't wait for the debounce delay
+                const notifListEl = document.getElementById('notif-list');
+                if (notifListEl && !notifListEl.querySelector('.notif-item, .sk-notif-row')) {
+                    notifListEl.innerHTML = notifSkeletonHTML(4);
+                }
                 loadNotifications();
             }
         }
@@ -1126,8 +1127,8 @@
 
         const _loadNotificationsRaw = function loadNotifications() {
             const list = document.getElementById('notif-list');
-            // Only show skeleton on first load (list is empty or has no notif-items yet)
-            if (list && !list.querySelector('.notif-item, .notif-empty')) {
+            // Only show skeleton on first load (list has no real items yet)
+            if (list && !list.querySelector('.notif-item, .notif-empty, .sk-notif-row')) {
                 list.innerHTML = notifSkeletonHTML(4);
             }
 
@@ -1579,9 +1580,19 @@
     function revealSensitive(postId) {
         const overlay = document.getElementById('overlay-' + postId);
         if (overlay) {
+            const isTextOnly = overlay.dataset.textOnly === '1';
             overlay.style.transition = 'opacity .2s';
             overlay.style.opacity = '0';
-            setTimeout(() => overlay.remove(), 200);
+            setTimeout(() => {
+                overlay.remove();
+                if (isTextOnly) {
+                    const wrapper = document.getElementById('sensitive-' + postId);
+                    if (wrapper) {
+                        wrapper.classList.remove('sensitive-text-only');
+                        wrapper.style.minHeight = '0';
+                    }
+                }
+            }, 200);
         }
         sessionStorage.setItem('revealed_post_' + postId, '1');
     }
@@ -1711,5 +1722,20 @@
     </script>
 
     {{-- Predictive Pre-loading (Kills the 1-second lag) --}}
+
+    @include('partials.call-modal')
+    @vite(['resources/css/call-modal.css'])
+    <script src="{{ asset('js/call-manager.js') }}?v={{ filemtime(public_path('js/call-manager.js')) }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.NexusSocket?.socket && window.CallManager) {
+                window.CallManager.init(window.NexusSocket.socket);
+            } else {
+                window.addEventListener('socket:ready', function() {
+                    if (window.CallManager) window.CallManager.init(window.NexusSocket?.socket);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

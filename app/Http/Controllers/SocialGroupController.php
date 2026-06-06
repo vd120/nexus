@@ -83,29 +83,41 @@ class SocialGroupController extends Controller
 
         $this->authorize('view', $group);
 
-        $posts = $group->posts()
-            ->where(function($query) {
-                $query->where('is_approved', true)
-                      ->orWhere('user_id', auth()->id());
-            })
-            ->with(['user', 'media', 'socialGroupTopic', 'member' => function($query) use ($group) {
-                $query->where('social_group_members.social_group_id', $group->id)->with('badges');
-            }, 'comments.member' => function($query) use ($group) {
-                $query->where('social_group_members.social_group_id', $group->id);
-            }])
-            ->orderByRaw('pinned_at DESC, created_at DESC')
-            ->paginate(15);
+        $isMember = auth()->check() && $group->isMember(auth()->user());
+        $canSeePosts = $group->privacy_level === 'public' || $isMember;
+
+        if ($canSeePosts) {
+            $posts = $group->posts()
+                ->where(function($query) {
+                    $query->where('is_approved', true)
+                          ->orWhere('user_id', auth()->id());
+                })
+                ->with(['user', 'media', 'socialGroupTopic', 'member' => function($query) use ($group) {
+                    $query->where('social_group_members.social_group_id', $group->id)->with('badges');
+                }, 'comments' => function($query) use ($group) {
+                    $query->withCount('likes')->with(['member' => function($q) use ($group) {
+                        $q->where('social_group_members.social_group_id', $group->id);
+                    }]);
+                }])
+                ->orderByRaw('pinned_at DESC, created_at DESC')
+                ->paginate(15);
+        } else {
+            // Non-member visiting a private community — show join promo, not posts
+            $posts = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+        }
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json(['group' => $group, 'posts' => $posts]);
         }
 
-        $topMembers = $group->members()
-            ->where('status', 'approved')
-            ->with('user.profile')
-            ->orderByRaw("FIELD(role, 'admin', 'moderator', 'member')")
-            ->limit(6)
-            ->get();
+        $topMembers = $canSeePosts
+            ? $group->members()
+                ->where('status', 'approved')
+                ->with('user.profile')
+                ->orderByRaw("FIELD(role, 'admin', 'moderator', 'member')")
+                ->limit(6)
+                ->get()
+            : collect();
 
         $recentMedia = $group->posts()
             ->where('is_approved', true)
@@ -120,7 +132,7 @@ class SocialGroupController extends Controller
             ->take(6)
             ->values();
 
-        return view('communities.show', compact('group', 'posts', 'topMembers', 'recentMedia'));
+        return view('communities.show', compact('group', 'posts', 'topMembers', 'recentMedia', 'canSeePosts'));
     }
 
     /**
@@ -261,12 +273,15 @@ class SocialGroupController extends Controller
      */
     public function members(Request $request, $slug)
     {
-        $group = SocialGroup::where('slug', $slug)->firstOrFail();
-        $this->authorize('view', $group);
+        $group = SocialGroup::where('slug', $slug)
+            ->withCount(['members' => fn($q) => $q->where('status', 'approved')])
+            ->firstOrFail();
+        $this->authorize('viewMembers', $group);
 
         $members = $group->members()
             ->where('status', 'approved')
-            ->with('user')
+            ->with('user.profile')
+            ->orderByRaw("FIELD(role, 'admin', 'moderator', 'member')")
             ->paginate(30);
 
         return view('communities.members', compact('group', 'members'));

@@ -91,6 +91,10 @@ $chatTitle = $isGroup
 @php
     $otherUserShowsOnline = $conversation->other_user?->profile?->show_online_status ?? true;
     $isUserOnline = $conversation->other_user && (bool)$conversation->other_user->is_online && $otherUserShowsOnline;
+    // Read receipts visible only when BOTH parties have show_read_receipts enabled
+    $myReceiptsOn = auth()->user()->profile?->show_read_receipts ?? true;
+    $otherReceiptsOn = $conversation->other_user?->profile?->show_read_receipts ?? true;
+    $showReadReceipts = !$conversation->is_group && $myReceiptsOn && $otherReceiptsOn;
 @endphp
 <span class="status {{ $isUserOnline ? 'online' : 'offline' }}" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}">
     <span class="status-dot"></span>
@@ -115,6 +119,15 @@ $chatTitle = $isGroup
                     @endif
                 </div>
                 <div class="chat-actions">
+                    @if(!$conversation->is_group)
+                    <button
+                        id="chat-call-btn"
+                        onclick="initiateCall({{ $conversation->other_user->id ?? 0 }}, {{ $conversation->id }}, '{{ addslashes($conversation->other_user->name ?? '') }}', '{{ $conversation->other_user->avatar_url ?? '' }}')"
+                        class="call-icon-btn"
+                        title="{{ __('messages.voice_call') }}">
+                        <i class="fa-solid fa-phone"></i>
+                    </button>
+                    @endif
                     @if($conversation->is_group)
                         <a href="{{ route('groups.show', $conversation->slug) }}" class="action-btn" title="{{ __('chat.group') }}"><i class="fas fa-info-circle"></i></a>
                     @else
@@ -201,7 +214,7 @@ $chatTitle = $isGroup
                                 <span class="message-time">
                                     {{ $message->created_at->format('h:i a') }}
                                     @if($message->is_mine)
-                                        @if($message->read_at)
+                                        @if($showReadReceipts && $message->read_at)
                                             <i class="fas fa-check-double read" title="{{ __('chat.seen') }}"></i>
                                         @elseif($message->delivered_at)
                                             <i class="fas fa-check-double sent" title="{{ __('chat.delivered') }}"></i>
@@ -408,7 +421,7 @@ $chatTitle = $isGroup
                                     <span class="message-time">
                                         {{ $message->created_at->format('h:i a') }}
                                         @if($message->is_mine)
-                                            @if($message->read_at)
+                                            @if($showReadReceipts && $message->read_at)
                                                 <i class="fas fa-check-double read" title="{{ __('chat.seen') }}"></i>
                                             @elseif($message->delivered_at)
                                                 <i class="fas fa-check-double sent" title="{{ __('chat.delivered') }}"></i>
@@ -5425,8 +5438,9 @@ window.addMessage = function(msg) {
     // Time and Status
     let statusIcon = '';
     if (isOwn) {
-        statusIcon = msg.read_at ? 'fa-check-double read' : (msg.delivered_at ? 'fa-check-double sent' : 'fa-check');
-        const statusTitle = msg.read_at ? window.chatTranslations.read : (msg.delivered_at ? window.chatTranslations.delivered : window.chatTranslations.sent);
+        const canShowRead = (window.showReadReceipts !== false) && msg.read_at;
+        statusIcon = canShowRead ? 'fa-check-double read' : (msg.delivered_at ? 'fa-check-double sent' : 'fa-check');
+        const statusTitle = canShowRead ? window.chatTranslations.read : (msg.delivered_at ? window.chatTranslations.delivered : window.chatTranslations.sent);
         statusIcon = `<i class="fas ${statusIcon}" title="${escapeHtml(statusTitle)}"></i>`;
     }
 
@@ -6185,6 +6199,7 @@ function markMessageAsDeleted(id) {
 // Auto scroll to bottom on load and initialize
 document.addEventListener('DOMContentLoaded', () => {
     window.conversationIsGroup = {{ $conversation->is_group ? 'true' : 'false' }};
+    window.showReadReceipts = {{ $showReadReceipts ? 'true' : 'false' }};
 
     @if(!$conversation->is_group && $conversation->other_user)
         window.currentChatUserId = {{ $conversation->other_user->id }};
@@ -6301,7 +6316,102 @@ document.addEventListener('DOMContentLoaded', () => {
     // Online status is now handled automatically via WebSocket disconnect events
     // in the socket-server, so no legacy beacon/polling is required here.
 
-    
+    // ── Notification deep-link: scroll to & highlight a specific message ──
+    // Triggered when arriving from a notification link like /chat/123#message-456
+    (function handleMessageAnchor() {
+        const hash = window.location.hash; // e.g. "#message-456"
+        if (!hash.startsWith('#message-')) return;
+
+        const targetId = hash.replace('#message-', '').trim();
+        if (!targetId || isNaN(targetId)) return;
+
+        // Clear the hash from the URL so refreshing doesn't re-trigger
+        window.history.replaceState(null, '', window.location.pathname);
+
+        const slug = window.activeConversationSlug;
+        if (!slug) return;
+
+        // Try to find the message in the already-loaded DOM first
+        function tryScrollNow() {
+            const el = document.querySelector(`.message[data-message-id="${targetId}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.remove('highlight-msg');
+                void el.offsetWidth;
+                el.classList.add('highlight-msg');
+                setTimeout(() => el.classList.remove('highlight-msg'), 2500);
+                return true;
+            }
+            return false;
+        }
+
+        // If the message is already rendered (recent message), scroll immediately
+        if (tryScrollNow()) return;
+
+        // Otherwise fetch older messages in batches until we find the target
+        let oldestLoadedId = null;
+        const firstMsg = document.querySelector('.message[data-message-id]');
+        if (firstMsg) oldestLoadedId = firstMsg.getAttribute('data-message-id');
+
+        const container = document.getElementById('chatMessages');
+        let attempts = 0;
+        const MAX_ATTEMPTS = 10; // max 500 messages back (10 × 50)
+
+        async function fetchOlderUntilFound() {
+            if (attempts++ >= MAX_ATTEMPTS) {
+                if (window.showToast) showToast('{{ __("chat.message_not_found") }}', 'info');
+                return;
+            }
+
+            try {
+                const params = new URLSearchParams({ before_id: oldestLoadedId || '', per_page: 50 });
+                const res = await fetch(`/chat/${slug}/messages?${params}`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const json = await res.json();
+                if (!json.success || !json.messages || !json.messages.length) {
+                    if (window.showToast) showToast('{{ __("chat.message_not_found") }}', 'info');
+                    return;
+                }
+
+                // Prepend fetched messages to the DOM via the existing renderMessage function
+                const fragment = document.createDocumentFragment();
+                json.messages.forEach(msg => {
+                    if (typeof window.renderMessage === 'function') {
+                        const el = window.renderMessage(msg);
+                        if (el) fragment.appendChild(el);
+                    }
+                });
+                if (container && container.firstChild) {
+                    container.insertBefore(fragment, container.firstChild);
+                }
+
+                // Update oldestLoadedId for the next batch
+                const oldest = json.messages[0];
+                if (oldest) oldestLoadedId = oldest.id;
+
+                // Check if target message is now in the DOM
+                if (tryScrollNow()) return;
+
+                // Target not found yet — check if we've gone past it (IDs are descending)
+                const targetNum = parseInt(targetId, 10);
+                const oldestNum = parseInt(oldest?.id, 10);
+                if (oldestNum && oldestNum <= targetNum) {
+                    // We've loaded past the target but still can't find it — give up
+                    if (window.showToast) showToast('{{ __("chat.message_not_found") }}', 'info');
+                    return;
+                }
+
+                // Keep fetching
+                fetchOlderUntilFound();
+            } catch (e) {
+                console.error('Message anchor fetch error:', e);
+            }
+        }
+
+        fetchOlderUntilFound();
+    })();
+
 });
 
 // Translation strings for JavaScript
@@ -6476,12 +6586,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const joinRoom = () => {
         if (window.NexusSocket && window.NexusSocket.status === 'CONNECTED') {
             window.NexusSocket.joinConversation({{ $conversation->id }});
-
         } else {
-            // Retry if not yet connected
             setTimeout(joinRoom, 500);
         }
     };
+    joinRoom();
+
+    // Re-join the conversation room on every socket reconnect (rooms are lost on disconnect)
+    const waitForSocket = setInterval(() => {
+        if (window.NexusSocket && window.NexusSocket.socket) {
+            clearInterval(waitForSocket);
+            window.NexusSocket.socket.on('connect', () => {
+                window.NexusSocket.joinConversation({{ $conversation->id }});
+            });
+        }
+    }, 300);
     // Scroll to Bottom Button Logic
     const scrollBtn = document.getElementById('scrollToBottomBtn');
     const container = document.getElementById('chatMessages');
@@ -7748,5 +7867,51 @@ window.updateReactionsFromSocket = function(data) {
     renderReactionsBar(data.message_id, data.reactions);
 };
 
+</script>
+
+<style>
+.call-icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-muted, #888);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+.call-icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+</style>
+
+<script>
+function initiateCall(calleeId, conversationId, calleeName, calleeAvatar) {
+    // Unlock AudioContext synchronously inside this gesture — must happen before
+    // the async fetch, because .then() callbacks are no longer inside a gesture
+    if (window.CallManager) window.CallManager.unlockAudioNow();
+
+    fetch('/call/initiate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ callee_id: calleeId, conversation_id: conversationId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error === 'busy') {
+            const t = window.CallTranslations || {};
+            alert(t.user_busy || 'User is already in a call.');
+        } else if (data.callId && window.CallManager) {
+            window.CallManager.startCall(
+                data.callId, calleeId, conversationId,
+                calleeName   || data.calleeName,
+                calleeAvatar || data.calleeAvatar
+            );
+        }
+    })
+    .catch(err => console.error('Call initiation failed', err));
+}
 </script>
 @endsection

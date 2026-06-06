@@ -18,8 +18,19 @@ class SocialGroupPolicy
 
     /**
      * Determine whether the user can view the model.
+     * Community pages (info, join button) are always visible to everyone.
+     * Post content is gated inside the controller for private communities.
      */
     public function view(User $user, SocialGroup $socialGroup): bool
+    {
+        return true;
+    }
+
+    /**
+     * Determine whether the user can view the members list.
+     * Private communities: only approved members can see who's in the group.
+     */
+    public function viewMembers(User $user, SocialGroup $socialGroup): bool
     {
         if ($socialGroup->privacy_level === 'public') {
             return true;

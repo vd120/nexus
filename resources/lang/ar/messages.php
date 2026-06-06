@@ -279,6 +279,7 @@ return [
     'create_community_subtitle' => 'ابدأ مساحة جديدة لاهتماماتك',
     'enter' => 'دخول',
     'community_name' => 'اسم المجتمع',
+    'a_community' => 'مجتمع',
     'community_name_placeholder' => 'مثلاً: ملتقى اللاعبين',
     'description_placeholder' => 'المجتمع ده بيتكلم عن إيه؟',
     'privacy_level_label' => 'مستوى الخصوصية',
@@ -352,6 +353,7 @@ return [
 
     // Flash Messages - Profile
     'profile_updated' => 'تم تحديث الملف الشخصي بنجاح!',
+    'settings_saved' => 'تم حفظ الإعدادات',
     'avatar_deleted' => 'تم حذف الصورة الشخصية',
     'cover_deleted' => 'تم حذف صورة الغلاف',
     'no_avatar_to_delete' => 'لا توجد صورة شخصية لحذفها',
@@ -930,4 +932,30 @@ return [
     'navigate' => 'تنقل',
     'rules' => 'القواعد',
     'topics' => 'المواضيع',
+
+    // VoIP / Calls — modal UI
+    'calling'           => 'جارٍ الاتصال...',
+    'incoming_call'     => 'مكالمة واردة',
+    'accept_call'       => 'قبول',
+    'decline_call'      => 'رفض',
+    'end_call'          => 'إنهاء المكالمة',
+    'toggle_mute'       => 'كتم / إلغاء الكتم',
+    'toggle_speaker'    => 'السماعة',
+    'voice_call'        => 'مكالمة صوتية',
+
+    // VoIP / Calls — status messages (shown in modal after call ends)
+    'call_declined'     => 'تم رفض المكالمة',
+    'call_no_answer'    => 'لا يوجد رد',
+    'call_ended'        => 'انتهت المكالمة',
+    'call_lost'         => 'انتهت المكالمة (انقطع الاتصال)',
+    'user_busy'         => 'المستخدم في مكالمة أخرى',
+
+    // VoIP / Calls — system messages (written into conversation)
+    'system_call_declined'  => 'تم رفض المكالمة',
+    'system_missed_call'    => 'مكالمة فائتة',
+    'system_call_ended'     => 'انتهت المكالمة · :duration',
+
+    // VoIP / Calls — errors
+    'call_mic_denied'       => 'تم رفض الوصول للميكروفون. يرجى السماح بأذونات الميكروفون.',
+    'call_start_failed'     => 'تعذّر بدء المكالمة. يرجى المحاولة مرة أخرى.',
 ];

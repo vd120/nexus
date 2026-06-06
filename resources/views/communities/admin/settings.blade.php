@@ -12,9 +12,20 @@
         <p class="admin-page-subtitle">{{ __('community_admin.community_settings_subtitle') }}</p>
     </div>
 
-    <form action="{{ route('communities.admin.settings.update', $group->slug) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('communities.admin.settings.update', $group->slug) }}" method="POST" enctype="multipart/form-data" onsubmit="this.querySelector('[type=submit]').disabled=true;this.querySelector('[type=submit]').innerHTML='<i class=\'fas fa-spinner fa-spin\'></i> Saving...';">
         @csrf
         @method('PATCH')
+
+        @if($errors->any())
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+            <div style="font-weight:700;color:#ef4444;margin-bottom:6px;"><i class="fas fa-exclamation-triangle"></i> Please fix the following errors:</div>
+            <ul style="margin:0;padding-left:20px;color:#ef4444;font-size:13px;">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
 
         {{-- Branding Section --}}
         <div class="panel settings-card">

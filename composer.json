@@ -17,7 +17,6 @@
         "laravel/tinker": "^2.10.1",
         "minishlink/web-push": "^10.0",
         "pragmarx/google2fa-laravel": "^3.0",
-        "sentry/sentry-laravel": "^4.25",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "tightenco/ziggy": "^2.0"
     },

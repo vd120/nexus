@@ -1563,7 +1563,7 @@ html[dir="rtl"] .cancel-reply {
 .post-menu-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
+    inset-inline-end: 0;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -1574,11 +1574,7 @@ html[dir="rtl"] .cancel-reply {
     animation: menuSlideIn 0.2s ease-out;
 }
 
-/* RTL support for post menu dropdown */
-[dir="rtl"] .post-menu-dropdown {
-    right: auto;
-    left: 0;
-}
+/* RTL support handled via inset-inline-end — no override needed */
 
 @keyframes menuSlideIn {
     from {
@@ -1603,7 +1599,7 @@ html[dir="rtl"] .cancel-reply {
     cursor: pointer;
     font-size: 0.9rem;
     transition: background 0.2s;
-    text-align: left;
+    text-align: start;
 }
 
 .menu-item:hover {
@@ -1614,6 +1610,8 @@ html[dir="rtl"] .cancel-reply {
     width: 18px;
     text-align: center;
     color: var(--text-muted);
+    direction: ltr;
+    flex-shrink: 0;
 }
 
 .menu-item.danger,
@@ -2540,7 +2538,16 @@ html[dir="rtl"] .reactor-user-info {
         border-color: rgba(255,255,255,0.06);
     }
     .post-engagement-bar { padding: 6px 12px 2px; }
-    .post-actions { padding: 4px 8px 8px; }
+    /* 4-button grid: like / comment / share / save — evenly distributed */
+    .post-actions {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 4px 0 8px;
+        gap: 0;
+        align-items: center;
+        justify-items: center;
+    }
+    .left-actions { display: contents; }
     .action-btn { padding: 6px 10px; font-size: 1rem; }
     .action-btn i { font-size: 1.05rem; }
 }
@@ -3051,12 +3058,15 @@ html[dir="rtl"] .hidden-replies::before {
 /* ── Sensitive content overlay ────────────────────────────────── */
 .sensitive-wrapper {
     position: relative;
+    overflow: hidden;
+    min-height: 160px;
+    border-radius: 8px;
 }
 
 .sensitive-overlay {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: 20;
     background: rgba(0, 0, 0, .65);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -3065,6 +3075,7 @@ html[dir="rtl"] .hidden-replies::before {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    min-height: 160px;
 }
 
 .sensitive-card {
@@ -3122,4 +3133,36 @@ html[dir="rtl"] .hidden-replies::before {
 .sensitive-overlay:hover .sensitive-card-btn {
     background: rgba(255, 255, 255, .22);
     border-color: rgba(255, 255, 255, .55);
+}
+
+/* ── Text-only sensitive posts ────────────────────────────────────────────────
+   No media/poll → the overlay flows inline rather than floating absolutely.
+   Content is hidden by CSS; the class is removed on reveal so content shows.
+   ─────────────────────────────────────────────────────────────────────────── */
+.sensitive-text-only {
+    min-height: 0;
+}
+
+/* Inline overlay: flows in the document, takes its own height */
+.sensitive-text-only .sensitive-overlay {
+    position: relative;
+    inset: auto;
+    min-height: 0;
+    border-radius: 12px;
+    margin: 4px 0 8px;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+    background: transparent;
+}
+
+/* The card itself provides all the visual weight */
+.sensitive-text-only .sensitive-card {
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Hide everything inside the wrapper that isn't the overlay */
+.sensitive-text-only > *:not(.sensitive-overlay) {
+    display: none !important;
 }

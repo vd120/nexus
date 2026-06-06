@@ -9,27 +9,27 @@
 <div class="admin-page">
     <div class="admin-page-header admin-flex-header">
         <div class="header-text">
-            <h1 class="admin-page-title">{{ __('community_admin.reports') ?? 'Reports' }}</h1>
-            <p class="admin-page-subtitle">{{ __('community_admin.reports_subtitle') ?? 'Review reports filed by members against posts in this community.' }}</p>
+            <h1 class="admin-page-title">{{ __('community_admin.reports') }}</h1>
+            <p class="admin-page-subtitle">{{ __('community_admin.reports_subtitle') }}</p>
         </div>
         <div class="reports-filter-pills" id="reports-filter">
-            <button type="button" class="filter-pill active" data-status="pending">{{ __('community_admin.pending') ?? 'Pending' }}</button>
-            <button type="button" class="filter-pill" data-status="accepted">{{ __('community_admin.accepted') ?? 'Accepted' }}</button>
-            <button type="button" class="filter-pill" data-status="rejected">{{ __('community_admin.rejected') ?? 'Rejected' }}</button>
-            <button type="button" class="filter-pill" data-status="">{{ __('community_admin.all') ?? 'All' }}</button>
+            <button type="button" class="filter-pill active" data-status="pending">{{ __('community_admin.pending') }}</button>
+            <button type="button" class="filter-pill" data-status="accepted">{{ __('community_admin.accepted') }}</button>
+            <button type="button" class="filter-pill" data-status="rejected">{{ __('community_admin.rejected') }}</button>
+            <button type="button" class="filter-pill" data-status="">{{ __('community_admin.all') }}</button>
         </div>
     </div>
 
     <div id="reports-list" class="reports-list">
         <div class="reports-loading" style="padding:40px;text-align:center;color:var(--text-muted);">
-            <i class="fas fa-spinner fa-spin"></i> {{ __('community_admin.loading') ?? 'Loading…' }}
+            <i class="fas fa-spinner fa-spin"></i> {{ __('community_admin.loading') }}
         </div>
     </div>
 
     <div id="reports-empty" class="admin-empty-state" style="display:none;">
         <div class="empty-icon-wrap"><i class="fas fa-flag"></i></div>
-        <h3>{{ __('community_admin.no_reports') ?? 'No reports' }}</h3>
-        <p>{{ __('community_admin.no_reports_desc') ?? 'Nothing to review right now.' }}</p>
+        <h3>{{ __('community_admin.no_reports') }}</h3>
+        <p>{{ __('community_admin.no_reports_desc') }}</p>
     </div>
 
     <div id="reports-pagination" class="reports-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:18px;"></div>
@@ -139,10 +139,10 @@
             const actions = isPending
                 ? `<div class="report-actions">
                        <button class="btn-resolve-accept" data-action="accept" data-id="${r.id}">
-                           <i class="fas fa-check"></i> Delete post
+                           <i class="fas fa-check"></i> {{ __('community_admin.report_delete_post') }}
                        </button>
                        <button class="btn-resolve-reject" data-action="reject" data-id="${r.id}">
-                           <i class="fas fa-times"></i> Dismiss
+                           <i class="fas fa-times"></i> {{ __('community_admin.report_dismiss') }}
                        </button>
                    </div>`
                 : '';
@@ -229,6 +229,15 @@
         load();
     });
 
+    // Check if list is empty after an individual card removal and show empty state
+    function checkListEmpty() {
+        const cards = list.querySelectorAll('.report-card');
+        if (cards.length === 0) {
+            empty.style.display = '';
+            pagWrap.innerHTML = '';
+        }
+    }
+
     // Resolve actions
     list.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-action]');
@@ -236,8 +245,8 @@
         const id = btn.getAttribute('data-id');
         const action = btn.getAttribute('data-action');
         const confirmMsg = action === 'accept'
-            ? 'Delete the reported post? This cannot be undone.'
-            : 'Dismiss this report?';
+            ? '{{ __('community_admin.report_confirm_delete') }}'
+            : '{{ __('community_admin.report_confirm_dismiss') }}';
         if (!window.confirm(confirmMsg)) return;
         btn.disabled = true;
         try {
@@ -255,7 +264,7 @@
             const j = await r.json();
             if (!r.ok || !j.success) {
                 btn.disabled = false;
-                if (window.showToast) window.showToast(j.message || 'Failed', 'error');
+                if (window.showToast) window.showToast(j.message || '{{ __('community_admin.failed') }}', 'error');
                 return;
             }
             const card = document.getElementById('report-' + id);
@@ -263,12 +272,15 @@
                 card.style.transition = 'opacity .2s, transform .2s';
                 card.style.opacity = '0';
                 card.style.transform = 'scale(.96)';
-                setTimeout(() => card.remove(), 200);
+                setTimeout(() => { card.remove(); checkListEmpty(); }, 200);
             }
-            if (window.showToast) window.showToast(action === 'accept' ? 'Post deleted' : 'Report dismissed', 'success');
+            const toastMsg = action === 'accept'
+                ? '{{ __('community_admin.report_action_deleted') }}'
+                : '{{ __('community_admin.report_action_dismissed') }}';
+            if (window.showToast) window.showToast(toastMsg, 'success');
         } catch (err) {
             btn.disabled = false;
-            if (window.showToast) window.showToast('Network error', 'error');
+            if (window.showToast) window.showToast('{{ __('community_admin.network_error') }}', 'error');
         }
     });
 

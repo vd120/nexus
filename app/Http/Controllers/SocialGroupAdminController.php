@@ -41,7 +41,10 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->firstOrFail();
         $this->authorize('manage', $group);
 
-        return view('communities.admin.settings', compact('group'));
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
+        return view('communities.admin.settings', compact('group', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     /**
@@ -79,13 +82,16 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->firstOrFail();
         $this->authorize('manage', $group);
 
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
         $posts = Post::where('social_group_id', $group->id)
             ->where('is_approved', false)
-            ->with(['user', 'media'])
+            ->with(['user', 'media', 'socialGroupTopic'])
             ->latest()
             ->paginate(15);
 
-        return view('communities.admin.pending-posts', compact('group', 'posts'));
+        return view('communities.admin.pending-posts', compact('group', 'posts', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     /**
@@ -93,8 +99,11 @@ class SocialGroupAdminController extends Controller
      */
     public function membersList($slug)
     {
-        $group = SocialGroup::where('slug', $slug)->firstOrFail();
+        $group = SocialGroup::where('slug', $slug)->with('badges')->firstOrFail();
         $this->authorize('manage', $group);
+
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
 
         $members = SocialGroupMember::where('social_group_id', $group->id)
             ->where('status', 'approved')
@@ -102,7 +111,7 @@ class SocialGroupAdminController extends Controller
             ->latest()
             ->paginate(30);
 
-        return view('communities.admin.members', compact('group', 'members'));
+        return view('communities.admin.members', compact('group', 'members', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     /**
@@ -113,13 +122,16 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->firstOrFail();
         $this->authorize('manage', $group);
 
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
         $members = SocialGroupMember::where('social_group_id', $group->id)
             ->where('status', 'pending')
             ->with('user')
             ->latest()
             ->paginate(15);
 
-        return view('communities.admin.pending-members', compact('group', 'members'));
+        return view('communities.admin.pending-members', compact('group', 'members', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     /**
@@ -223,6 +235,20 @@ class SocialGroupAdminController extends Controller
         $this->authorize('manage', $group);
 
         $post = Post::where('id', $postId)->where('social_group_id', $group->id)->where('is_approved', false)->firstOrFail();
+
+        // Notify the author before deleting (skip anonymous posts — no one to notify)
+        if (!$post->is_anonymous && $post->user_id) {
+            NotificationController::createNotification(
+                $post->user_id,
+                'group_post_rejected',
+                [
+                    'group_id'   => $group->id,
+                    'group_name' => $group->name,
+                    'group_slug' => $group->slug,
+                ]
+            );
+        }
+
         $post->delete();
 
         return response()->json(['message' => 'Post rejected and deleted.']);
@@ -277,9 +303,39 @@ class SocialGroupAdminController extends Controller
         $request->validate(['role' => 'required|in:member,moderator,admin']);
 
         $member = $group->members()->where('user_id', $userId)->firstOrFail();
+        $oldRole = $member->role;
         $member->update(['role' => $request->role]);
 
-        return response()->json(['message' => 'Role updated to ' . $request->role]);
+        // Notify the affected member (skip if they're updating their own role)
+        if ($member->user_id !== auth()->id()) {
+            NotificationController::createNotification(
+                $member->user_id,
+                'group_member_role_changed',
+                [
+                    'group_id'   => $group->id,
+                    'group_name' => $group->name,
+                    'group_slug' => $group->slug,
+                    'new_role'   => $request->role,
+                    'old_role'   => $oldRole,
+                ]
+            );
+        }
+
+        // Real-time: emit role change to the affected user so their UI updates instantly
+        try {
+            app(\App\Services\SocketEmitService::class)->emitToUser($member->user_id, 'community:role_changed', [
+                'group_id'   => $group->id,
+                'group_slug' => $group->slug,
+                'new_role'   => $request->role,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to emit community:role_changed: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Role updated to ' . $request->role,
+            'label'   => __('messages.role_' . $request->role),
+        ]);
     }
 
     /**
@@ -290,7 +346,10 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->with('rules')->firstOrFail();
         $this->authorize('manage', $group);
 
-        return view('communities.admin.rules', compact('group'));
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
+        return view('communities.admin.rules', compact('group', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     public function addRule(Request $request, $slug)
@@ -326,7 +385,10 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->with('topics')->firstOrFail();
         $this->authorize('manage', $group);
 
-        return view('communities.admin.topics', compact('group'));
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
+        return view('communities.admin.topics', compact('group', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     public function addTopic(Request $request, $slug)
@@ -363,7 +425,10 @@ class SocialGroupAdminController extends Controller
         $group = SocialGroup::where('slug', $slug)->with('badges')->firstOrFail();
         $this->authorize('manage', $group);
 
-        return view('communities.admin.badges', compact('group'));
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
+        return view('communities.admin.badges', compact('group', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     public function addBadge(Request $request, $slug)
@@ -630,7 +695,11 @@ class SocialGroupAdminController extends Controller
     {
         $group = SocialGroup::where('slug', $slug)->firstOrFail();
         $this->authorize('manage', $group);
-        return view('communities.admin.reports', compact('group'));
+
+        $pendingPostsCount = Post::where('social_group_id', $group->id)->where('is_approved', false)->count();
+        $pendingMembersCount = SocialGroupMember::where('social_group_id', $group->id)->where('status', 'pending')->count();
+
+        return view('communities.admin.reports', compact('group', 'pendingPostsCount', 'pendingMembersCount'));
     }
 
     /**
@@ -662,7 +731,7 @@ class SocialGroupAdminController extends Controller
                 'reviewed_by'  => auth()->id(),
                 'reviewed_at'  => now(),
                 'admin_note'   => $validated['note'] ?? null,
-                'admin_action' => 'delete_post',
+                'admin_action' => 'delete',
             ]);
         } else {
             $report->update([
@@ -670,7 +739,7 @@ class SocialGroupAdminController extends Controller
                 'reviewed_by'  => auth()->id(),
                 'reviewed_at'  => now(),
                 'admin_note'   => $validated['note'] ?? null,
-                'admin_action' => 'dismiss',
+                'admin_action' => 'none',
             ]);
         }
 

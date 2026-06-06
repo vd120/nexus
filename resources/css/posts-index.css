@@ -615,10 +615,9 @@ html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon { transform: rota
     transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Pulse and memory cards — no bg, no border, blends with page */
+/* Pulse and memory cards — no extra margin, blends into sidebar stack */
 .pulse-card,
 .memory-card {
-    border-radius: 0;
     margin-bottom: 0;
 }
 
@@ -629,13 +628,15 @@ html[dir="rtl"] .feed-sidebar-right.collapsed .fsr-toggle-icon { transform: rota
 .pulse-card {
     position: relative;
     padding: 12px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 4px;
 }
 /* Pulse — mobile inline host (visible only when right sidebar is hidden) */
 .pulse-mobile-host { display: none; }
 .pulse-card-mobile {
-    border-radius: 16px;
     margin-bottom: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 @media (max-width: 1180px) {
     .pulse-mobile-host { display: block; }
@@ -2710,14 +2711,7 @@ html[dir="rtl"] .floating-chat-btn .btn-badge { right: auto; left: -4px; }
         transform: translateX(-20px);
     }
 
-    /* Widen the feed to use the freed space */
-    body.chat-drawer-open .feed-container {
-        max-width: 760px;
-    }
-    /* And widen even more if left sidebar is also collapsed */
-    body.chat-drawer-open .feed-layout:has(.feed-sidebar-left.collapsed) .feed-container {
-        max-width: 880px;
-    }
+    /* Keep feed at its natural width — no expansion when chat opens */
 }
 
 /* ==========================================================================

@@ -117,8 +117,9 @@
                                         </a>
                                         <div class="entry-meta">
                                             <a href="{{ route('users.show', $member->user) }}" class="entry-name" style="display:inline-flex;align-items:center;gap:.2em;">
-                                                {{ $member->user->name }}<x-verified-badge :user="$member->user" size=".85em" />
+                                                {{ $member->user->profile?->full_name ?: $member->user->name }}<x-verified-badge :user="$member->user" size=".85em" />
                                             </a>
+                                            <span class="entry-username">{{ '@' . $member->user->username }}</span>
                                             <span class="entry-role {{ $member->role }}">{{ __('messages.role_' . $member->role) }}</span>
                                         </div>
                                     </div>

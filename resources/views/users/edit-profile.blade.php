@@ -812,5 +812,50 @@ function checkUsernameAvailability(username) {
         }
     }
 
+    // Real-time privacy toggles — fire instantly on checkbox change, no form submit needed
+    (function () {
+        const TOGGLES = ['show_online_status', 'show_read_receipts'];
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        TOGGLES.forEach(name => {
+            const checkbox = document.querySelector(`input[name="${name}"]`);
+            if (!checkbox) return;
+
+            checkbox.addEventListener('change', async function () {
+                const value = this.checked ? 1 : 0;
+                const label = this.closest('.form-checkbox');
+                if (label) label.style.opacity = '0.6';
+                const originalChecked = this.checked;
+
+                try {
+                    const res = await fetch('{{ route("settings.privacy-toggle") }}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ setting: name, value: value }),
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        if (typeof window.showToast === 'function') {
+                            window.showToast('{{ __("messages.settings_saved") }}', 'success');
+                        }
+                    } else {
+                        this.checked = !originalChecked;
+                        const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Failed to save');
+                        if (typeof window.showToast === 'function') window.showToast(msg, 'error');
+                    }
+                } catch (e) {
+                    this.checked = !originalChecked;
+                    if (typeof window.showToast === 'function') window.showToast('Failed to save', 'error');
+                } finally {
+                    if (label) label.style.opacity = '';
+                }
+            });
+        });
+    })();
+
 </script>
 @endsection

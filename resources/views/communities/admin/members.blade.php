@@ -12,7 +12,7 @@
         <p class="admin-page-subtitle">{{ __('community_admin.manage_members_subtitle') }}</p>
     </div>
 
-    <div class="panel settings-section">
+    <div class="panel settings-section panel--overflow">
         <div class="panel-header admin-panel-header">
             <h3>{{ __('community_admin.member_list') }} ({{ $members->total() }})</h3>
             <div class="admin-search-box">
@@ -74,6 +74,9 @@
                                         @endforeach
 
                                         <div class="dropdown-divider-admin"></div>
+                                        <button onclick="muteMember('{{ $member->user->id }}')" class="danger">
+                                            <i class="fas fa-volume-mute"></i> {{ __('community_admin.mute') }}
+                                        </button>
                                         <button onclick="removeMember('{{ $member->user->id }}')" class="danger">
                                             <i class="fas fa-user-minus"></i> {{ __('community_admin.remove') }}
                                         </button>
@@ -122,14 +125,14 @@
             if (!res.ok) throw new Error('Failed to update role');
             return res.json();
         }).then(data => {
-            showToast("{{ __('community_admin.role_updated', ['role' => '']) }}" + role, 'success');
-            
+            showToast("{{ __('community_admin.role_updated', ['role' => '']) }}" + (data.label || role), 'success');
+
             // Update UI dynamically
             const memberItem = document.getElementById(`member-${userId}`);
             if (memberItem) {
                 const badge = memberItem.querySelector('.role-badge');
                 if (badge) {
-                    badge.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+                    badge.textContent = data.label || (role.charAt(0).toUpperCase() + role.slice(1));
                     badge.className = `role-badge role-${role}`;
                 }
             }
@@ -158,6 +161,55 @@
             showToast('Error: ' + err.message, 'error');
         });
     }
+
+    function muteMember(userId) {
+        const durations = [
+            { label: '1 hour', hours: 1 },
+            { label: '6 hours', hours: 6 },
+            { label: '24 hours', hours: 24 },
+            { label: '7 days', hours: 168 },
+            { label: '30 days', hours: 720 },
+        ];
+        const choice = prompt(
+            "Mute member for how long?\n\n" +
+            durations.map((d, i) => `${i + 1}. ${d.label}`).join('\n') +
+            "\n\nEnter a number (1-5):"
+        );
+        if (!choice) return;
+        const idx = parseInt(choice) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= durations.length) {
+            showToast('Invalid selection.', 'error');
+            return;
+        }
+        const mutedUntil = new Date(Date.now() + durations[idx].hours * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+        fetch(`/communities/{{ $group->slug }}/admin/members/${userId}/mute`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ muted_until: mutedUntil })
+        }).then(res => {
+            if (!res.ok) throw new Error('Failed to mute member');
+            return res.json();
+        }).then(data => {
+            showToast(data.message || "Member muted successfully.", 'success');
+        }).catch(err => {
+            console.error(err);
+            showToast('Error: ' + err.message, 'error');
+        });
+    }
+
+    // Member search — filters visible rows by name/username
+    document.getElementById('member-search-admin').addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('.admin-member-item').forEach(function (row) {
+            const name = (row.querySelector('.admin-member-name')?.textContent || '').toLowerCase();
+            const handle = (row.querySelector('.admin-member-handle')?.textContent || '').toLowerCase();
+            row.style.display = (!q || name.includes(q) || handle.includes(q)) ? '' : 'none';
+        });
+    });
 
     function toggleBadge(userId, badgeId, btn) {
         fetch(`/communities/{{ $group->slug }}/admin/members/${userId}/badges/toggle`, {

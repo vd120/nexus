@@ -77,7 +77,4 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e) {
             return response()->view('errors.404', [], 404);
         });
-
-        // Sentry error reporting
-        \Sentry\Laravel\Integration::handles($exceptions);
     })->create();

@@ -97,4 +97,15 @@ return [
     'dnd' => 'عدم الإزعاج',
     'connecting' => 'جاري الاتصال بالسيرفر...',
     'loading' => 'جاري التحميل',
+
+    // Community Notifications
+    'group_join_requested'              => ':user طلب الانضمام لـ :group.',
+    'group_join_accepted'               => 'تم قبول طلبك للانضمام لـ :group!',
+    'group_post_approved'               => 'تم قبول منشورك في :group.',
+    'group_post_rejected'               => 'لم يتم قبول منشورك في :group.',
+    'group_post_pending'                => 'منشور جديد ينتظر الموافقة في :group من :user.',
+    'group_member_role_changed_admin'       => 'تمت ترقيتك لمسؤول في :group.',
+    'group_member_role_changed_moderator'   => 'تم تعيينك مشرفاً في :group.',
+    'group_member_role_changed_member'      => 'تم تغيير رتبتك في :group إلى عضو.',
+    'community_report_new'              => ':user أبلغ عن منشور في :group.',
 ];
