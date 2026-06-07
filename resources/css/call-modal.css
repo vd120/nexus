@@ -1,5 +1,5 @@
 /* ============================================================
-   CALL MODAL — Full-screen Nexus VoIP UI
+   CALL MODAL — Full-screen Nexus VoIP UI  (Option A redesign)
    ============================================================ */
 
 /* ── Animations ── */
@@ -10,13 +10,18 @@
 
 @keyframes call-ring-pulse {
     0%   { transform: scale(1);    opacity: 0.55; }
-    70%  { transform: scale(1.7);  opacity: 0; }
-    100% { transform: scale(1.7);  opacity: 0; }
+    70%  { transform: scale(1.75); opacity: 0; }
+    100% { transform: scale(1.75); opacity: 0; }
 }
 
 @keyframes call-mute-glow {
     0%, 100% { box-shadow: 0 0 0 0   rgba(244,63,94,0.5); }
     50%       { box-shadow: 0 0 0 8px rgba(244,63,94,0); }
+}
+
+@keyframes call-active-glow {
+    0%, 100% { box-shadow: 0 0 0 0   rgba(129,140,248,0.35), 0 0 28px rgba(129,140,248,0.15); }
+    50%       { box-shadow: 0 0 0 6px rgba(129,140,248,0),   0 0 42px rgba(129,140,248,0.25); }
 }
 
 @keyframes pill-pop-in {
@@ -31,19 +36,17 @@
     position: fixed;
     inset: 0;
     z-index: 9999;
-    display: none;           /* switched to flex by JS */
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
-
-    /* Deep dark gradient background */
     background: linear-gradient(160deg, #0d0d14 0%, #111827 50%, #0d1117 100%);
     animation: call-fade-in 0.25s ease both;
     overflow: hidden;
 }
 
-/* Subtle noise texture overlay */
+/* Subtle noise texture */
 #call-modal::before {
     content: '';
     position: absolute;
@@ -54,7 +57,7 @@
 }
 
 /* ============================================================
-   TOP BAR (minimize button)
+   TOP BAR
    ============================================================ */
 .call-topbar {
     width: 100%;
@@ -82,10 +85,13 @@
     transition: background 0.15s, color 0.15s;
     direction: ltr;
 }
-.call-topbar-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+@media (hover: hover) {
+    .call-topbar-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+}
+.call-topbar-btn:active { background: rgba(255,255,255,0.14); color: #fff; }
 
 /* ============================================================
-   CALL STATES  (flex column, fills available space)
+   CALL STATES
    ============================================================ */
 .call-state {
     flex: 1;
@@ -94,7 +100,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 32px 40px;
+    padding: 24px 32px 44px;
     position: relative;
     z-index: 1;
 }
@@ -114,54 +120,63 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 160px;
-    height: 160px;
+    width: 168px;
+    height: 168px;
 }
 
 .call-avatar-wrapper--active {
-    width: 140px;
-    height: 140px;
+    width: 148px;
+    height: 148px;
 }
 
 .call-avatar {
-    width: 130px;
-    height: 130px;
+    width: 136px;
+    height: 136px;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid rgba(255,255,255,0.15);
     position: relative;
     z-index: 2;
     flex-shrink: 0;
-    background: #1e1e2e;   /* fallback while image loads */
+    background: #1e1e2e;
 }
 
 .call-avatar-wrapper--active .call-avatar {
-    width: 110px;
-    height: 110px;
+    width: 118px;
+    height: 118px;
+    border-color: rgba(129,140,248,0.45);
+    animation: call-active-glow 2.8s ease-in-out infinite;
 }
 
-/* Pulse rings (incoming & calling states) */
+/* Pulse rings (incoming & calling) */
 .call-ring-pulse {
     position: absolute;
-    inset: -16px;
+    inset: -14px;
     border-radius: 50%;
     border: 2px solid var(--green, #22c55e);
-    animation: call-ring-pulse 1.8s ease-out infinite;
+    animation: call-ring-pulse 1.9s ease-out infinite;
     z-index: 1;
 }
-.call-ring-pulse--delay {
-    animation-delay: 0.7s;
-}
+.call-ring-pulse--delay { animation-delay: 0.75s; }
 
 /* ============================================================
-   INFO  (name + status / timer)
+   INFO (name / username / timer)
    ============================================================ */
 .call-info {
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 8px 0;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+}
+
+/* Name + verified badge on one line */
+.call-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
 }
 
 .call-name {
@@ -170,28 +185,47 @@
     color: #ffffff;
     margin: 0;
     letter-spacing: -0.01em;
-    max-width: 280px;
+    max-width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+/* ✓ Verified badge */
+.call-verified {
+    display: inline-flex;
+    align-items: center;
+    color: var(--primary, #818cf8);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(129,140,248,0.5));
+}
+
+/* @username */
+.call-username {
+    font-size: 0.84rem;
+    color: rgba(255,255,255,0.38);
+    letter-spacing: 0.02em;
+    margin: 0;
+}
+
 .call-label {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 500;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.4);
     margin: 0;
 }
 
 .call-timer {
     font-family: 'Menlo','Consolas','SF Mono',monospace;
-    font-size: 1.1rem;
-    font-weight: 500;
+    font-size: 1.15rem;
+    font-weight: 600;
     color: var(--primary, #818cf8);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     margin: 0;
+    text-shadow: 0 0 12px rgba(129,140,248,0.4);
 }
 
 .call-status-text {
@@ -202,7 +236,44 @@
 }
 
 /* ============================================================
-   ACTION BUTTONS
+   TAP-TO-RING UNBLOCK BUTTON
+   ============================================================ */
+.call-ring-unblock-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: background 0.15s, transform 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    margin: 4px auto 0;
+    animation: call-ring-unblock-pulse 2s ease-in-out infinite;
+}
+.call-ring-unblock-btn:active {
+    transform: scale(0.93);
+    background: rgba(255,255,255,0.14);
+}
+.call-ring-unblock-btn i {
+    font-size: 0.9rem;
+    color: #facc15;
+}
+
+@keyframes call-ring-unblock-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(250,204,21,0.0); }
+    50%       { box-shadow: 0 0 0 6px rgba(250,204,21,0.12); }
+}
+
+/* ============================================================
+   ACTION AREA — incoming / calling states only
    ============================================================ */
 .call-actions {
     display: flex;
@@ -216,7 +287,7 @@
 
 .call-actions--incoming {
     justify-content: space-around;
-    max-width: 280px;
+    max-width: 300px;
     margin: 0 auto;
 }
 
@@ -228,12 +299,17 @@
 }
 
 .call-btn-label {
-    font-size: 0.72rem;
-    color: rgba(255,255,255,0.5);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
     text-align: center;
     max-width: 80px;
+    letter-spacing: 0.02em;
 }
 
+/* ============================================================
+   INCOMING / CALLING BUTTONS  (accept, decline, cancel)
+   ============================================================ */
 .call-btn {
     width: 68px;
     height: 68px;
@@ -244,50 +320,122 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    transition: transform 0.13s ease, filter 0.13s ease;
     flex-shrink: 0;
     direction: ltr;
+    -webkit-tap-highlight-color: transparent;
 }
-.call-btn:active  { transform: scale(0.88); }
-.call-btn:hover   { filter: brightness(1.15); }
+.call-btn:active { transform: scale(0.87); }
 
-/* Accept — green */
+@media (hover: hover) {
+    .call-btn:hover { filter: brightness(1.18); }
+}
+
 .call-btn-accept {
     background: #22c55e;
     color: #fff;
     box-shadow: 0 6px 24px rgba(34,197,94,0.45);
 }
 
-/* Decline / End — red */
-.call-btn-decline,
-.call-btn-end {
+.call-btn-decline {
     background: #ef4444;
     color: #fff;
     box-shadow: 0 6px 24px rgba(239,68,68,0.45);
 }
 
-/* Mute / Speaker — dark */
-.call-btn-mute {
-    background: rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.75);
-    border: 1px solid rgba(255,255,255,0.12);
-    backdrop-filter: blur(8px);
-}
-.call-btn-mute:hover { background: rgba(255,255,255,0.18); color: #fff; }
+/* ============================================================
+   ACTIVE CALL CONTROLS — native phone-call grid
+   ============================================================ */
 
-/* Muted state */
-.call-btn-mute.is-muted {
-    background: rgba(244,63,94,0.2);
-    color: #f43f5e;
-    border-color: rgba(244,63,94,0.4);
-    animation: call-mute-glow 2s ease-in-out infinite;
+/* Outer column: secondary row + end row */
+.call-ctl-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    width: 100%;
+    padding-bottom: 8px;
 }
 
-/* Speaker active */
-.call-btn-mute.is-speaker-on {
-    color: var(--primary, #818cf8) !important;
-    background: rgba(129,140,248,0.15);
-    border-color: rgba(129,140,248,0.3);
+/* Secondary controls row: Mute, Speaker */
+.call-ctl-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 52px;
+}
+
+.call-ctl-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.call-ctl-label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: oklch(1 0 0 / 0.55);
+    letter-spacing: 0.04em;
+    font-family: system-ui, -apple-system, sans-serif;
+    white-space: nowrap;
+}
+
+/* Base circle button */
+.call-ctl-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: none;
+    background: oklch(1 0 0 / 0.12);
+    color: oklch(0.97 0.005 200);
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+    direction: ltr;
+    flex-shrink: 0;
+}
+
+.call-ctl-btn:active {
+    transform: scale(0.88);
+}
+
+@media (hover: hover) {
+    .call-ctl-btn:hover {
+        background: oklch(1 0 0 / 0.19);
+    }
+}
+
+/* Toggled ON — iOS pattern: button turns white, icon turns dark */
+.call-ctl-btn.is-muted,
+.call-ctl-btn.is-speaker-on {
+    background: oklch(0.96 0.005 220);
+    color: oklch(0.18 0.015 220);
+}
+
+/* End call */
+.call-ctl-btn--end {
+    width: 72px;
+    height: 72px;
+    font-size: 1.3rem;
+    background: oklch(0.52 0.22 25);
+    color: oklch(0.98 0 0);
+    box-shadow: 0 8px 28px oklch(0.52 0.22 25 / 0.42);
+}
+
+@media (hover: hover) {
+    .call-ctl-btn--end:hover {
+        background: oklch(0.56 0.22 25);
+    }
+}
+
+.call-ctl-btn--end:active {
+    background: oklch(0.46 0.20 25);
+    transform: scale(0.88);
 }
 
 /* ============================================================
@@ -295,8 +443,8 @@
    ============================================================ */
 #call-minimized {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: calc(56px + env(safe-area-inset-bottom, 8px) + 8px);
+    right: 16px;
     z-index: 9999;
     display: none;
     align-items: center;
@@ -310,8 +458,12 @@
     -webkit-backdrop-filter: blur(16px);
     cursor: pointer;
     animation: pill-pop-in 0.22s cubic-bezier(0.34,1.28,0.64,1) both;
+    -webkit-tap-highlight-color: transparent;
 }
-#call-minimized:hover { background: #222236; }
+@media (hover: hover) {
+    #call-minimized:hover { background: #222236; }
+}
+#call-minimized:active { background: #222236; }
 
 .call-minimized-dot {
     width: 8px;
@@ -350,16 +502,41 @@
     direction: ltr;
     flex-shrink: 0;
     transition: transform 0.12s;
+    -webkit-tap-highlight-color: transparent;
 }
-.call-minimized-end:hover { transform: scale(1.12); }
+@media (hover: hover) {
+    .call-minimized-end:hover { transform: scale(1.12); }
+}
+.call-minimized-end:active { transform: scale(0.9); }
 
 /* ============================================================
    MOBILE TWEAKS
    ============================================================ */
 @media (max-width: 480px) {
-    .call-name   { font-size: 1.35rem; }
-    .call-btn    { width: 64px; height: 64px; font-size: 1.2rem; }
-    .call-actions { gap: 28px; }
-    .call-avatar { width: 110px; height: 110px; }
-    .call-avatar-wrapper { width: 140px; height: 140px; }
+    .call-state {
+        padding: 12px 24px calc(56px + env(safe-area-inset-bottom, 8px) + 8px);
+    }
+
+    .call-topbar {
+        padding-top: max(env(safe-area-inset-top, 12px), 12px);
+        min-height: 48px;
+    }
+
+    .call-name          { font-size: 1.25rem; }
+    .call-avatar-area   { flex: 0 0 auto; padding: 16px 0; }
+
+    .call-avatar        { width: 108px; height: 108px; }
+    .call-avatar-wrapper { width: 136px; height: 136px; }
+    .call-avatar-wrapper--active .call-avatar { width: 96px; height: 96px; }
+    .call-avatar-wrapper--active { width: 120px; height: 120px; }
+
+    /* Incoming / calling action buttons */
+    .call-btn           { width: 62px; height: 62px; font-size: 1.15rem; }
+    .call-actions--incoming { max-width: 280px; gap: 24px; }
+
+    /* Native control circles */
+    .call-ctl-btn       { width: 64px; height: 64px; font-size: 1.15rem; }
+    .call-ctl-btn--end  { width: 68px; height: 68px; font-size: 1.2rem; }
+    .call-ctl-row       { gap: 44px; }
+    .call-ctl-area      { gap: 28px; }
 }

@@ -1725,6 +1725,16 @@
 
     @include('partials.call-modal')
     @vite(['resources/css/call-modal.css'])
+    @php
+        $callIceServers = [];
+        if (env('TURN_URL')) {
+            $callIceServers[] = ['urls' => env('TURN_URL'), 'username' => env('TURN_USERNAME', ''), 'credential' => env('TURN_CREDENTIAL', '')];
+        }
+        if (env('TURN_URL_TCP')) {
+            $callIceServers[] = ['urls' => env('TURN_URL_TCP'), 'username' => env('TURN_USERNAME', ''), 'credential' => env('TURN_CREDENTIAL', '')];
+        }
+    @endphp
+    <script>window.CALL_CONFIG = { iceServers: @json($callIceServers) };</script>
     <script src="{{ asset('js/call-manager.js') }}?v={{ filemtime(public_path('js/call-manager.js')) }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

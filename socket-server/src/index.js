@@ -25,9 +25,10 @@ const INTERNAL_APP_URL = 'http://127.0.0.1:8000';
 const PORT = process.env.SOCKET_IO_PORT || 3001;
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET;
 
-const activeUsers = new Map(); // userId -> Set of socketIds
-const hiddenUsers = new Set(); // userIds with show_online_status=false
-const userInCall  = new Map(); // userId -> { callId, otherUserId, startedAt }
+const activeUsers    = new Map(); // userId -> Set of socketIds
+const hiddenUsers    = new Set(); // userIds with show_online_status=false
+const userInCall     = new Map(); // userId -> { callId, otherUserId, startedAt }
+const callEndTimers  = new Map(); // userId -> setTimeout handle for delayed call:ended
 
 // Purge stale userInCall entries every 5 minutes (covers ICE failures
 // where neither party disconnects cleanly and call:end is never emitted)
@@ -97,7 +98,13 @@ const broadcastRoomUsers = (io, conversationId) => {
 
 io.on('connection', async (socket) => {
     const userId = String(socket.user.user_id);
-    
+
+    // If this user was reconnecting after a brief drop, cancel the pending call:ended timer
+    if (callEndTimers.has(userId)) {
+        clearTimeout(callEndTimers.get(userId));
+        callEndTimers.delete(userId);
+    }
+
     if (!activeUsers.has(userId)) {
         activeUsers.set(userId, new Set());
     }
@@ -269,17 +276,28 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // VoIP cleanup on unexpected disconnect
+        // VoIP cleanup on unexpected disconnect.
+        // Use a 2-second delay so Socket.IO auto-reconnects don't falsely end the call —
+        // the client typically reconnects in < 1 second on a transient network hiccup.
         if (userInCall.has(userId)) {
             const { callId, otherUserId } = userInCall.get(userId);
-            io.to(`user:${otherUserId}`).emit('call:ended', {
-                fromUserId: userId,
-                callId,
-                reason: 'disconnected'
-            });
-            userInCall.delete(userId);
-            // Clean up the other party's entry to prevent a second call:ended when they disconnect
-            if (userInCall.get(otherUserId)?.otherUserId === userId) userInCall.delete(otherUserId);
+            const timer = setTimeout(() => {
+                callEndTimers.delete(userId);
+                // Only emit if the user truly never reconnected
+                const sockets = activeUsers.get(userId);
+                if (!sockets || sockets.size === 0) {
+                    io.to(`user:${otherUserId}`).emit('call:ended', {
+                        fromUserId: userId,
+                        callId,
+                        reason: 'disconnected'
+                    });
+                    userInCall.delete(userId);
+                    // Clean up the other party's entry to prevent a duplicate call:ended
+                    const tId = String(otherUserId);
+                    if (userInCall.get(tId)?.otherUserId === userId) userInCall.delete(tId);
+                }
+            }, 2000);
+            callEndTimers.set(userId, timer);
         }
 
         const userSockets = activeUsers.get(userId);

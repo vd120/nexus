@@ -141,15 +141,6 @@
         .pinned-posts-section { padding: 0; }
         .pinned-posts-header { padding: 0 16px; }
     }
-.btn-call-profile {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 20px;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white; cursor: pointer;
-    transition: background 0.2s;
-}
-.btn-call-profile:hover { background: rgba(255,255,255,0.1); }
 </style>
 
 <div class="profile-container">
@@ -224,8 +215,8 @@
                 </button>
                 <a href="{{ route('chat.start', $user->id) }}" class="btn"><i class="fas fa-envelope"></i> {{ __('users.message') }}</a>
                 <button
-                    onclick="initiateCallFromProfile({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ $user->avatar_url }}')"
-                    class="btn-call-profile"
+                    onclick="initiateCallFromProfile({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ $user->avatar_url }}', '{{ addslashes($user->username) }}', {{ $user->is_verified ? 'true' : 'false' }})"
+                    class="btn"
                     title="{{ __('messages.voice_call') }}">
                     <i class="fa-solid fa-phone"></i>
                     <span>{{ __('messages.voice_call') }}</span>
@@ -535,7 +526,7 @@ function closeQrCodeModal(event) {
     loading.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>';
 }
 
-function initiateCallFromProfile(calleeId, calleeName, calleeAvatar) {
+function initiateCallFromProfile(calleeId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
     if (window.CallManager) window.CallManager.unlockAudioNow();
 
     fetch('/call/initiate', {
@@ -557,8 +548,10 @@ function initiateCallFromProfile(calleeId, calleeName, calleeAvatar) {
                 data.callId,
                 calleeId,
                 data.conversationId,
-                calleeName  || data.calleeName,
-                calleeAvatar || data.calleeAvatar
+                calleeName    || data.calleeName,
+                calleeAvatar  || data.calleeAvatar,
+                calleeUsername != null ? calleeUsername : (data.calleeUsername || ''),
+                calleeVerified != null ? calleeVerified : (data.calleeVerified || false)
             );
         }
     })

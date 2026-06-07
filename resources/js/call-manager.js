@@ -11,27 +11,17 @@
     // Constants
     // ---------------------------------------------------------------------------
 
-    const ICE_SERVERS = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        // TURN relay — required for users behind symmetric NAT (most mobile networks).
-        // Using Open Relay (free, no sign-up): https://www.metered.ca/tools/openrelay/
-        {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-        },
-    ];
+    // If the Blade template sets window.CALL_CONFIG.iceServers (from server-side env),
+    // that list is merged in so TURN credentials can be injected without editing this file.
+    const ICE_SERVERS = (function () {
+        var base = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
+        ];
+        var extra = (window.CALL_CONFIG && Array.isArray(window.CALL_CONFIG.iceServers))
+            ? window.CALL_CONFIG.iceServers : [];
+        return base.concat(extra);
+    })();
 
     // ---------------------------------------------------------------------------
     // Internal state
@@ -79,102 +69,224 @@
     }
 
     // ---------------------------------------------------------------------------
-    // Ringtone
+    // Ringtone — Web Audio API primary path, <audio> element fallback
+    //
+    // WHY Web Audio API:
+    //   AudioContext, once resumed inside a user gesture, stays 'running' for the
+    //   entire page session — even when audio is triggered later from a socket event.
+    //   An <audio> element's autoplay permission is per-play-call on mobile and can
+    //   be silently revoked after background/foreground cycles, making ring blocked
+    //   even when the user has previously interacted with the page.
     // ---------------------------------------------------------------------------
 
     let ringtoneActive  = false;
     let vibrateTimer    = null;
+    let ringSourceNode  = null;   // active Web Audio BufferSourceNode while ringing
 
-    // Generate a two-tone ring WAV (440+480 Hz, 1s ring + 2s silence) synchronously
-    // using typed arrays — no OfflineAudioContext, no async, no src swap ever.
-    // The element keeps its autoplay-unlock state for the lifetime of the page because
-    // src is set ONCE here and never changed. Changing src resets Chrome's unlock state.
-    function generateRingDataURI() {
-        var SR = 22050;
-        var ringSeconds = 1.0;
-        var silenceSeconds = 2.0;
-        var totalSeconds = ringSeconds + silenceSeconds;
-        var numSamples = Math.ceil(SR * totalSeconds);
-        var ringLen = Math.ceil(SR * ringSeconds);
+    var _audioCtx   = null;
+    var _ringBuffer = null;   // decoded AudioBuffer, built once when ctx first runs
 
-        var ab = new ArrayBuffer(44 + numSamples * 2);
-        var v = new DataView(ab);
+    function getAudioCtx() {
+        if (!_audioCtx) {
+            try {
+                _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {}
+        }
+        return _audioCtx;
+    }
 
+    // Build raw PCM ring buffer directly inside the AudioContext — no WAV encoding needed.
+    function buildRingBuffer(ctx) {
+        var SR         = ctx.sampleRate;
+        var ringLen    = Math.ceil(SR * 1.0);
+        var totalLen   = Math.ceil(SR * 3.0);   // 1s tone + 2s silence
+        var buf        = ctx.createBuffer(1, totalLen, SR);
+        var data       = buf.getChannelData(0);
+        for (var i = 0; i < ringLen; i++) {
+            var t    = i / SR;
+            var fade = i < SR * 0.04 ? i / (SR * 0.04) :
+                       i > ringLen - SR * 0.04 ? (ringLen - i) / (SR * 0.04) : 1.0;
+            data[i]  = 0.28 * fade * (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 480 * t)) * 0.5;
+        }
+        return buf;
+    }
+
+    function _ensureRingBuffer() {
+        var ctx = getAudioCtx();
+        if (ctx && !_ringBuffer && ctx.state === 'running') {
+            try { _ringBuffer = buildRingBuffer(ctx); } catch (e) {}
+        }
+    }
+
+    function _playRingViaWebAudio() {
+        var ctx = getAudioCtx();
+        if (!ctx || !_ringBuffer) return false;
+        if (ringSourceNode) {
+            try { ringSourceNode.stop(); } catch (e) {}
+            ringSourceNode = null;
+        }
+        var src  = ctx.createBufferSource();
+        src.buffer = _ringBuffer;
+        src.loop   = true;
+        src.connect(ctx.destination);
+        src.start(0);
+        ringSourceNode = src;
+        return true;
+    }
+
+    // WAV data URI kept for the <audio> fallback element only.
+    var RING_SRC = (function () {
+        var SR = 22050, ringLen = Math.ceil(SR * 1.0), totalLen = Math.ceil(SR * 3.0);
+        var ab = new ArrayBuffer(44 + totalLen * 2), v = new DataView(ab);
         function ws(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
-        ws(0,'RIFF'); v.setUint32(4, 36 + numSamples * 2, true);
+        ws(0,'RIFF'); v.setUint32(4, 36 + totalLen * 2, true);
         ws(8,'WAVE'); ws(12,'fmt ');
         v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
         v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true);
         v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-        ws(36,'data'); v.setUint32(40, numSamples * 2, true);
-
+        ws(36,'data'); v.setUint32(40, totalLen * 2, true);
         for (var i = 0; i < ringLen; i++) {
             var t = i / SR;
-            var fade = i < SR * 0.04 ? i / (SR * 0.04) :
-                       i > ringLen - SR * 0.04 ? (ringLen - i) / (SR * 0.04) : 1.0;
-            var sample = 0.28 * fade * (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 480 * t)) * 0.5;
-            var pcm = Math.round(Math.max(-1, Math.min(1, sample)) * 32767);
-            v.setInt16(44 + i * 2, pcm, true);
+            var fade = i < SR * 0.04 ? i / (SR * 0.04) : i > ringLen - SR * 0.04 ? (ringLen - i) / (SR * 0.04) : 1.0;
+            var s = 0.28 * fade * (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 480 * t)) * 0.5;
+            v.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, s)) * 32767), true);
         }
-        // Silence samples (ringLen to numSamples) are already 0 from ArrayBuffer init
-
-        var bytes = new Uint8Array(ab);
-        var binary = '';
-        var chunkSize = 8192;
-        for (var j = 0; j < bytes.length; j += chunkSize) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(j, j + chunkSize));
-        }
-        return 'data:audio/wav;base64,' + btoa(binary);
-    }
-
-    // Set the real ring sound as src SYNCHRONOUSLY — never swap src again.
-    // This prevents Chrome Android from resetting the per-element autoplay unlock state.
-    var RING_SRC = generateRingDataURI();
+        var bytes = new Uint8Array(ab), bin = '', chunk = 8192;
+        for (var j = 0; j < bytes.length; j += chunk)
+            bin += String.fromCharCode.apply(null, bytes.subarray(j, j + chunk));
+        return 'data:audio/wav;base64,' + btoa(bin);
+    })();
 
     var ringAudio = (function () {
         var el = document.createElement('audio');
-        el.src    = RING_SRC;   // real ring sound, set once, never changes
-        el.loop   = true;
-        el.volume = 0.9;
-        el.setAttribute('playsinline', '');
-        // preload=none: src is a data URI already in memory — no fetch needed.
-        // Omitting load() prevents the browser from claiming an audio session at
-        // page-load time, which would duck background music on iOS/Android.
+        el.src     = RING_SRC;
+        el.loop    = true;
+        el.volume  = 0.9;
         el.preload = 'none';
+        el.setAttribute('playsinline', '');
         document.body.appendChild(el);
         return el;
     })();
 
-    // Only mark unlocked after play() actually RESOLVES — never before.
-    // A failed play() clears the flag so the next gesture will retry correctly.
+    function _resumeCtxAndBuildBuffer() {
+        var ctx = getAudioCtx();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(function () {
+                _ensureRingBuffer();
+                // If ringing but Web Audio hadn't started yet, start it now
+                if (ringtoneActive && !ringSourceNode) {
+                    _playRingViaWebAudio();
+                    ringAudio.pause();
+                    ringAudio.currentTime = 0;
+                }
+            }).catch(function () {});
+        } else {
+            _ensureRingBuffer();
+        }
+    }
+
     function tryUnlockElement(el) {
         if (!el || el.dataset.unlocked === 'resolved') return;
         el.play().then(function () {
+            el.dataset.unlocked = 'resolved';
+            // Keep playing if ring is active or remote audio has a live stream
+            if (el === ringAudio && ringtoneActive) return;
+            if (el === document.getElementById('call-remote-audio') && el.srcObject) return;
             el.pause();
             el.currentTime = 0;
-            el.dataset.unlocked = 'resolved';   // only set on confirmed success
         }).catch(function () {
-            // Gesture failed to unlock — clear any partial flag so next gesture retries
             delete el.dataset.unlocked;
         });
     }
 
     function onGesture() {
+        // Resume AudioContext — this is the critical unlock for ring-without-touch.
+        // Once resumed inside a gesture, the context stays 'running' for the page lifetime.
+        _resumeCtxAndBuildBuffer();
+
+        // Fallback: also unlock <audio> elements for browsers without Web Audio API
         if (ringAudio.dataset.unlocked !== 'resolved') tryUnlockElement(ringAudio);
         var rem = document.getElementById('call-remote-audio');
         if (rem && rem.dataset.unlocked !== 'resolved') tryUnlockElement(rem);
     }
 
-    // No { once: true } — retry on every gesture until successfully unlocked.
-    // No speculative onGesture() call at parse time — wait for a real user gesture.
     ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'].forEach(function (evt) {
         document.addEventListener(evt, onGesture, { passive: true });
     });
 
-    // Re-resume if user returns from background
+    // ---------------------------------------------------------------------------
+    // Audio unlock banner
+    // Mobile browsers block all audio until the first user gesture. We show a
+    // small persistent banner asking the user to tap once to enable call audio.
+    // It is dismissed on first interaction and never shown again (sessionStorage).
+    // ---------------------------------------------------------------------------
+    (function () {
+        // Only show on touch devices and only if not already unlocked this session
+        var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (!isTouchDevice) return;
+        if (sessionStorage.getItem('_callAudioUnlocked') === '1') return;
+
+        var banner = document.createElement('div');
+        banner.id = '_call-audio-banner';
+        banner.setAttribute('role', 'alert');
+        banner.style.cssText = [
+            'position:fixed',
+            'bottom:calc(56px + env(safe-area-inset-bottom, 8px) + 8px)',
+            'left:50%',
+            'transform:translateX(-50%)',
+            'z-index:99999',
+            'background:rgba(30,30,30,0.92)',
+            'color:#fff',
+            'font-size:13px',
+            'font-family:system-ui,sans-serif',
+            'padding:10px 18px',
+            'border-radius:24px',
+            'box-shadow:0 4px 18px rgba(0,0,0,0.35)',
+            'cursor:pointer',
+            'white-space:nowrap',
+            'backdrop-filter:blur(6px)',
+            '-webkit-backdrop-filter:blur(6px)',
+            'border:1px solid rgba(255,255,255,0.12)',
+            'transition:opacity 0.4s',
+            'display:flex',
+            'align-items:center',
+            'gap:8px',
+        ].join(';');
+
+        banner.innerHTML = '<span style="font-size:17px">🔔</span><span>Tap to enable call audio</span>';
+
+        function dismissBanner() {
+            sessionStorage.setItem('_callAudioUnlocked', '1');
+            banner.style.opacity = '0';
+            setTimeout(function () {
+                if (banner.parentNode) banner.parentNode.removeChild(banner);
+            }, 420);
+        }
+
+        // Dismiss on any real gesture — onGesture will handle the actual AudioContext unlock
+        ['click', 'touchend', 'pointerdown'].forEach(function (e) {
+            document.addEventListener(e, dismissBanner, { once: true, passive: true });
+        });
+
+        // Show after a short delay so it doesn't flash on every navigation
+        setTimeout(function () {
+            if (sessionStorage.getItem('_callAudioUnlocked') !== '1') {
+                document.body.appendChild(banner);
+            }
+        }, 1200);
+    })();
+
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible' && ringtoneActive && ringAudio.paused) {
-            ringAudio.play().catch(function () {});
+        if (document.visibilityState !== 'visible') return;
+        // App came to foreground — resume context (iOS/Android suspend it on backgrounding)
+        _resumeCtxAndBuildBuffer();
+        if (ringtoneActive) {
+            if (_audioCtx && _audioCtx.state === 'running') {
+                if (!ringSourceNode) _playRingViaWebAudio();
+            } else if (ringAudio.paused) {
+                ringAudio.play().catch(function () {});
+            }
         }
     });
 
@@ -193,22 +305,78 @@
         if (vibrateTimer) { clearTimeout(vibrateTimer); vibrateTimer = null; }
     }
 
+    function _showRingUnblockBtn(show) {
+        var btn = document.getElementById('call-ring-unblock-btn');
+        if (btn) btn.style.display = show ? 'flex' : 'none';
+    }
+
+    window._callUnblockRing = function () {
+        _showRingUnblockBtn(false);
+        sessionStorage.setItem('_callAudioUnlocked', '1');
+        var banner = document.getElementById('_call-audio-banner');
+        if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+
+        var ctx = getAudioCtx();
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().then(function () {
+                _ensureRingBuffer();
+                if (ringtoneActive && !ringSourceNode) {
+                    _playRingViaWebAudio();
+                    ringAudio.pause();
+                    ringAudio.currentTime = 0;
+                }
+            }).catch(function () {});
+        }
+        if (ringAudio.dataset.unlocked !== 'resolved') {
+            tryUnlockElement(ringAudio);
+        } else if (ringtoneActive && ringAudio.paused && !ringSourceNode) {
+            ringAudio.play().catch(function () {});
+        }
+    };
+
     function startRingtone() {
         if (ringtoneActive) return;
         ringtoneActive = true;
         startVibration();
 
+        var ctx = getAudioCtx();
+        if (ctx && ctx.state === 'running') {
+            _ensureRingBuffer();
+            if (_playRingViaWebAudio()) {
+                _showRingUnblockBtn(false);
+                return;
+            }
+        }
+
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().then(function () {
+                if (!ringtoneActive) return;
+                _ensureRingBuffer();
+                if (_playRingViaWebAudio()) {
+                    _showRingUnblockBtn(false);
+                    ringAudio.pause();
+                    ringAudio.currentTime = 0;
+                }
+            }).catch(function () {});
+        }
+
         ringAudio.currentTime = 0;
         var p = ringAudio.play();
         if (p) p.catch(function (err) {
-            console.warn('[CallManager] Ring blocked (not yet unlocked):', err.message);
-            // Retry on next gesture — onGesture listeners above will re-attempt unlock
+            console.warn('[CallManager] Ring blocked:', err.message);
+            delete ringAudio.dataset.unlocked;
+            _showRingUnblockBtn(true);
         });
     }
 
     function stopRingtone() {
         ringtoneActive = false;
         stopVibration();
+        _showRingUnblockBtn(false);
+        if (ringSourceNode) {
+            try { ringSourceNode.stop(); } catch (e) {}
+            ringSourceNode = null;
+        }
         ringAudio.pause();
         ringAudio.currentTime = 0;
     }
@@ -282,14 +450,18 @@
             // programmatic srcObject assignment, especially on mobile
             remoteAudio.play().catch((err) => {
                 console.warn('[CallManager] Remote audio play() blocked:', err);
-                // Last resort: try again on next user interaction
-                const retryPlay = () => {
-                    remoteAudio.play().catch(() => {});
-                    document.removeEventListener('click',      retryPlay);
-                    document.removeEventListener('touchstart', retryPlay);
+                // Retry on any user interaction — covers mute/speaker/end button taps
+                var _retryEvts = ['click', 'touchstart', 'pointerdown', 'keydown'];
+                var retryPlay = function () {
+                    remoteAudio.play().then(function () {
+                        _retryEvts.forEach(function (e) {
+                            document.removeEventListener(e, retryPlay);
+                        });
+                    }).catch(function () {});
                 };
-                document.addEventListener('click',      retryPlay, { once: true });
-                document.addEventListener('touchstart', retryPlay, { once: true, passive: true });
+                _retryEvts.forEach(function (e) {
+                    document.addEventListener(e, retryPlay, { passive: true });
+                });
             });
         };
 
@@ -297,7 +469,17 @@
         pc.oniceconnectionstatechange = () => {
             const state = pc.iceConnectionState;
             if (state === 'failed') {
-                endCall(socket);
+                // Give a 5-second grace period in case ICE recovers on its own
+                // (common with STUN when a candidate pair is tried and fails before another succeeds)
+                if (!pc._iceFailedTimer) {
+                    pc._iceFailedTimer = setTimeout(() => {
+                        if (peerConnection === pc &&
+                            pc.iceConnectionState !== 'connected' &&
+                            pc.iceConnectionState !== 'completed') {
+                            endCall(socket);
+                        }
+                    }, 5000);
+                }
             } else if (state === 'disconnected') {
                 // Give 8 seconds for transient network hiccups to recover before tearing down
                 iceDisconnectTimer = setTimeout(() => {
@@ -307,6 +489,14 @@
                 }, 8000);
             } else if (state === 'connected' || state === 'completed') {
                 if (iceDisconnectTimer) { clearTimeout(iceDisconnectTimer); iceDisconnectTimer = null; }
+                if (pc._iceFailedTimer)  { clearTimeout(pc._iceFailedTimer); pc._iceFailedTimer = null; }
+                // ICE is up — make absolutely sure the remote audio is playing.
+                // The autoplay grace period may have expired since the user's last gesture,
+                // so we re-attempt play() here when we know there is an active connection.
+                var remAudio = document.getElementById('call-remote-audio');
+                if (remAudio && remAudio.srcObject && remAudio.paused) {
+                    remAudio.play().catch(function () {});
+                }
             }
         };
 
@@ -434,7 +624,7 @@
     // Public: startCall (caller side, after POST /call/initiate)
     // ---------------------------------------------------------------------------
 
-    function startCall(callId, toUserId, conversationId, calleeName, calleeAvatar) {
+    function startCall(callId, toUserId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
         currentCallId = callId;
         targetUserId  = toUserId;
 
@@ -445,7 +635,12 @@
 
         // Show outgoing "Calling..." UI immediately
         if (window.CallModal && typeof window.CallModal.showCalling === 'function') {
-            window.CallModal.showCalling({ calleeName: calleeName || '', calleeAvatar: calleeAvatar || '' });
+            window.CallModal.showCalling({
+                calleeName:     calleeName     || '',
+                calleeAvatar:   calleeAvatar   || '',
+                calleeUsername: calleeUsername || '',
+                calleeVerified: !!calleeVerified,
+            });
         }
 
         // Client-side 30-second no-answer guard (covers sync queue driver
@@ -499,7 +694,7 @@
                 const stream = await getLocalStream();
                 addLocalTracksToPc(peerConnection, stream);
 
-                const offer = await peerConnection.createOffer();
+                const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
                 await peerConnection.setLocalDescription(offer);
 
                 socket.emit('call:offer', {
@@ -554,7 +749,7 @@
                 remoteDescSet = true;
                 await flushIceCandidateBuffer();   // apply any candidates that arrived early
 
-                const answer = await peerConnection.createAnswer();
+                const answer = await peerConnection.createAnswer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
                 await peerConnection.setLocalDescription(answer);
 
                 socket.emit('call:answer', {
@@ -657,6 +852,127 @@
     }
 
     // ---------------------------------------------------------------------------
+    // PJAX navigation — keeps the call alive while the user browses
+    // ---------------------------------------------------------------------------
+
+    var _pjaxBusy = false;
+
+    function _execScripts(container) {
+        container.querySelectorAll('script').forEach(function (old) {
+            var s = document.createElement('script');
+            Array.from(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
+            if (old.src) {
+                if (!document.querySelector('script[src="' + old.src + '"]')) {
+                    document.body.appendChild(s);
+                }
+            } else {
+                s.textContent = old.textContent;
+                document.body.appendChild(s);
+                document.body.removeChild(s);
+            }
+        });
+    }
+
+    function _swapHeadStyles(newDoc) {
+        var head = document.head;
+        var existing = {};
+        head.querySelectorAll('link[rel="stylesheet"]').forEach(function (el) {
+            existing[el.href] = true;
+        });
+        head.querySelectorAll('[data-pjax-injected]').forEach(function (el) {
+            el.parentNode.removeChild(el);
+        });
+        newDoc.head.querySelectorAll('link[rel="stylesheet"]').forEach(function (el) {
+            if (!existing[el.href]) {
+                var clone = el.cloneNode(true);
+                clone.setAttribute('data-pjax-injected', '1');
+                head.appendChild(clone);
+            }
+        });
+        newDoc.head.querySelectorAll('style').forEach(function (el) {
+            var clone = el.cloneNode(true);
+            clone.setAttribute('data-pjax-injected', '1');
+            head.appendChild(clone);
+        });
+    }
+
+    function pjaxNavigate(url) {
+        if (_pjaxBusy) return;
+        _pjaxBusy = true;
+
+        if (window.activeConversationId && window.NexusSocket) {
+            window.NexusSocket.leaveConversation(window.activeConversationId);
+        }
+
+        var mainEl = document.getElementById('main-content');
+        if (mainEl) mainEl.style.opacity = '0.4';
+
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+            credentials: 'same-origin',
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error(r.status);
+            return r.text();
+        })
+        .then(function (html) {
+            var doc = (new DOMParser()).parseFromString(html, 'text/html');
+
+            _swapHeadStyles(doc);
+
+            var newMain = doc.getElementById('main-content');
+            if (mainEl && newMain) {
+                mainEl.innerHTML = newMain.innerHTML;
+                mainEl.className  = newMain.className;
+                _execScripts(mainEl);
+            }
+
+            var newPjax = doc.getElementById('pjax-scripts');
+            var curPjax = document.getElementById('pjax-scripts');
+            if (newPjax && curPjax) {
+                curPjax.innerHTML = '';
+                _execScripts(newPjax);
+            }
+
+            var titleEl = doc.querySelector('title');
+            if (titleEl) document.title = titleEl.textContent;
+            window.history.pushState({ pjax: true, url: url }, document.title, url);
+
+            if (mainEl) mainEl.style.opacity = '';
+            window.scrollTo(0, 0);
+        })
+        .catch(function () {
+            endCall(window.NexusSocket && window.NexusSocket.socket);
+            window.location.href = url;
+        })
+        .finally(function () { _pjaxBusy = false; });
+    }
+
+    window.addEventListener('popstate', function (e) {
+        if (currentCallId && e.state && e.state.pjax) {
+            pjaxNavigate(window.location.href);
+        }
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (!currentCallId) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!currentCallId) return;
+        var link = e.target.closest('a[href]');
+        if (!link) return;
+        var href = link.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('#') ||
+            href.startsWith('javascript:') || link.target === '_blank') return;
+
+        e.preventDefault();
+        pjaxNavigate(href);
+    }, true);
+
+    // ---------------------------------------------------------------------------
     // Public API
     // ---------------------------------------------------------------------------
 
@@ -707,8 +1023,8 @@
         },
 
         /** Called by the CALLER after POST /call/initiate succeeds. */
-        startCall(callId, toUserId, conversationId, calleeName, calleeAvatar) {
-            startCall(callId, toUserId, conversationId, calleeName, calleeAvatar);
+        startCall(callId, toUserId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
+            startCall(callId, toUserId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified);
         },
 
         /** Called by the CALLEE when they tap the Accept button. */

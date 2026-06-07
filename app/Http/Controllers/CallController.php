@@ -88,11 +88,13 @@ class CallController extends Controller
 
         // Notify callee via socket (real-time, if page is open)
         $this->socketEmitService->emitToUser($calleeId, 'call:incoming', [
-            'callId'         => $call->id,
-            'callerId'       => $me->id,
-            'callerName'     => $me->name,
-            'callerAvatar'   => $me->avatar_url,
-            'conversationId' => $conversation->id,
+            'callId'          => $call->id,
+            'callerId'        => $me->id,
+            'callerName'      => $me->name,
+            'callerUsername'  => $me->username,
+            'callerVerified'  => (bool) $me->is_verified,
+            'callerAvatar'    => $me->avatar_url,
+            'conversationId'  => $conversation->id,
         ]);
 
         // Notify callee via push notification — works even when screen is locked,
@@ -132,10 +134,12 @@ class CallController extends Controller
         $callee = User::find($calleeId);
 
         return response()->json([
-            'callId'         => $call->id,
-            'conversationId' => $conversation->id,
-            'calleeName'     => $callee?->name,
-            'calleeAvatar'   => $callee?->avatar_url,
+            'callId'          => $call->id,
+            'conversationId'  => $conversation->id,
+            'calleeName'      => $callee?->name,
+            'calleeUsername'  => $callee?->username,
+            'calleeVerified'  => (bool) $callee?->is_verified,
+            'calleeAvatar'    => $callee?->avatar_url,
         ]);
     }
 

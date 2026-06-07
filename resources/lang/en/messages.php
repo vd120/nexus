@@ -948,7 +948,8 @@ return [
     'call_no_answer'    => 'No answer',
     'call_ended'        => 'Call ended',
     'call_lost'         => 'Call ended (connection lost)',
-    'user_busy'         => 'User is already in a call',
+    'user_busy'          => 'User is already in a call',
+    'call_leave_warning' => 'You are in a call. Leave this page and end the call?',
 
     // VoIP / Calls — system messages (written into conversation)
     'system_call_declined'  => 'Call declined',

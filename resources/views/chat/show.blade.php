@@ -122,7 +122,7 @@ $chatTitle = $isGroup
                     @if(!$conversation->is_group)
                     <button
                         id="chat-call-btn"
-                        onclick="initiateCall({{ $conversation->other_user->id ?? 0 }}, {{ $conversation->id }}, '{{ addslashes($conversation->other_user->name ?? '') }}', '{{ $conversation->other_user->avatar_url ?? '' }}')"
+                        onclick="initiateCall({{ $conversation->other_user->id ?? 0 }}, {{ $conversation->id }}, '{{ addslashes($conversation->other_user->name ?? '') }}', '{{ $conversation->other_user->avatar_url ?? '' }}', '{{ addslashes($conversation->other_user->username ?? '') }}', {{ $conversation->other_user->is_verified ? 'true' : 'false' }})"
                         class="call-icon-btn"
                         title="{{ __('messages.voice_call') }}">
                         <i class="fa-solid fa-phone"></i>
@@ -7884,7 +7884,7 @@ window.updateReactionsFromSocket = function(data) {
 </style>
 
 <script>
-function initiateCall(calleeId, conversationId, calleeName, calleeAvatar) {
+function initiateCall(calleeId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
     // Unlock AudioContext synchronously inside this gesture — must happen before
     // the async fetch, because .then() callbacks are no longer inside a gesture
     if (window.CallManager) window.CallManager.unlockAudioNow();
@@ -7906,8 +7906,10 @@ function initiateCall(calleeId, conversationId, calleeName, calleeAvatar) {
         } else if (data.callId && window.CallManager) {
             window.CallManager.startCall(
                 data.callId, calleeId, conversationId,
-                calleeName   || data.calleeName,
-                calleeAvatar || data.calleeAvatar
+                calleeName    || data.calleeName,
+                calleeAvatar  || data.calleeAvatar,
+                calleeUsername != null ? calleeUsername : (data.calleeUsername || ''),
+                calleeVerified != null ? calleeVerified : (data.calleeVerified || false)
             );
         }
     })
