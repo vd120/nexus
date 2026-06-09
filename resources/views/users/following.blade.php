@@ -57,7 +57,7 @@
             </a>
             <h1><i class="fas fa-user-friends"></i> {{ __('users.following') }}</h1>
         </div>
-        <p>{{ trans_choice('users.following_count', $following->count(), ['count' => $following->count()]) }}</p>
+        <p id="count-subtitle">{{ trans_choice('users.following_count', $following->count(), ['count' => $following->count()]) }}</p>
     </div>
 
     <div class="users-grid">
@@ -95,38 +95,66 @@
     </div>
 </div>
 
+{{-- Hidden empty-state template rendered server-side for JS injection --}}
+<template id="following-empty-tpl">
+    <div class="empty-state">
+        <i class="fas fa-user-friends"></i>
+        <h3>{{ __('users.no_following_yet') }}</h3>
+        <p style="color: var(--text-muted);">{{ __('users.no_following_yet_desc', ['username' => $user->username]) }}</p>
+    </div>
+</template>
+
 <script>
+const followingCountZero = {!! json_encode(trans_choice('users.following_count', 0, ['count' => 0])) !!};
+const followingCountOne  = {!! json_encode(trans_choice('users.following_count', 1, ['count' => 1])) !!};
+const followingCountMany = {!! json_encode(trans_choice('users.following_count', 99, ['count' => ':count'])) !!};
+
+function updateFollowingSubtitle() {
+    const count = document.querySelectorAll('.users-grid .user-card').length;
+    const el = document.getElementById('count-subtitle');
+    if (!el) return;
+    if (count === 0)      el.textContent = followingCountZero;
+    else if (count === 1) el.textContent = followingCountOne;
+    else                  el.textContent = followingCountMany.replace(':count', count);
+
+    if (count === 0) {
+        const grid = document.querySelector('.users-grid');
+        const tpl = document.getElementById('following-empty-tpl');
+        if (grid && tpl) grid.appendChild(tpl.content.cloneNode(true));
+    }
+}
+
 function followingPageUnfollow(btn, username) {
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     btn.disabled = true;
-    
+
     fetch(`/users/${username}/follow`, {
         method: 'POST',
-        headers: { 
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 
-            'Accept': 'application/json' 
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
         }
     })
     .then(r => r.json())
     .then(data => {
         if (data.success && !data.is_following) {
-            // Successfully unfollowed, remove the card
             const card = btn.closest('.user-card');
             if (card) {
                 card.style.transition = 'all 0.3s ease';
                 card.style.opacity = '0';
                 card.style.transform = 'translateX(20px)';
-                setTimeout(() => card.remove(), 300);
+                setTimeout(() => { card.remove(); updateFollowingSubtitle(); }, 300);
             }
             showToast(data.message, 'success');
         } else {
+            showToast(data.message || {!! json_encode(__('users.error_following')) !!}, 'error');
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         }
     })
-    .catch((error) => {
-        console.error('Error:', error);
+    .catch(() => {
+        showToast({!! json_encode(__('users.error_following')) !!}, 'error');
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     });
@@ -137,12 +165,12 @@ function followingPageToggleFollow(btn, username) {
     const isFollowing = btn.getAttribute('data-following') === 'true';
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     btn.disabled = true;
-    
+
     fetch(`/users/${username}/follow`, {
         method: 'POST',
-        headers: { 
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 
-            'Accept': 'application/json' 
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
         }
     })
     .then(r => r.json())
@@ -155,20 +183,20 @@ function followingPageToggleFollow(btn, username) {
             btn.disabled = false;
             showToast(data.message, 'success');
         } else {
+            showToast(data.message || {!! json_encode(__('users.error_following')) !!}, 'error');
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         }
     })
-    .catch((error) => {
-        console.error('Error:', error);
+    .catch(() => {
+        showToast({!! json_encode(__('users.error_following')) !!}, 'error');
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     });
 }
 
-// Show success message toast if exists
 @if(session('success'))
-window.runOnPageLoad( function() {
+window.runOnPageLoad(function() {
     showToast({!! json_encode(session('success')) !!}, 'success');
 });
 @endif

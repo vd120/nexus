@@ -24,7 +24,6 @@ trait SendsPushNotifications
             return;
         }
 
-        // Get notification data based on type in the recipient's language
         $originalLocale = app()->getLocale();
         if ($user->language) {
             app()->setLocale($user->language);
@@ -32,12 +31,10 @@ trait SendsPushNotifications
 
         [$title, $body, $url] = $this->getNotificationData($notification);
 
-        // Restore original locale
         app()->setLocale($originalLocale);
 
-        // Send push notification
         $pushService->sendToUser($user, $title, $body, $url, [
-            'type' => $this->getNotificationType($notification->type),
+            'type'            => $notification->type,
             'notification_id' => $notification->id,
         ]);
     }
@@ -66,8 +63,12 @@ trait SendsPushNotifications
                 route('posts.show', ['post' => $data['post_slug'] ?? '#']),
             ],
             'comment_like' => [
-                ($data['is_reply'] ?? false) ? __('notifications.liked_your_reply', ['user' => $data['liker_name'] ?? 'Someone']) : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
-                ($data['is_reply'] ?? false) ? __('notifications.liked_your_reply', ['user' => $data['liker_name'] ?? 'Someone']) : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
+                ($data['is_reply'] ?? false)
+                    ? __('notifications.liked_your_reply',   ['user' => $data['liker_name'] ?? 'Someone'])
+                    : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
+                ($data['is_reply'] ?? false)
+                    ? __('notifications.liked_your_reply',   ['user' => $data['liker_name'] ?? 'Someone'])
+                    : __('notifications.liked_your_comment', ['user' => $data['liker_name'] ?? 'Someone']),
                 route('posts.show', ['post' => $data['post_slug'] ?? '#']),
             ],
             'follow' => [
@@ -85,9 +86,46 @@ trait SendsPushNotifications
                 $data['message_preview'] ?? __('notifications.sent_you_message', ['user' => $data['sender_username'] ?? 'Someone']),
                 route('chat.show', ['conversation' => $data['conversation_slug'] ?? '#']),
             ],
+            'call', 'incoming_call' => [
+                $data['caller_name'] ?? 'Someone',
+                __('notifications.incoming_call', ['user' => $data['caller_name'] ?? 'Someone']),
+                route('chat.index'),
+            ],
+            'post_reaction', 'story_reaction', 'chat_reaction' => [
+                __('notifications.reacted_to_your_post', ['user' => $data['reactor_name'] ?? $data['liker_name'] ?? 'Someone']),
+                $data['reaction'] ?? '❤️',
+                route('posts.show', ['post' => $data['post_slug'] ?? '#']),
+            ],
+            'group_invite', 'group_join' => [
+                config('app.name'),
+                $data['message'] ?? __('notifications.group_activity'),
+                route('communities.index'),
+            ],
+            'report_accepted' => [
+                config('app.name'),
+                $data['message'] ?? __('notifications.report_accepted_message'),
+                route('reports.my-reports'),
+            ],
+            'report_rejected' => [
+                config('app.name'),
+                $data['message'] ?? __('notifications.report_rejected_message'),
+                route('reports.my-reports'),
+            ],
+            'report_action_owner' => [
+                config('app.name'),
+                $data['message'] ?? __('notifications.report_action_owner_message'),
+                route('notifications.index'),
+            ],
+            'community_report_new' => [
+                config('app.name'),
+                $data['message'] ?? __('notifications.community_report_new_message'),
+                isset($data['group_slug'])
+                    ? route('communities.admin.reports', $data['group_slug'])
+                    : route('notifications.index'),
+            ],
             default => [
                 config('app.name'),
-                __('notifications.notifications_cleared'),
+                __('notifications.new_notification'),
                 route('notifications.index'),
             ],
         };
@@ -99,24 +137,7 @@ trait SendsPushNotifications
     protected function getNotificationType(string $type): string
     {
         return match($type) {
-            'like', 'post_reaction', 'comment_like' => 'likes',
-            'comment', 'comment_reply' => 'comments',
-            'follow' => 'follows',
-            'mention' => 'mentions',
-            'message' => 'messages',
-            default => 'other',
-        };
-    }
-}
-   }
-
-    /**
-     * Get notification type for settings.
-     */
-    protected function getNotificationType(string $type): string
-    {
-        return match($type) {
-            'like', 'comment_like' => 'likes',
+            'like', 'post_reaction', 'comment_like', 'story_reaction', 'chat_reaction' => 'likes',
             'comment', 'comment_reply' => 'comments',
             'follow' => 'follows',
             'mention' => 'mentions',

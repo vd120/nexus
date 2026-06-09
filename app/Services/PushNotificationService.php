@@ -54,12 +54,6 @@ class PushNotificationService
                 continue;
             }
 
-            // Check user preferences
-            if (isset($data['type']) && !$subscription->getSetting($data['type'], true)) {
-                continue;
-            }
-
-            // Create subscription (v10 API - individual parameters)
             $pushSubscription = new Subscription(
                 $subscription->endpoint,
                 $subscription->p256dh,
@@ -109,12 +103,6 @@ class PushNotificationService
                 continue;
             }
 
-            // Check user preferences
-            if (isset($data['type']) && !$subscription->getSetting($data['type'], true)) {
-                continue;
-            }
-
-            // Create subscription (v10 API - individual parameters)
             $pushSubscription = new Subscription(
                 $subscription->endpoint,
                 $subscription->p256dh,

@@ -177,6 +177,7 @@ window.CallTranslations = {
     call_mic_denied:    "{{ __('messages.call_mic_denied') }}",
     call_start_failed:  "{{ __('messages.call_start_failed') }}",
     user_busy:          "{{ __('messages.user_busy') }}",
+    user_offline:       "{{ __('messages.user_offline') }}",
     call_leave_warning: "{{ __('messages.call_leave_warning') }}",
 };
 </script>

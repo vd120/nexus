@@ -85,14 +85,14 @@ class SuspiciousLoginController extends Controller
         // IMPORTANT: Check for Concurrent Session BEFORE final login
         if ($user->hasOtherActiveSessions() && !$user->is_admin) {
             $loginUuid = (string) Str::uuid();
-            
+
             Cache::put('login_challenge_' . $loginUuid, [
                 'user_id' => $user->id,
                 'remember' => $challenge['remember'] ?? true,
                 'status' => 'pending',
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent()
-            ], 120);
+            ], 600);
 
             // Trigger real-time approval request
             app(SocketEmitService::class)->emitToUser($user->id, 'security:challenge', [

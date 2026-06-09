@@ -163,14 +163,15 @@ class PushNotificationController extends Controller
 
         if (!$subscription) {
             return response()->json([
-                'success' => false,
-                'message' => __('messages.no_push_subscription'),
+                'success' => true,
+                'subscribed' => false,
                 'settings' => PushSubscription::getDefaultSettings(),
-            ], 404);
+            ]);
         }
 
         return response()->json([
             'success' => true,
+            'subscribed' => true,
             'settings' => $subscription->settings ?? PushSubscription::getDefaultSettings(),
         ]);
     }

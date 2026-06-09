@@ -179,4 +179,19 @@ return [
     'two_factor_enabled_success' => '2FA enabled successfully.',
     'two_factor_disabled_success' => '2FA disabled.',
     'sign_out' => 'Sign out',
+
+    // Security challenge modal (socket-manager.js)
+    'approved_another_device' => 'Login approved from another device.',
+    'grant_access'            => 'Grant Access',
+    'authorizing'             => 'Authorizing...',
+    'approval_failed'         => 'Approval failed.',
+    'connection_error_retry'  => 'Connection error. Please try again.',
+
+    // Login-challenge page
+    'no_response_email_sent'  => 'No response from your other device. A verification code has been sent to your email.',
+    'sending'                 => 'Sending...',
+    'enter_6_digit_code'      => 'Please enter the complete 6-digit verification code.',
+    'verified_redirecting'    => 'Verified! Redirecting...',
+    'error_verifying_code'    => 'Error verifying code. Please try again.',
+    'error_sending_email'     => 'Error sending email. Please try again.',
 ];

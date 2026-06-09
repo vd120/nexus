@@ -4,8 +4,7 @@
     @vite('resources/css/communities.css')
 @endpush
 
-@section('content_class', 'wide-content')
-@section('main_class', 'full-width')
+
 @section('title', __('messages.discover_communities_title'))
 
 @section('content')

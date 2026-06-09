@@ -949,6 +949,7 @@ return [
     'call_ended'        => 'Call ended',
     'call_lost'         => 'Call ended (connection lost)',
     'user_busy'          => 'User is already in a call',
+    'user_offline'       => ':username is currently offline',
     'call_leave_warning' => 'You are in a call. Leave this page and end the call?',
 
     // VoIP / Calls — system messages (written into conversation)

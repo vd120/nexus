@@ -9,6 +9,7 @@ return [
     'welcome_message' => 'Your journey to discover stories, connect with others, and explore AI-powered features starts here.',
     'hello' => 'Hello',
     'getting_started_message' => 'To get the most out of your experience, please verify your email address by clicking the button below.',
+
     'verify_email_button' => 'Verify My Email',
     'verify_email_note' => 'This link will expire in 24 hours',
     'what_you_can_do' => 'What You Can Do on Nexus',
@@ -30,9 +31,6 @@ return [
     'login_notification_subject' => '✅ Login Notification - :app_name',
     'login_notification_title' => 'Login Successful',
     'login_notification_subtitle' => 'A new login was detected on your account',
-    
-    // Greeting
-    'hello' => 'Hello',
     
     // Message
     'login_notification_message' => 'We wanted to let you know that a new login was detected on your account. Here are the details:',

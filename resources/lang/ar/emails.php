@@ -31,9 +31,6 @@ return [
     'login_notification_title' => 'تم تسجيل الدخول بنجاح',
     'login_notification_subtitle' => 'في محاولة دخول جديدة لحسابك',
     
-    // Greeting
-    'hello' => 'أهلاً',
-    
     // Message
     'login_notification_message' => 'عوزنا نعرفك إن في محاولة دخول جديدة حصلت لحسابك. دي التفاصيل:',
     

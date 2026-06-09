@@ -756,8 +756,13 @@
             window.currentUserId = {{ auth()->id() }};
             window.currentUserUsername = "{{ auth()->user()->username }}";
             window.layoutTranslations = {
-                failed_to_join_group: "{{ __('messages.failed_to_join_group') }}",
-                members: "{{ __('messages.members_label') }}"
+                failed_to_join_group:    "{{ __('messages.failed_to_join_group') }}",
+                members:                 "{{ __('messages.members_label') }}",
+                approved_another_device: "{{ __('auth.approved_another_device') }}",
+                grant_access:            "{{ __('auth.grant_access') }}",
+                authorizing:             "{{ __('auth.authorizing') }}",
+                approval_failed:         "{{ __('auth.approval_failed') }}",
+                connection_error_retry:  "{{ __('auth.connection_error_retry') }}",
             };
         </script>
     @endauth

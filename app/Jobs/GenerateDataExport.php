@@ -27,6 +27,7 @@ class GenerateDataExport implements ShouldQueue
         $user = $request->user;
 
         // Set locale from user's language preference for translated email
+        $originalLocale = app()->getLocale();
         if ($user->language) {
             app()->setLocale($user->language);
         }
@@ -123,6 +124,8 @@ class GenerateDataExport implements ShouldQueue
             });
 
         } finally {
+            // Restore original locale
+            app()->setLocale($originalLocale);
             // Clean up temp directory
             $files = glob($tmpDir . '/*');
             if ($files) array_map('unlink', $files);

@@ -83,7 +83,7 @@ return [
     'mentions' => 'Mentions',
     'when_mentions_you' => 'When someone mentions you',
     'save_preferences' => 'Save Preferences',
-    'disable_all' => 'Disable All',
+    'disable_all' => 'Disable',
     'all_set' => 'All Set!',
     'will_receive_notifications' => 'You\'ll now receive push notifications based on your preferences',
     'adjust_settings' => 'Adjust Settings',
@@ -108,4 +108,13 @@ return [
     'group_member_role_changed_member'      => 'Your role in :group has been changed to Member.',
     'community_report_new'              => ':user reported a post in :group.',
     'loading' => 'Loading',
+
+    // Push notification bodies
+    'new_notification'               => 'You have a new notification.',
+    'group_activity'                 => 'There is new activity in your group.',
+    'incoming_call'                  => ':user is calling you.',
+    'report_action_owner_message'    => 'A moderation action was taken on your post.',
+    'report_action_owner_delete'     => 'Your post was removed following a report.',
+    'community_report_new_message'   => 'A new post report needs your review.',
+    'new_report_from'                => 'New report from :user.',
 ];

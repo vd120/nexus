@@ -83,7 +83,7 @@ return [
     'mentions' => 'المنشن',
     'when_mentions_you' => 'لما حد يذكرك',
     'save_preferences' => 'احفظ الإعدادات',
-    'disable_all' => 'تعطيل الكل',
+    'disable_all' => 'تعطيل',
     'all_set' => 'تمام!',
     'will_receive_notifications' => 'هتحصل دلوقتي على إشعارات حسب الإعدادات اللي اخترتها',
     'adjust_settings' => 'تعديل الإعدادات',
@@ -108,4 +108,13 @@ return [
     'group_member_role_changed_moderator'   => 'تم تعيينك مشرفاً في :group.',
     'group_member_role_changed_member'      => 'تم تغيير رتبتك في :group إلى عضو.',
     'community_report_new'              => ':user أبلغ عن منشور في :group.',
+
+    // Push notification bodies
+    'new_notification'               => 'لديك إشعار جديد.',
+    'group_activity'                 => 'هناك نشاط جديد في مجموعتك.',
+    'incoming_call'                  => ':user يتصل بك.',
+    'report_action_owner_message'    => 'تم اتخاذ إجراء على منشورك.',
+    'report_action_owner_delete'     => 'تم حذف منشورك بعد بلاغ.',
+    'community_report_new_message'   => 'يوجد بلاغ جديد على منشور يحتاج مراجعتك.',
+    'new_report_from'                => 'بلاغ جديد من :user.',
 ];

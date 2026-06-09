@@ -79,9 +79,9 @@
         <!-- Email Fallback Container -->
         <div id="email-fallback-container" style="display: none; margin-top: 24px; animation: fadeIn 0.3s ease;">
             <div class="device-info" style="border-color: var(--primary);">
-                <p style="margin-bottom: 16px;">{{ __('auth.verify_with_email_code') }}</p>
+                <p style="margin-bottom: 16px;" id="email-fallback-hint">{{ __('auth.verify_with_email_code') }}</p>
                 <div style="display: flex; gap: 8px; justify-content: center;">
-                    <input type="text" id="email-code" maxlength="6" placeholder="000000" 
+                    <input type="text" id="email-code" maxlength="6" placeholder="000000"
                            style="width: 120px; text-align: center; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: white; font-size: 18px; letter-spacing: 4px;">
                     <button onclick="verifyEmailCode()" class="btn" style="padding: 10px 20px;">{{ __('auth.verify') }}</button>
                 </div>
@@ -108,10 +108,11 @@
 <script>
     const challengeUuid = "{{ $uuid }}";
     let isApproved = false;
-    
+    let emailSent = false;
+
     function checkStatus() {
         if (isApproved) return;
-        
+
         fetch(`/login/challenge/${challengeUuid}/status`)
             .then(r => r.json())
             .then(data => {
@@ -123,7 +124,6 @@
                 } else if (data.status === 'expired') {
                     window.location.href = "{{ route('login.view') }}?error=expired";
                 } else {
-                    // Continue polling
                     setTimeout(checkStatus, 3000);
                 }
             })
@@ -132,11 +132,23 @@
             });
     }
 
-    function sendEmailCode() {
+    // After 30 seconds with no approval, auto-send email code and reveal the input
+    setTimeout(() => {
+        if (!isApproved && !emailSent) {
+            sendEmailCode(true);
+        }
+    }, 30000);
+
+    function sendEmailCode(auto = false) {
+        if (emailSent) return;
+        emailSent = true;
+
         const btn = document.getElementById('btn-show-email');
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ __("auth.sending") }}...';
+        }
 
         fetch(`/login/challenge/${challengeUuid}/email`, {
             method: 'POST',
@@ -148,28 +160,38 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('email-fallback-container').style.display = 'block';
                 document.getElementById('status-container').style.display = 'none';
-                btn.style.display = 'none';
+                document.getElementById('email-fallback-container').style.display = 'block';
+                if (btn) btn.style.display = 'none';
+
+                if (auto) {
+                    const hint = document.getElementById('email-fallback-hint');
+                    if (hint) hint.textContent = '{{ __("auth.no_response_email_sent") }}';
+                }
             } else {
-                alert(data.message || 'Error sending email');
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+                emailSent = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                alert(data.message || '{{ __("auth.error_sending_email") }}');
             }
         })
         .catch(() => {
-            alert('Network error. Please try again.');
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            emailSent = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         });
     }
 
     function verifyEmailCode() {
         const code = document.getElementById('email-code').value;
         const errorEl = document.getElementById('email-error');
-        
+
         if (code.length !== 6) {
-            errorEl.innerText = 'Please enter a 6-digit code.';
+            errorEl.innerText = '{{ __("auth.enter_6_digit_code") }}';
             errorEl.style.display = 'block';
             return;
         }
@@ -186,17 +208,17 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                // The status polling will pick up the approval and redirect
-                errorEl.innerText = 'Verified! Redirecting...';
+                errorEl.innerText = '{{ __("auth.verified_redirecting") }}';
                 errorEl.style.color = '#00E5FF';
                 errorEl.style.display = 'block';
             } else {
-                errorEl.innerText = data.message || 'Invalid code';
+                errorEl.innerText = data.message || '{{ __("auth.invalid_verification_code") }}';
+                errorEl.style.color = '#ff4b4b';
                 errorEl.style.display = 'block';
             }
         })
         .catch(() => {
-            errorEl.innerText = 'Error verifying code.';
+            errorEl.innerText = '{{ __("auth.error_verifying_code") }}';
             errorEl.style.display = 'block';
         });
     }

@@ -48,7 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Enable Sanctum's stateful API authentication for sessions
-        // $middleware->statefulApi();
+        $middleware->statefulApi();
 
         // Except session cookies from encryption for handover compatibility
         $middleware->validateCsrfTokens(except: [

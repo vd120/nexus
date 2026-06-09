@@ -413,22 +413,23 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Check if user has other active sessions on different devices
+     * Check if user has other active sessions on different devices.
+     *
+     * Relies solely on the sessions table (updated by Laravel on every HTTP request)
+     * rather than the is_online flag (updated by the socket server, can lag by
+     * 5-30 seconds after a browser close). Using a 3-minute window reduces false
+     * positives from stale sessions while still catching genuinely concurrent ones.
+     * If no device responds to the socket challenge, the login-challenge page
+     * auto-shows an email fallback after 30 seconds.
      */
     public function hasOtherActiveSessions(): bool
     {
-        // If the user isn't even marked as online via our socket heartbeat/presence,
-        // they likely won't be able to approve a real-time challenge anyway.
-        if (!$this->isActuallyOnline()) {
-            return false;
-        }
-
         $currentSessionId = request()->session()->getId();
 
         return \DB::table('sessions')
             ->where('user_id', $this->id)
             ->where('id', '!=', $currentSessionId)
-            ->where('last_activity', '>', now()->subMinutes(5)->timestamp)
+            ->where('last_activity', '>', now()->subMinutes(3)->timestamp)
             ->exists();
     }
 

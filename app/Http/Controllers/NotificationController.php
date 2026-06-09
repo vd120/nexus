@@ -52,7 +52,14 @@ class NotificationController extends Controller
             ]);
         }
 
-        return view('notifications.index');
+        $user = Auth::user();
+        $notifications = $user->notifications()
+            ->orderByRaw('read_at IS NULL DESC')
+            ->latest()
+            ->limit(50)
+            ->get();
+
+        return view('notifications.index', compact('notifications'));
     }
 
     /**
@@ -275,6 +282,29 @@ class NotificationController extends Controller
         $socketService->emitToUser($userId, 'notification:count', [
             'unread_count' => Notification::where('user_id', $userId)->unread()->count(),
         ]);
+
+        // 3. Send push notification (fire-and-forget, never block the request)
+        try {
+            $pushService = @app(\App\Services\PushNotificationService::class);
+            if ($pushService && $pushService->isConfigured() && $recipient && $recipient->pushSubscriptions()->exists()) {
+                $originalLocale = app()->getLocale();
+                if ($recipient->language) app()->setLocale($recipient->language);
+
+                [$pushTitle, $pushBody, $pushUrl] = (new class {
+                    use \App\Traits\SendsPushNotifications;
+                    public function resolve($n) { return $this->getNotificationData($n); }
+                })->resolve($notification);
+
+                app()->setLocale($originalLocale);
+
+                $pushService->sendToUser($recipient, $pushTitle, $pushBody, $pushUrl, [
+                    'type' => $notification->type,
+                    'notification_id' => $notification->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('[Push] Failed to send push for notification ' . $notification->id . ': ' . $e->getMessage());
+        }
 
         return $notification;
     }

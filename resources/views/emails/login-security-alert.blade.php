@@ -23,14 +23,19 @@
                 <h2 style="margin:0;">{{ __('emails.security_alert_title') }}</h2>
             </div>
             <div class="content">
-                <p>{{ __('emails.security_alert_greeting', ['name' => $user->name]) }}</p>
+                <p>{{ __('emails.security_alert_greeting', ['name' => $userName]) }}</p>
                 <p>{{ __('emails.security_alert_body') }}</p>
 
                 <div class="info-box">
                     <div class="info-row"><span class="info-label">{{ __('emails.security_alert_device') }}:</span> {{ $activity->device_type ?? __('emails.unknown') }} ({{ $activity->os ?? '' }})</div>
                     <div class="info-row"><span class="info-label">{{ __('emails.security_alert_browser') }}:</span> {{ $activity->browser ?? __('emails.unknown') }}</div>
                     <div class="info-row"><span class="info-label">{{ __('emails.security_alert_ip') }}:</span> {{ $activity->ip_address ?? __('emails.unknown') }}</div>
-                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_location') }}:</span> {{ $activity->city ?? __('emails.unknown') }}, {{ $activity->country ?? __('emails.unknown') }}</div>
+                    <div class="info-row"><span class="info-label">{{ __('emails.security_alert_location') }}:</span>
+                        @php
+                            $parts = array_filter([$activity->city, $activity->region, $activity->country]);
+                            echo $parts ? implode(', ', $parts) : __('emails.unknown');
+                        @endphp
+                    </div>
                     <div class="info-row"><span class="info-label">{{ __('emails.security_alert_time') }}:</span> {{ $activity->logged_at->format('M d, Y H:i:s') }} UTC</div>
                 </div>
 

@@ -115,12 +115,13 @@ function followersPageToggleFollow(btn, username) {
             btn.disabled = false;
             showToast(data.message, 'success');
         } else {
+            showToast(data.message || '{{ __('users.error_following') }}', 'error');
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         }
     })
-    .catch((error) => {
-        console.error('Error:', error);
+    .catch(() => {
+        showToast('{{ __('users.error_following') }}', 'error');
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     });

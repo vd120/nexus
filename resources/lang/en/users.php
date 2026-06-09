@@ -134,8 +134,10 @@ return [
     'no_posts_yet_desc' => 'This user hasn\'t posted anything yet.',
     'unblock_user_confirm' => 'Unblock :username?',
     'block_user_confirm' => 'Block :username?',
+    'call_user_confirm' => 'Call :username?',
     'error_unblocking' => 'Error unblocking user',
     'error_blocking' => 'Error blocking user',
+    'error_following' => 'Error updating follow status',
 
     // QR Code Profile Sharing
     'qr_code' => 'QR Code',

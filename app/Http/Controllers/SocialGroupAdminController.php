@@ -11,6 +11,7 @@ use App\Models\PostReport;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use App\Http\Requests\UpdateGroupSettingsRequest;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\GroupJoinAcceptedNotification;
 use App\Notifications\GroupPostApprovedNotification;
@@ -721,8 +722,10 @@ class SocialGroupAdminController extends Controller
             })
             ->findOrFail($id);
 
+        $reporter  = $report->reporter;
+        $postOwner = $report->post?->user;
+
         if ($validated['action'] === 'accept') {
-            // Delete the offending post
             if ($report->post) {
                 $report->post->delete();
             }
@@ -733,6 +736,23 @@ class SocialGroupAdminController extends Controller
                 'admin_note'   => $validated['note'] ?? null,
                 'admin_action' => 'delete',
             ]);
+
+            // Notify reporter their report was accepted
+            if ($reporter) {
+                NotificationController::createNotification($reporter->id, 'report_accepted', [
+                    'message'        => __('notifications.report_accepted_message'),
+                    'report_slug'    => $report->slug,
+                    'group_slug'     => $group->slug,
+                ]);
+            }
+
+            // Notify post owner their post was removed
+            if ($postOwner && $postOwner->id !== $reporter?->id) {
+                NotificationController::createNotification($postOwner->id, 'report_action_owner', [
+                    'message'    => __('notifications.report_action_owner_delete'),
+                    'group_slug' => $group->slug,
+                ]);
+            }
         } else {
             $report->update([
                 'status'       => 'rejected',
@@ -741,6 +761,15 @@ class SocialGroupAdminController extends Controller
                 'admin_note'   => $validated['note'] ?? null,
                 'admin_action' => 'none',
             ]);
+
+            // Notify reporter their report was reviewed but not actioned
+            if ($reporter) {
+                NotificationController::createNotification($reporter->id, 'report_rejected', [
+                    'message'     => __('notifications.report_rejected_message'),
+                    'report_slug' => $report->slug,
+                    'group_slug'  => $group->slug,
+                ]);
+            }
         }
 
         return response()->json(['success' => true, 'data' => $report->fresh()]);

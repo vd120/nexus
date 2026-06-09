@@ -175,6 +175,27 @@ class PushNotificationManager {
             return false;
         }
 
+        // If init() failed earlier, retry now before proceeding
+        if (!this.registration) {
+            console.warn('[Push] registration is null, retrying init...');
+            const initialized = await this.init();
+            if (!initialized || !this.registration) {
+                console.error('[Push] Re-init failed — service worker could not be registered');
+                this.showToast(this.t('notSupported'), 'error');
+                return false;
+            }
+        }
+
+        // Ensure VAPID key is loaded
+        if (!this.vapidPublicKey) {
+            const loaded = await this.getVapidKey();
+            if (!loaded) {
+                console.error('[Push] VAPID key unavailable');
+                this.showToast(this.t('error'), 'error');
+                return false;
+            }
+        }
+
         // Request permission
         if (this.permission !== 'granted') {
             const permission = await Notification.requestPermission();
@@ -378,7 +399,7 @@ class PushNotificationManager {
     async updateSettings(settings) {
         try {
             const response = await fetch('/api/push/settings', {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': this.getCsrfToken(),

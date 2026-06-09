@@ -109,11 +109,11 @@
                     <i class="fas fa-flag"></i>
                 </div>
                 <div class="stat-info">
-                    <span class="stat-value">{{ number_format($stats['total_reports']) }}</span>
+                    <span class="stat-value" id="admin-total-reports">{{ number_format($stats['total_reports']) }}</span>
                     <span class="stat-label">{{ __('admin.reports') }}</span>
-                    @if($stats['pending_reports'] > 0)
-                    <span class="stat-sub">{{ number_format($stats['pending_reports']) }} {{ __('admin.pending') }}</span>
-                    @endif
+                    <span class="stat-sub" id="admin-pending-reports-sub" style="{{ $stats['pending_reports'] > 0 ? '' : 'display:none;' }}">
+                        <span id="admin-pending-reports-count">{{ number_format($stats['pending_reports']) }}</span> {{ __('admin.pending') }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -142,18 +142,11 @@
                 <div class="action-icon"><i class="fas fa-camera"></i></div>
                 <b>{{ __('admin.stories') }}</b>
             </a>
-            @if($stats['pending_reports'] > 0)
-            <a href="{{ route('admin.reports') }}" class="action-btn highlight" style="position: relative;">
+            <a href="{{ route('admin.reports') }}" class="action-btn {{ $stats['pending_reports'] > 0 ? 'highlight' : '' }}" id="admin-reports-action-btn" style="position: relative;">
                 <div class="action-icon"><i class="fas fa-flag"></i></div>
                 <b>{{ __('admin.reports') }}</b>
-                <span class="notification-badge">{{ $stats['pending_reports'] }}</span>
+                <span class="notification-badge" id="admin-reports-action-badge" style="{{ $stats['pending_reports'] > 0 ? '' : 'display:none;' }}">{{ $stats['pending_reports'] }}</span>
             </a>
-            @else
-            <a href="{{ route('admin.reports') }}" class="action-btn">
-                <div class="action-icon"><i class="fas fa-flag"></i></div>
-                <b>{{ __('admin.reports') }}</b>
-            </a>
-            @endif
             <a href="#" onclick="showCreateAdminModal()" class="action-btn highlight">
                 <div class="action-icon"><i class="fas fa-user-plus"></i></div>
                 <b>{{ __('admin.new_admin') }}</b>
@@ -260,6 +253,27 @@
 </div>
 
 <script>
+// Real-time pending report count update (called by socket-manager on admin:report:new)
+window.refreshAdminDashboardStats = function(data) {
+    const count = data.pending_count;
+    if (count === undefined) return;
+
+    const countEl   = document.getElementById('admin-pending-reports-count');
+    const subEl     = document.getElementById('admin-pending-reports-sub');
+    const badgeEl   = document.getElementById('admin-reports-action-badge');
+    const actionBtn = document.getElementById('admin-reports-action-btn');
+
+    if (countEl)   countEl.textContent = count.toLocaleString();
+    if (subEl)     subEl.style.display = count > 0 ? '' : 'none';
+    if (badgeEl) {
+        badgeEl.textContent    = count;
+        badgeEl.style.display  = count > 0 ? '' : 'none';
+    }
+    if (actionBtn) {
+        actionBtn.classList.toggle('highlight', count > 0);
+    }
+};
+
 function showCreateAdminModal() {
     document.getElementById('create-admin-modal').style.display = 'flex';
 }

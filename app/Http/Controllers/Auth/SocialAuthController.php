@@ -98,7 +98,7 @@ class SocialAuthController extends Controller
                     'status' => 'pending',
                     'ip' => request()->ip(),
                     'user_agent' => request()->userAgent()
-                ], 120);
+                ], 600);
 
                 app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'security:challenge', [
                     'uuid' => $challengeUuid,

@@ -1868,7 +1868,7 @@
                         if (data.success) {
                             closeReportModal();
                             if (typeof window.showToast === 'function') {
-                                window.showToast('Report submitted successfully', 'success');
+                                window.showToast(data.message || 'Report submitted successfully', 'success');
                             }
                         } else {
                             const message = data.message || data.error || 'Failed to submit report';

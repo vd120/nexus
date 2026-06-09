@@ -56,7 +56,7 @@
             </a>
             <h1><i class="fas fa-ban"></i> {{ __('users.blocked_users') }}</h1>
         </div>
-        <p>{{ trans_choice('users.you_have_blocked', $blocked->count(), ['count' => $blocked->count()]) }}</p>
+        <p id="count-subtitle">{{ trans_choice('users.you_have_blocked', $blocked->count(), ['count' => $blocked->count()]) }}</p>
     </div>
 
     <div class="users-grid">
@@ -88,47 +88,74 @@
     </div>
 </div>
 
+{{-- Hidden empty-state template rendered server-side for JS injection --}}
+<template id="blocked-empty-tpl">
+    <div class="empty-state">
+        <i class="fas fa-shield-alt"></i>
+        <h3>{{ __('users.no_blocked_users') }}</h3>
+        <p style="color: var(--text-muted);">{{ __('users.no_blocked_users_yet') }}</p>
+    </div>
+</template>
+
 <script>
+const blockedCountZero = {!! json_encode(trans_choice('users.you_have_blocked', 0, ['count' => 0])) !!};
+const blockedCountOne  = {!! json_encode(trans_choice('users.you_have_blocked', 1, ['count' => 1])) !!};
+const blockedCountMany = {!! json_encode(trans_choice('users.you_have_blocked', 99, ['count' => ':count'])) !!};
+
+function updateBlockedSubtitle() {
+    const count = document.querySelectorAll('.users-grid .user-card').length;
+    const el = document.getElementById('count-subtitle');
+    if (!el) return;
+    if (count === 0)      el.textContent = blockedCountZero;
+    else if (count === 1) el.textContent = blockedCountOne;
+    else                  el.textContent = blockedCountMany.replace(':count', count);
+
+    if (count === 0) {
+        const grid = document.querySelector('.users-grid');
+        const tpl = document.getElementById('blocked-empty-tpl');
+        if (grid && tpl) grid.appendChild(tpl.content.cloneNode(true));
+    }
+}
+
 function blockedPageUnblock(btn, username) {
     if (!confirm({!! json_encode(__('users.unblock_this_user')) !!})) return;
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     btn.disabled = true;
-    
+
     fetch(`/users/${username}/block`, {
         method: 'POST',
-        headers: { 
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 
-            'Accept': 'application/json' 
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
         }
     })
     .then(r => r.json())
     .then(data => {
         if (data.success && !data.blocking) {
-            // Successfully unblocked, remove the card
             const card = btn.closest('.user-card');
             if (card) {
                 card.style.transition = 'all 0.3s ease';
                 card.style.opacity = '0';
                 card.style.transform = 'scale(0.9)';
-                setTimeout(() => card.remove(), 300);
+                setTimeout(() => { card.remove(); updateBlockedSubtitle(); }, 300);
             }
-            showToast('{{ __('users.unblocked_success') }}', 'success');
+            showToast(data.message, 'success');
         } else {
+            showToast(data.message || {!! json_encode(__('users.error_unblocking')) !!}, 'error');
             btn.innerHTML = originalHtml;
             btn.disabled = false;
         }
     })
-    .catch((error) => {
-        console.error('Error:', error);
+    .catch(() => {
+        showToast({!! json_encode(__('users.error_unblocking')) !!}, 'error');
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     });
 }
 
-// Show success message toast if exists
 @if(session('success'))
-window.runOnPageLoad( function() {
+window.runOnPageLoad(function() {
     showToast({!! json_encode(session('success')) !!}, 'success');
 });
 @endif

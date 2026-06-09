@@ -16,7 +16,8 @@ class ReportController extends Controller
      */
     public function create(Post $post)
     {
-        return view('posts.report', compact('post'));
+        // Modal is used in practice; this route is a fallback redirect
+        return redirect()->route('home');
     }
 
     /**
@@ -283,10 +284,11 @@ class ReportController extends Controller
         ]);
 
         $report->update([
-            'status' => PostReport::STATUS_REJECTED,
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
-            'admin_note' => $request->admin_note,
+            'status'       => PostReport::STATUS_REJECTED,
+            'reviewed_by'  => Auth::id(),
+            'reviewed_at'  => now(),
+            'admin_note'   => $request->admin_note,
+            'admin_action' => 'none',
         ]);
 
         // Send notification to reporter
@@ -395,6 +397,8 @@ class ReportController extends Controller
         $reporter = $report->reporter;
         $post     = $report->post;
 
+        $pendingCount = PostReport::where('status', PostReport::STATUS_PENDING)->count();
+
         // Real-time socket event for online platform admins
         app(\App\Services\SocketEmitService::class)->emit('admin', 'admin:report:new', [
             'report_id'         => $report->id,
@@ -403,8 +407,28 @@ class ReportController extends Controller
             'reporter_username' => $reporter->username,
             'post_id'           => $post->id,
             'created_at'        => $report->created_at->toISOString(),
-            'pending_count'     => PostReport::where('status', PostReport::STATUS_PENDING)->count(),
+            'pending_count'     => $pendingCount,
         ]);
+
+        // Persistent DB notification for platform admins — ensures offline admins see it too
+        $platformAdmins = \App\Models\User::where('is_admin', true)
+            ->where('id', '!=', $reporter->id)
+            ->get();
+
+        foreach ($platformAdmins as $admin) {
+            NotificationController::createNotification(
+                $admin->id,
+                'community_report_new',
+                [
+                    'reporter_name' => $reporter->username,
+                    'reason'        => $report->reason,
+                    'post_id'       => $post->id,
+                    'report_id'     => $report->id,
+                    'report_slug'   => $report->slug,
+                    'message'       => __('notifications.new_report_from', ['user' => $reporter->username]),
+                ]
+            );
+        }
 
         // Persistent notification for community admins/moderators when the
         // reported post belongs to a community — ensures offline admins see it too

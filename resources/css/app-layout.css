@@ -1056,6 +1056,9 @@ html[dir="rtl"] .nav-user-btn {
     padding: 6px !important;
     min-width: 260px !important;
     max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 90px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
 #userMenu a,
@@ -1113,6 +1116,11 @@ html[dir="rtl"] .nav-user-btn {
     background: rgba(239, 68, 68, 0.1) !important;
     color: var(--danger, #ef4444) !important;
 }
+
+#userMenu::-webkit-scrollbar { width: 4px; }
+#userMenu::-webkit-scrollbar-track { background: transparent; }
+#userMenu::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+#userMenu::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
 /* Notification Panel Styles - Same as Login/Register Pages */
 .notif-panel {
@@ -1513,7 +1521,7 @@ html[dir="rtl"] .nav-user-btn {
 }
 
 .app-layout {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 0 24px 32px;
 }
@@ -1524,7 +1532,7 @@ html[dir="rtl"] .nav-user-btn {
 }
 
 .main-content {
-    max-width: 800px;
+    max-width: 960px;
     margin: 0 auto;
 }
 

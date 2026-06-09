@@ -59,6 +59,12 @@ class CallController extends Controller
             return response()->json(['error' => 'busy'], 409);
         }
 
+        // Check if callee is offline
+        $callee = User::findOrFail($calleeId);
+        if (!$callee->isActuallyOnline()) {
+            return response()->json(['error' => 'offline'], 422);
+        }
+
         // Resolve or create conversation
         if ($request->filled('conversation_id')) {
             $conversation = Conversation::findOrFail($request->conversation_id);

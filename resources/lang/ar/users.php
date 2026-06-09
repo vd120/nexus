@@ -132,8 +132,10 @@ return [
     'no_posts_yet_desc' => 'المستخدم ده مانشَرش حاجة لسه.',
     'unblock_user_confirm' => 'تلغي حظر :username؟',
     'block_user_confirm' => 'تحظر :username؟',
+    'call_user_confirm' => 'تتصل بـ :username؟',
     'error_unblocking' => 'غلط في إلغاء الحظر',
     'error_blocking' => 'غلط في الحظر',
+    'error_following' => 'غلط في تحديث حالة المتابعة',
 
     // QR Code Profile Sharing
     'qr_code' => 'رمز QR',

@@ -746,6 +746,7 @@ function exploreToggleFollow(btn, username) {
             
             showToast(data.message, 'success');
         } else {
+            showToast(data.message || '{{ __('users.error_following') }}', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
@@ -798,7 +799,7 @@ function exploreToggleBlock(btn, username) {
                 btn.className = 'btn block-btn';
                 const followBtn = card.querySelector('.follow-btn');
                 if (followBtn) {
-                    followBtn.style.display = 'block';
+                    followBtn.style.display = 'flex';
                     followBtn.innerHTML = '{{ __('users.follow') }}';
                     followBtn.classList.remove('following');
                 }
@@ -807,6 +808,7 @@ function exploreToggleBlock(btn, username) {
                 if (indicator) indicator.remove();
             }
         } else {
+            showToast(data.message || '{{ __('users.error_blocking') }}', 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }

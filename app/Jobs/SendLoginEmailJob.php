@@ -75,13 +75,12 @@ class SendLoginEmailJob implements ShouldQueue
                 return;
             }
 
-            // Set locale so the email renders in the user's language
+            // Send email in the user's language (locale() on mailable covers subject + view)
+            $mailable = new LoginSecurityAlert($activity);
             if ($user->language) {
-                app()->setLocale($user->language);
+                $mailable->locale($user->language);
             }
-
-            // Send email (URL generation handled by mailable)
-            Mail::to($user->email)->send(new LoginSecurityAlert($activity));
+            Mail::to($user->email)->send($mailable);
 
         } catch (\Exception $e) {
             \Log::error('Failed to send login email to user ' . $this->userId . ': ' . $e->getMessage());

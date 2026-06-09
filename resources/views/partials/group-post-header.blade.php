@@ -5,12 +5,12 @@
                 <i class="fas fa-user-secret"></i>
             </div>
             <div class="author-info" style="display: flex; flex-direction: column; align-items: flex-start; margin-top: -3px;">
-                <div class="author-top-row" style="display: flex; align-items: center; gap: 6px;">
-                    @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
-                         <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name">{{ $group->name }}</a>
-                         <span class="header-separator">•</span>
-                    @endif
+                <div class="author-top-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                     <span class="author-name anonymous-name">{{ __('messages.anonymous_participant') }}</span>
+                    @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
+                        <span class="header-in-word">in</span>
+                        <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name"><i class="fas fa-users"></i> {{ $group->name }}</a>
+                    @endif
                     <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="margin-left: 6px; font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
                 </div>
                 <span class="post-time" data-timestamp="{{ $post->created_at->toIso8601String() }}">{{ $post->created_at->diffInMinutes() < 1 ? __('messages.just_now') : $post->created_at->diffForHumans(null, true, true) }}</span>
@@ -18,15 +18,17 @@
         @else
             <a href="{{ route('users.show', $post->user) }}" style="flex-shrink:0;display:flex;"><img src="{{ $post->user->avatar_url }}" alt="{{ $post->user->username }}" class="author-avatar" style="pointer-events:none;"></a>
             <div class="author-info" style="display: flex; flex-direction: column; align-items: flex-start; margin-top: -3px;">
-                <div class="author-top-row" style="display: flex; align-items: center; gap: 6px;">
-                    @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
-                         <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name">{{ $group->name }}</a>
-                         <span class="header-separator">•</span>
-                    @endif
+                <div class="author-top-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    {{-- Name + verified badge --}}
                     <a href="{{ route('users.show', $post->user) }}" class="author-name" style="display:inline-flex;align-items:center;gap:.2em;">{{ $post->user->name ?: $post->user->username }}<x-verified-badge :user="$post->user" size=".95em" /></a>
-                    <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="margin-left: 6px; font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
-                    
-                    {{-- Role Badges (Facebook-style) --}}
+
+                    {{-- "in Community" --}}
+                    @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
+                        <span class="header-in-word">in</span>
+                        <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name"><i class="fas fa-users"></i> {{ $group->name }}</a>
+                    @endif
+
+                    {{-- Role badge after community --}}
                     @php $role = $post->author_role; @endphp
                     @if($role)
                         @if($role === 'admin')
@@ -41,6 +43,8 @@
                             </span>
                         @endif
                     @endif
+
+                    <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
 
                     @if($post->member && $post->member->badges->count() > 0)
                         <div class="author-badges">
@@ -125,17 +129,26 @@
     border-radius: 50%;
     flex-shrink: 0;
 }
-.header-separator {
-    font-size: 0.9rem;
-    color: var(--text-muted, #8e8e8e);
-    margin: 0 4px;
-    opacity: 0.7;
+.header-in-word {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    font-weight: 400;
+}
+[data-theme="light"] .header-in-word {
+    color: rgba(0,0,0,0.35);
 }
 .group-context-name {
-    font-weight: 600;
-    color: var(--primary, #3b82f6);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    color: var(--primary);
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 13px;
+}
+.group-context-name i {
+    font-size: 11px;
+    opacity: 0.8;
 }
 .group-context-name:hover {
     text-decoration: underline;

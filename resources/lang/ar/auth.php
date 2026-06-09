@@ -181,4 +181,19 @@ return [
     'two_factor_enabled_success' => 'تم تفعيل التحقق بخطوتين.',
     'two_factor_disabled_success' => 'تم إيقاف التحقق بخطوتين.',
     'sign_out' => 'تسجيل الخروج',
+
+    // Security challenge modal (socket-manager.js)
+    'approved_another_device' => 'تم الموافقة على تسجيل الدخول من جهاز آخر.',
+    'grant_access'            => 'منح الوصول',
+    'authorizing'             => 'جارٍ التفويض...',
+    'approval_failed'         => 'فشلت الموافقة.',
+    'connection_error_retry'  => 'خطأ في الاتصال. حاول مرة أخرى.',
+
+    // Login-challenge page
+    'no_response_email_sent'  => 'لا يوجد رد من جهازك الآخر. تم إرسال كود تحقق إلى إيميلك.',
+    'sending'                 => 'جارٍ الإرسال...',
+    'enter_6_digit_code'      => 'من فضلك أدخل كود التحقق المكون من 6 أرقام كاملاً.',
+    'verified_redirecting'    => 'تم التحقق! جارٍ التحويل...',
+    'error_verifying_code'    => 'خطأ في التحقق من الكود. حاول مرة أخرى.',
+    'error_sending_email'     => 'خطأ في إرسال الإيميل. حاول مرة أخرى.',
 ];

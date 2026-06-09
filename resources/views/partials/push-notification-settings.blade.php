@@ -22,6 +22,7 @@ $currentLocale = app()->getLocale();
         
         <div class="modal-body">
             <div class="push-settings-content">
+
                 <!-- Not Enabled State -->
                 <div id="pushNotEnabled" class="push-not-enabled">
                     <div class="empty-state">
@@ -31,112 +32,13 @@ $currentLocale = app()->getLocale();
                         </div>
                         <h4>{{ __('notifications.never_miss_moment') }}</h4>
                         <p>{{ __('notifications.enable_push_desc_detailed') }}</p>
-                        <button class="btn btn-primary btn-enable" onclick="enablePushNotifications()">
-                            <i class="fas fa-bell"></i> {{ __('notifications.enable_push') }}
+                        <button class="btn-enable" onclick="enablePushNotifications()">
+                            {{ __('notifications.enable_push') }}
                         </button>
-                        <p class="hint"><i class="fas fa-shield-alt"></i> {{ __('notifications.safe_secure') }}</p>
-                    </div>
-                </div>
-
-                <!-- Settings Form State -->
-                <div class="push-settings-form" id="pushSettingsForm" style="display: none;">
-                    <div class="form-section">
-                        <div class="section-title">
-                            <i class="fas fa-sliders-h"></i>
-                            <span>{{ __('notifications.notification_preferences') }}</span>
-                        </div>
-                        <p class="section-desc">{{ __('notifications.choose_notifications') }}</p>
-                    </div>
-
-                    <div class="settings-list">
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-icon likes">
-                                    <i class="fas fa-heart"></i>
-                                </div>
-                                <div class="setting-text">
-                                    <span class="setting-label">{{ __('notifications.likes') }}</span>
-                                    <span class="setting-desc">{{ __('notifications.when_likes_post') }}</span>
-                                </div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="pushLikes" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-icon comments">
-                                    <i class="fas fa-comment"></i>
-                                </div>
-                                <div class="setting-text">
-                                    <span class="setting-label">{{ __('notifications.comments') }}</span>
-                                    <span class="setting-desc">{{ __('notifications.when_comments_post') }}</span>
-                                </div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="pushComments" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-icon follows">
-                                    <i class="fas fa-user-plus"></i>
-                                </div>
-                                <div class="setting-text">
-                                    <span class="setting-label">{{ __('notifications.new_followers') }}</span>
-                                    <span class="setting-desc">{{ __('notifications.when_follows_you') }}</span>
-                                </div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="pushFollows" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-icon messages">
-                                    <i class="fas fa-envelope"></i>
-                                </div>
-                                <div class="setting-text">
-                                    <span class="setting-label">{{ __('notifications.messages') }}</span>
-                                    <span class="setting-desc">{{ __('notifications.when_new_message') }}</span>
-                                </div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="pushMessages" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-icon mentions">
-                                    <i class="fas fa-at"></i>
-                                </div>
-                                <div class="setting-text">
-                                    <span class="setting-label">{{ __('notifications.mentions') }}</span>
-                                    <span class="setting-desc">{{ __('notifications.when_mentions_you') }}</span>
-                                </div>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="pushMentions" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button class="btn btn-primary btn-block" onclick="savePushSettings()">
-                            <i class="fas fa-save"></i> {{ __('notifications.save_preferences') }}
-                        </button>
-                        <button class="btn btn-danger btn-block" onclick="disablePushNotifications()">
-                            <i class="fas fa-bell-slash"></i> {{ __('notifications.disable_all') }}
-                        </button>
+                        <p class="hint">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            {{ __('notifications.safe_secure') }}
+                        </p>
                     </div>
                 </div>
 
@@ -150,14 +52,15 @@ $currentLocale = app()->getLocale();
                         <p>{{ __('notifications.will_receive_notifications') }}</p>
                     </div>
                     <div class="success-actions">
-                        <button class="btn btn-secondary" onclick="showPushSettingsForm()">
-                            <i class="fas fa-cog"></i> {{ __('notifications.adjust_settings') }}
-                        </button>
                         <button class="btn btn-test" onclick="testPushNotification()">
                             <i class="fas fa-flask"></i> {{ __('notifications.test_notification') }}
                         </button>
+                        <button class="btn btn-danger" onclick="disablePushNotifications()">
+                            <i class="fas fa-bell-slash"></i> {{ __('notifications.disable_all') }}
+                        </button>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -191,13 +94,14 @@ $currentLocale = app()->getLocale();
 }
 
 .push-settings-modal {
-    max-width: 480px;
+    max-width: 440px;
     width: 100%;
     max-height: 90vh;
     overflow: hidden;
-    border-radius: 16px;
-    background: var(--bg, #1a1a2e);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    border-radius: 20px;
+    background: var(--surface, #141416);
+    border: 1px solid var(--border, rgba(255,255,255,0.07));
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
     display: flex;
     flex-direction: column;
     animation: slideUp 0.3s ease;
@@ -213,8 +117,8 @@ $currentLocale = app()->getLocale();
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.07));
     flex-shrink: 0;
 }
 
@@ -274,7 +178,7 @@ $currentLocale = app()->getLocale();
 
 /* Body */
 .modal-body {
-    padding: 20px;
+    padding: 24px;
     overflow-y: auto;
     flex: 1;
 }
@@ -297,9 +201,10 @@ $currentLocale = app()->getLocale();
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 36px;
+    font-size: 32px;
     color: white;
     position: relative;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
 }
 
 .pulse-ring {
@@ -331,37 +236,39 @@ $currentLocale = app()->getLocale();
 }
 
 .btn-enable {
-    width: 100%;
-    max-width: 280px;
-    padding: 14px 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 13px 32px;
     font-size: 15px;
-    font-weight: 600;
-    border-radius: 10px;
+    font-weight: 700;
+    border-radius: 999px;
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: white;
     border: none;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    white-space: nowrap;
     transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+    margin-top: 4px;
 }
 
 .btn-enable:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
 }
 
 .hint {
     font-size: 12px;
-    color: var(--text-muted, #888);
-    margin-top: 14px;
+    color: var(--text-muted, rgba(255,255,255,0.4));
+    margin-top: 12px;
+    margin-bottom: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
+    white-space: nowrap;
+    line-height: 1;
 }
 
 /* Form Section */
@@ -717,52 +624,33 @@ function hidePushSettings() {
 }
 
 async function checkPushStatus() {
-    const form = document.getElementById('pushSettingsForm');
     const notEnabled = document.getElementById('pushNotEnabled');
     const enabled = document.getElementById('pushEnabled');
 
-    if (!window.pushManager) {
+    if (!window.pushManager || !window.pushManager.isSupported) {
         notEnabled.style.display = 'block';
-        form.style.display = 'none';
         enabled.style.display = 'none';
         return;
     }
 
-    const isSupported = window.pushManager.isSupported;
-    const isEnabled = window.pushManager.isEnabled();
-
-    if (!isSupported) {
-        notEnabled.style.display = 'none';
-        form.style.display = 'none';
-        enabled.style.display = 'none';
-        return;
-    }
-
-    if (isEnabled) {
-        // User has enabled push notifications - show success state with settings button
-        form.style.display = 'none';
-        notEnabled.style.display = 'none';
-        enabled.style.display = 'block';
-
-        // Load current settings
+    if (window.pushManager.isEnabled()) {
+        // Confirm subscription exists in DB
         try {
             const response = await fetch('/api/push/settings', {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                 credentials: 'same-origin',
             });
             const data = await response.json();
-            if (data.success && data.settings) {
-                document.getElementById('pushLikes').checked = data.settings.likes !== false;
-                document.getElementById('pushComments').checked = data.settings.comments !== false;
-                document.getElementById('pushFollows').checked = data.settings.follows !== false;
-                document.getElementById('pushMessages').checked = data.settings.messages !== false;
-                document.getElementById('pushMentions').checked = data.settings.mentions !== false;
+            if (data.success && data.subscribed === false) {
+                notEnabled.style.display = 'block';
+                enabled.style.display = 'none';
+                return;
             }
-        } catch (error) {
-            console.error('[Push] Error loading settings:', error);
-        }
+        } catch (e) {}
+
+        notEnabled.style.display = 'none';
+        enabled.style.display = 'block';
     } else {
-        form.style.display = 'none';
         notEnabled.style.display = 'block';
         enabled.style.display = 'none';
     }
@@ -787,27 +675,6 @@ function showPushSettingsForm() {
     enabled.style.display = 'none';
 }
 
-async function savePushSettings() {
-    const settings = {
-        likes: document.getElementById('pushLikes').checked,
-        comments: document.getElementById('pushComments').checked,
-        follows: document.getElementById('pushFollows').checked,
-        messages: document.getElementById('pushMessages').checked,
-        mentions: document.getElementById('pushMentions').checked,
-    };
-
-    try {
-        const response = await window.pushManager.updateSettings(settings);
-        if (response.success) {
-            window.pushManager.showToast('{{ __('messages.push_settings_updated') }}', 'success');
-            // Go back to success state after saving
-            checkPushStatus();
-        }
-    } catch (error) {
-        window.pushManager.showToast(error.message || '{{ __('messages.error') }}', 'error');
-    }
-}
-
 async function disablePushNotifications() {
     if (!confirm('Disable push notifications?')) {
         return;
@@ -820,11 +687,6 @@ async function disablePushNotifications() {
     } catch (error) {
         window.pushManager.showToast(error.message || 'Error disabling notifications', 'error');
     }
-}
-
-function showPushSettingsForm() {
-    document.getElementById('pushSettingsForm').style.display = 'block';
-    document.getElementById('pushEnabled').style.display = 'none';
 }
 
 async function testPushNotification() {

@@ -627,8 +627,9 @@ class SocketManager {
             if (modal && window.currentSecurityChallenge === data.uuid) {
                 modal.classList.remove('show');
                 window.currentSecurityChallenge = null;
+                const t = window.layoutTranslations || {};
                 if (window.showToast) {
-                    window.showToast('Login was approved from another device.', 'success');
+                    window.showToast(t.approved_another_device || 'Login approved from another device.', 'success');
                 }
             }
         });
@@ -646,19 +647,20 @@ class SocketManager {
         window.approveSecurityChallenge = () => {
             const uuid = window.currentSecurityChallenge;
             if (!uuid) return;
-            
-            // Clear immediately to prevent the socket listener (security:approved) 
+
+            // Clear immediately to prevent the socket listener (security:approved)
             // from showing a duplicate "approved from another device" toast.
             window.currentSecurityChallenge = null;
-            
+
+            const t = window.layoutTranslations || {};
             const btn = document.getElementById('approve-security-btn');
             const modal = document.getElementById('security-challenge-modal');
 
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authorizing...';
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t.authorizing || 'Authorizing...'}`;
             }
-            
+
             fetch(`/login/challenge/${uuid}/approve`, {
                 method: 'POST',
                 headers: {
@@ -671,25 +673,25 @@ class SocketManager {
                 if (data.success) {
                     if (modal) modal.classList.remove('show');
                     if (window.showToast) {
-                        window.showToast('Access Granted to new device!', 'success');
-                    } else {
-                        alert('Access Granted!');
+                        window.showToast(data.message || t.grant_access || 'Access granted.', 'success');
                     }
                 } else {
-                    // Restore UUID if failed so user can try again? 
-                    // Actually, better to just let them refresh or wait for new challenge.
-                    alert(data.message || 'Approval failed.');
+                    if (window.showToast) {
+                        window.showToast(data.message || t.approval_failed || 'Approval failed.', 'error');
+                    }
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-check-circle"></i> Grant Access';
+                        btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || 'Grant Access'}`;
                     }
                 }
             })
             .catch(() => {
-                alert('Connection error. Please try again.');
+                if (window.showToast) {
+                    window.showToast(t.connection_error_retry || 'Connection error. Please try again.', 'error');
+                }
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Grant Access';
+                    btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || 'Grant Access'}`;
                 }
             });
         };

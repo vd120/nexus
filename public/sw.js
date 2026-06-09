@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-cache-v3';
+const CACHE_NAME = 'nexus-cache-v4';
 
 const STATIC_ASSETS = [
     '/css/app-layout.css',
@@ -47,16 +47,15 @@ self.addEventListener('push', (event) => {
 
   const title   = payload.title || 'Nexus';
   const options = {
-    body:             payload.body || '',
-    icon:             payload.icon || '/favicon.ico',
-    badge:            payload.badge || '/favicon.ico',
-    tag:              payload.tag || 'nexus-notification',
+    body:               payload.body || '',
+    icon:               payload.icon || '/favicon.ico',
+    badge:              payload.badge || '/favicon.ico',
+    tag:                payload.tag || 'nexus-notification',
     requireInteraction: payload.requireInteraction || false,
-    silent:           payload.silent || false,
-    data:             payload.data || {},
-    // Show action buttons for incoming calls
+    silent:             payload.silent || false,
+    data:               payload.data || {},
     actions: payload.data && payload.data.type === 'call' ? [
-      { action: 'accept', title: '✅ Accept' },
+      { action: 'accept',  title: '✅ Accept'  },
       { action: 'decline', title: '❌ Decline' },
     ] : [],
   };
@@ -72,10 +71,8 @@ self.addEventListener('notificationclick', (event) => {
   const url    = data.url || '/';
   const action = event.action;
 
-  // Handle call action buttons
   if (data.type === 'call' && data.callId) {
     if (action === 'decline') {
-      // POST decline in background
       event.waitUntil(
         fetch('/call/' + data.callId + '/reject', {
           method: 'POST',
@@ -85,19 +82,15 @@ self.addEventListener('notificationclick', (event) => {
       );
       return;
     }
-    // accept or tap — fall through to open the page
   }
 
-  // Open or focus the target page
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a window for this URL is already open, focus it
       for (const client of windowClients) {
         if (client.url.includes(url) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new window
       if (clients.openWindow) {
         return clients.openWindow(url);
       }
@@ -105,54 +98,15 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-const STATIC_ASSETS = [
-    '/css/app-layout.css',
-    '/css/comments.css',
-    '/css/partial-posts.css',
-    '/css/mobile-header.css',
-    '/css/modals.css',
-    '/vendor/fontawesome/css/all.min.css',
-    '/fonts/cairo/cairo-arabic.woff2',
-    '/fonts/cairo/cairo-latin-ext.woff2',
-    '/fonts/cairo/cairo-latin.woff2'
-];
-
-self.addEventListener('install', (event) => {
-  // Pre-cache core layout assets and local fonts on install
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch(err => {
-        console.warn('Failed to pre-cache some assets:', err);
-      });
-    })
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  // Clean up older cache versions
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
+// ── Fetch (cache strategy) ──────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
-  // Skip service worker for sensitive routes (Auth, API, dynamic views, socket.io)
-  if (url.pathname.startsWith('/login') || 
-      url.pathname.startsWith('/register') || 
-      url.pathname.startsWith('/logout') || 
-      url.pathname.startsWith('/auth/') || 
+
+  // Skip SW for sensitive/dynamic routes
+  if (url.pathname.startsWith('/login') ||
+      url.pathname.startsWith('/register') ||
+      url.pathname.startsWith('/logout') ||
+      url.pathname.startsWith('/auth/') ||
       url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/chat') ||
       url.pathname.startsWith('/socket.io/') ||
@@ -160,17 +114,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-First strategy for local static files
-  const isStaticAsset = url.origin === self.location.origin && 
-    (url.pathname.match(/\.(woff2|woff|ttf|css|js|png|jpg|jpeg|gif|svg|ico)$/i) || 
+  // Cache-First for static assets
+  const isStaticAsset = url.origin === self.location.origin &&
+    (url.pathname.match(/\.(woff2|woff|ttf|css|js|png|jpg|jpeg|gif|svg|ico)$/i) ||
      STATIC_ASSETS.includes(url.pathname));
 
   if (isStaticAsset) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+        if (cachedResponse) return cachedResponse;
         return fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
@@ -180,16 +132,14 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         }).catch(() => {
-           // Network failed and no cache — return empty 404 so the browser
-           // handles it gracefully instead of the SW throwing an error.
-           return new Response('', { status: 404 });
+          return new Response('', { status: 404 });
         });
       })
     );
   } else {
-    // Network-First strategy
+    // Network-First for everything else
     event.respondWith(
-      fetch(event.request).catch((err) => {
+      fetch(event.request).catch(() => {
         return caches.match(event.request);
       })
     );

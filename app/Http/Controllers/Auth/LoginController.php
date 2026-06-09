@@ -69,7 +69,7 @@ class LoginController extends Controller
                     'status' => 'pending',
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent()
-                ], 120);
+                ], 600);
 
                 app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'security:challenge', [
                     'uuid' => $challengeUuid,
@@ -164,7 +164,7 @@ class LoginController extends Controller
         }
 
         $challenge['status'] = 'approved';
-        Cache::put('login_challenge_' . $uuid, $challenge, 120);
+        Cache::put('login_challenge_' . $uuid, $challenge, 600);
 
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'security:approved', ['uuid' => $uuid]);
         
@@ -179,7 +179,7 @@ class LoginController extends Controller
         }
 
         $challenge['status'] = 'denied';
-        Cache::put('login_challenge_' . $uuid, $challenge, 120);
+        Cache::put('login_challenge_' . $uuid, $challenge, 600);
 
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'security:denied', ['uuid' => $uuid]);
 
@@ -202,8 +202,7 @@ class LoginController extends Controller
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         $challenge['email_code'] = $code;
-        $challenge['email_code_expires_at'] = now()->addMinutes(10)->timestamp;
-        Cache::put('login_challenge_' . $uuid, $challenge, 120);
+        Cache::put('login_challenge_' . $uuid, $challenge, 600);
 
         // Send the email in the user's language
         $originalLocale = app()->getLocale();
@@ -230,13 +229,9 @@ class LoginController extends Controller
             return response()->json(['success' => false, 'message' => __('auth.invalid_verification_code')], 422);
         }
 
-        if ($challenge['email_code_expires_at'] < now()->timestamp) {
-            return response()->json(['success' => false, 'message' => __('auth.verification_code_expired')], 422);
-        }
-
         // Mark as approved
         $challenge['status'] = 'approved';
-        Cache::put('login_challenge_' . $uuid, $challenge, 120);
+        Cache::put('login_challenge_' . $uuid, $challenge, 600);
 
         // Emit to the user's other sessions to close the approval modal
         app(\App\Services\SocketEmitService::class)->emitToUser($challenge['user_id'], 'security:approved', ['uuid' => $uuid]);

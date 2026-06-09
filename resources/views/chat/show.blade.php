@@ -63,6 +63,7 @@ $chatTitle = $isGroup
                 </button>
                 <div class="chat-user-info">
                     @if($conversation->is_group)
+                        @php $showReadReceipts = false; @endphp
                         <a href="{{ route('groups.show', $conversation->slug) }}" class="chat-avatar-link">
                             <div class="chat-avatar">
                                 @if($conversation->group && $conversation->group->avatar)
@@ -7902,7 +7903,10 @@ function initiateCall(calleeId, conversationId, calleeName, calleeAvatar, callee
     .then(data => {
         if (data.error === 'busy') {
             const t = window.CallTranslations || {};
-            alert(t.user_busy || 'User is already in a call.');
+            showToast(t.user_busy || 'User is already in a call.', 'error');
+        } else if (data.error === 'offline') {
+            const t = window.CallTranslations || {};
+            showToast((t.user_offline || ':username is currently offline.').replace(':username', calleeUsername || calleeName), 'error');
         } else if (data.callId && window.CallManager) {
             window.CallManager.startCall(
                 data.callId, calleeId, conversationId,

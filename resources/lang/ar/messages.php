@@ -949,6 +949,7 @@ return [
     'call_ended'        => 'انتهت المكالمة',
     'call_lost'         => 'انتهت المكالمة (انقطع الاتصال)',
     'user_busy'         => 'المستخدم في مكالمة أخرى',
+    'user_offline'      => ':username غير متصل حالياً',
 
     // VoIP / Calls — system messages (written into conversation)
     'system_call_declined'  => 'تم رفض المكالمة',

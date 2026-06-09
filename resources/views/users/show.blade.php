@@ -166,7 +166,7 @@
                 <div class="profile-username"><span dir="ltr">@ {{ $user->username }}</span></div>
                 <div class="profile-badges">
                     @if(auth()->check() && $isBlocking)
-                        <span class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);"><i class="fas fa-ban"></i> {{ __('users.blocked') }}</span>
+                        <span data-badge="blocked" class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);"><i class="fas fa-ban"></i> {{ __('users.blocked') }}</span>
                     @endif
                     @if($user->profile && $user->profile->is_private)
                         <span class="private-badge"><i class="fas fa-lock"></i> {{ __('users.private') }}</span>
@@ -215,7 +215,7 @@
                 </button>
                 <a href="{{ route('chat.start', $user->id) }}" class="btn"><i class="fas fa-envelope"></i> {{ __('users.message') }}</a>
                 <button
-                    onclick="initiateCallFromProfile({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ $user->avatar_url }}', '{{ addslashes($user->username) }}', {{ $user->is_verified ? 'true' : 'false' }})"
+                    onclick="profileConfirmCall({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ $user->avatar_url }}', '{{ addslashes($user->username) }}', {{ $user->is_verified ? 'true' : 'false' }})"
                     class="btn"
                     title="{{ __('messages.voice_call') }}">
                     <i class="fa-solid fa-phone"></i>
@@ -326,10 +326,30 @@
 <script>
 const unblockConfirmText = {!! json_encode(__('users.unblock_user_confirm')) !!};
 const blockConfirmText = {!! json_encode(__('users.block_user_confirm')) !!};
+const callConfirmText = {!! json_encode(__('users.call_user_confirm')) !!};
 const errorUnblockingText = {!! json_encode(__('users.error_unblocking')) !!};
 const errorBlockingText = {!! json_encode(__('users.error_blocking')) !!};
 const followingText = {!! json_encode(__('users.following')) !!};
 const followText = {!! json_encode(__('users.follow')) !!};
+const blockText = {!! json_encode(__('users.block')) !!};
+const unblockText = {!! json_encode(__('users.unblock')) !!};
+const messageText = {!! json_encode(__('users.message')) !!};
+const voiceCallText = {!! json_encode(__('messages.voice_call')) !!};
+const blockedBadgeText = {!! json_encode(__('users.blocked')) !!};
+@if(auth()->check() && auth()->id() !== $user->id)
+const profileChatUrl = {!! json_encode(route('chat.start', $user->id)) !!};
+const profileCallId = {{ $user->id }};
+const profileCallName = {!! json_encode($user->name) !!};
+const profileCallAvatar = {!! json_encode($user->avatar_url) !!};
+const profileCallUsername = {!! json_encode($user->username) !!};
+const profileCallVerified = {{ $user->is_verified ? 'true' : 'false' }};
+@endif
+
+// Snapshot of actions HTML before blocking — used to restore on unblock
+let _savedActionsHtml = null;
+
+// Escape a string for embedding in an onclick single-quoted JS argument
+function _esc(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
 function openImageModal(src) {
     document.getElementById('image-modal-img').src = src;
@@ -396,22 +416,37 @@ function profileUnblockUser(userName) {
     .then(data => {
         if (data.success) {
             showToast(data.message, 'success');
-            // Update UI dynamically
+
+            // Restore action buttons
             const actionsDiv = document.querySelector('.profile-actions');
             if (actionsDiv) {
-                actionsDiv.innerHTML = `
-                    <button class="nav-action-btn primary" data-following="false" onclick="profileToggleFollow(this, '${userName}')">
-                        <i class="fas fa-user-plus"></i> <span>${followText}</span>
-                    </button>
-                    <button class="nav-action-btn" onclick="profileBlockUser('${userName}')">
-                        <i class="fas fa-ban"></i> <span>${blockText}</span>
-                    </button>
-                `;
+                if (_savedActionsHtml) {
+                    actionsDiv.innerHTML = _savedActionsHtml;
+                    _savedActionsHtml = null;
+                } else {
+                    // Page was loaded already in blocked state — rebuild full button set
+                    actionsDiv.innerHTML = `
+                        <button class="btn btn-primary" onclick="profileToggleFollow(this, '${_esc(userName)}')" data-following="false">
+                            <i class="fas fa-user-plus"></i> <span>${followText}</span>
+                        </button>
+                        <a href="${profileChatUrl}" class="btn"><i class="fas fa-envelope"></i> <span>${messageText}</span></a>
+                        <button class="btn" onclick="profileConfirmCall(${profileCallId}, '${_esc(profileCallName)}', '${_esc(profileCallAvatar)}', '${_esc(profileCallUsername)}', ${profileCallVerified})" title="${voiceCallText}">
+                            <i class="fa-solid fa-phone"></i> <span>${voiceCallText}</span>
+                        </button>
+                        <button class="btn" onclick="profileBlockUser('${_esc(userName)}')" style="background: var(--danger); color: white;">
+                            <i class="fas fa-ban"></i> <span>${blockText}</span>
+                        </button>
+                    `;
+                }
             }
+
+            // Remove blocked badge
+            const badge = document.querySelector('[data-badge="blocked"]');
+            if (badge) badge.remove();
         }
     })
     .catch(() => {
-        alert(errorUnblockingText);
+        showToast(errorUnblockingText, 'error');
     });
 }
 
@@ -429,18 +464,30 @@ function profileBlockUser(userName) {
     .then(data => {
         if (data.success) {
             showToast(data.message, 'success');
+
             const actionsDiv = document.querySelector('.profile-actions');
             if (actionsDiv) {
+                _savedActionsHtml = actionsDiv.innerHTML;
                 actionsDiv.innerHTML = `
-                    <button class="nav-action-btn danger" onclick="profileUnblockUser('${userName}')">
-                        <i class="fas fa-unlock"></i> <span>Unblock</span>
+                    <button class="btn" onclick="profileUnblockUser('${_esc(userName)}')" style="background: var(--danger); color: white;">
+                        <i class="fas fa-unlock"></i> <span>${unblockText}</span>
                     </button>
                 `;
             }
+
+            // Add blocked badge if not already there
+            const badgesDiv = document.querySelector('.profile-badges');
+            if (badgesDiv && !badgesDiv.querySelector('[data-badge="blocked"]')) {
+                badgesDiv.insertAdjacentHTML('afterbegin',
+                    `<span data-badge="blocked" class="private-badge" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);"><i class="fas fa-ban"></i> ${blockedBadgeText}</span>`
+                );
+            }
+        } else {
+            showToast(data.message || errorBlockingText, 'error');
         }
     })
     .catch(() => {
-        alert(errorBlockingText);
+        showToast(errorBlockingText, 'error');
     });
 }
 
@@ -526,6 +573,11 @@ function closeQrCodeModal(event) {
     loading.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--primary);"></i>';
 }
 
+function profileConfirmCall(calleeId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
+    if (!confirm(callConfirmText.replace(':username', calleeUsername || calleeName))) return;
+    initiateCallFromProfile(calleeId, calleeName, calleeAvatar, calleeUsername, calleeVerified);
+}
+
 function initiateCallFromProfile(calleeId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
     if (window.CallManager) window.CallManager.unlockAudioNow();
 
@@ -542,7 +594,10 @@ function initiateCallFromProfile(calleeId, calleeName, calleeAvatar, calleeUsern
     .then(data => {
         if (data.error === 'busy') {
             const t = window.CallTranslations || {};
-            alert(t.user_busy || 'User is already in a call.');
+            showToast(t.user_busy || 'User is already in a call.', 'error');
+        } else if (data.error === 'offline') {
+            const t = window.CallTranslations || {};
+            showToast((t.user_offline || ':username is currently offline.').replace(':username', calleeUsername || calleeName), 'error');
         } else if (data.callId && window.CallManager) {
             window.CallManager.startCall(
                 data.callId,

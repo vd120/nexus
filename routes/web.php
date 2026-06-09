@@ -578,13 +578,13 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         Route::post('/users/{user}/verify', [App\Http\Controllers\AdminController::class, 'verifyUser'])->name('users.verify');
         Route::post('/users/{user}/unverify', [App\Http\Controllers\AdminController::class, 'unverifyUser'])->name('users.unverify');
 
-        // Report management routes
+        // Report management routes (bulk routes MUST come before {report} wildcard)
         Route::get('/reports', [App\Http\Controllers\ReportController::class, 'index'])->name('reports');
+        Route::post('/reports/bulk-accept', [App\Http\Controllers\ReportController::class, 'bulkAccept'])->name('reports.bulk-accept');
+        Route::post('/reports/bulk-reject', [App\Http\Controllers\ReportController::class, 'bulkReject'])->name('reports.bulk-reject');
         Route::get('/reports/{report}', [App\Http\Controllers\ReportController::class, 'show'])->name('reports.show');
         Route::post('/reports/{report}/accept', [App\Http\Controllers\ReportController::class, 'accept'])->name('reports.accept');
         Route::post('/reports/{report}/reject', [App\Http\Controllers\ReportController::class, 'reject'])->name('reports.reject');
-        Route::post('/reports/bulk-accept', [App\Http\Controllers\ReportController::class, 'bulkAccept'])->name('reports.bulk-accept');
-        Route::post('/reports/bulk-reject', [App\Http\Controllers\ReportController::class, 'bulkReject'])->name('reports.bulk-reject');
     });
 
     // User report routes (authenticated users can report posts)
