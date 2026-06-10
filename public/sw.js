@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-cache-v4';
+const CACHE_NAME = 'nexus-cache-v5';
 
 const STATIC_ASSETS = [
     '/css/app-layout.css',
@@ -100,7 +100,8 @@ self.addEventListener('notificationclick', (event) => {
 
 // ── Fetch (cache strategy) ──────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  let url;
+  try { url = new URL(event.request.url); } catch (e) { return; }
 
   // Skip SW for sensitive/dynamic routes
   if (url.pathname.startsWith('/login') ||

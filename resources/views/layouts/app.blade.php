@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
-    
     {{-- Speed & Performance Optimization --}}
 
     
@@ -13,6 +11,7 @@
         (function() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            document.documentElement.style.background = savedTheme === 'dark' ? '#0a0a0b' : '#ffffff';
             if (window.self !== window.top) {
                 document.documentElement.classList.add('in-iframe');
             }
@@ -42,7 +41,7 @@
 
     <meta name="theme-color" content="#111111">
     <link rel="manifest" href="/manifest.json">
-    <link rel="icon" href="/images/nexus-logo-white.png">
+
     
     <script>
         // Register Service Worker for PWA support
@@ -247,8 +246,7 @@
     <header class="header">
         <div class="header-inner">
             <a href="{{ route('home') }}" class="logo">
-                <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-black">
-                <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-white">
+                <x-logo-text />
             </a>
 
             @auth
@@ -1578,7 +1576,7 @@
     {{-- Floating chat button + drawer moved to posts/index.blade.php (feed page only) --}}
 
     {{-- Global modal a11y: Escape to close, focus trap, backdrop click --}}
-    <script src="{{ asset('js/modal-a11y.js') }}?v={{ time() }}" defer></script>
+    <script src="{{ asset('js/modal-a11y.js') }}?v={{ filemtime(public_path('js/modal-a11y.js')) }}" defer></script>
 
     {{-- Sensitive content reveal --}}
     <script>

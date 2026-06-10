@@ -25,6 +25,11 @@ html[dir="rtl"] .feed-sidebar-left {
     margin-right: 0;
 }
 
+/* RTL: right sidebar flips to the left — swap the edge padding so it gets breathing room */
+html[dir="rtl"] .feed-layout {
+    padding: 20px 0 32px 32px;
+}
+
 .feed-container {
     margin: 0 auto;
     max-width: var(--feed-w, 700px);
@@ -1945,6 +1950,9 @@ html[dir="rtl"] .fsr-online-dot {
     direction: ltr;
     unicode-bidi: embed;
 }
+[dir="rtl"] .create-post-handle {
+    text-align: right;
+}
 
 /* Privacy chip — refined pill that sits to the right of name + handle */
 .create-post-header .privacy-btn {
@@ -3451,6 +3459,10 @@ html[dir="rtl"] .floating-chat-btn .btn-badge { right: auto; left: -4px; }
     align-items: center;
     justify-content: space-between;
     padding-right: 32px;
+}
+html[dir="rtl"] .memory-card-head {
+    padding-right: 0;
+    padding-left: 32px;
 }
 .memory-countdown {
     font-size: 11.5px;

@@ -431,14 +431,18 @@ class SocketManager {
                 // If on a specific group feed, only show if it matches this group
                 const targetGroupId = container.dataset.groupId;
                 const incomingGroupId = data.social_group_id;
-                
+
                 if (targetGroupId && String(targetGroupId) !== String(incomingGroupId)) {
                     // This is a group-specific feed, and the incoming post is for a different group (or global)
                     return;
                 }
 
+                // Pick the HTML version that matches the current page language
+                const lang = document.documentElement.lang || 'en';
+                const html = (lang === 'ar' && data.html_ar) ? data.html_ar : data.html;
+
                 // Prepend new post
-                container.insertAdjacentHTML('afterbegin', data.html);
+                container.insertAdjacentHTML('afterbegin', html);
 
                 // Remove empty state if exists
                 const emptyState = container.querySelector('.empty-state');

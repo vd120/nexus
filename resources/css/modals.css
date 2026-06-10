@@ -257,6 +257,7 @@
 @media (max-width: 640px) {
     .modal {
         padding: 0;
+        padding-bottom: calc(56px + env(safe-area-inset-bottom));
         align-items: flex-end;
     }
 

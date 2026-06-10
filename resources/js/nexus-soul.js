@@ -75,6 +75,7 @@
 
     const SOUND_KEY = 'nexus_sound';
     const enabled = () => localStorage.getItem(SOUND_KEY) !== '0';
+    const isDND   = () => localStorage.getItem('nexus_dnd_enabled') === 'true';
 
     function ensureCtx() {
         if (ctx) return ctx;
@@ -100,10 +101,7 @@
         window.addEventListener(ev, unlock, { once: true, passive: true });
     });
 
-    function tone(o) {
-        if (!enabled()) return;
-        const c = ensureCtx();
-        if (!c) return;
+    function _scheduleTone(c, o) {
         const now = c.currentTime;
         const osc = c.createOscillator();
         const g = c.createGain();
@@ -118,6 +116,17 @@
         osc.connect(g).connect(masterGain);
         osc.start(now);
         osc.stop(now + o.dur + 0.02);
+    }
+
+    function tone(o) {
+        if (!enabled()) return;
+        const c = ensureCtx();
+        if (!c) return;
+        if (c.state === 'suspended') {
+            c.resume().then(() => _scheduleTone(c, o)).catch(() => {});
+            return;
+        }
+        _scheduleTone(c, o);
     }
 
     const Sounds = {
@@ -177,7 +186,7 @@
         post:         () => { Haptics.post();           Sounds.success();  },
         comment:      () => { Haptics.light();          Sounds.tick();     },
         delete:       () => { Haptics.delete();         Sounds.delete();   },
-        notification: () => { Haptics.notification();   Sounds.receive();  },
+        notification: () => { if (!isDND()) { Haptics.notification(); Sounds.receive(); } },
         select:       () => { Haptics.selection();      Sounds.tick();     },
         error:        () => { Haptics.error();          Sounds.error();    },
         open:         () => { Haptics.feather();        Sounds.tick();     },

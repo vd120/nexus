@@ -8,7 +8,7 @@
                 <div class="author-top-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                     <span class="author-name anonymous-name">{{ __('messages.anonymous_participant') }}</span>
                     @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
-                        <span class="header-in-word">in</span>
+                        <span class="header-in-word">{{ __('messages.in_community') }}</span>
                         <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name"><i class="fas fa-users"></i> {{ $group->name }}</a>
                     @endif
                     <i class="fas fa-thumbtack pinned-icon-simple" id="pinned-icon-{{ $post->id }}" style="margin-left: 6px; font-size: 13px; color: var(--primary); transform: rotate(45deg); opacity: 0.9; {{ $post->isPinned() ? '' : 'display: none;' }}" title="{{ __('users.pinned_to_profile') }}"></i>
@@ -24,7 +24,7 @@
 
                     {{-- "in Community" --}}
                     @if(isset($group) && $group && (!isset($hideGroupContext) || !$hideGroupContext))
-                        <span class="header-in-word">in</span>
+                        <span class="header-in-word">{{ __('messages.in_community') }}</span>
                         <a href="{{ route('communities.show', $group->slug) }}" class="group-context-name"><i class="fas fa-users"></i> {{ $group->name }}</a>
                     @endif
 

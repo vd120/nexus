@@ -418,30 +418,36 @@ class PostController extends Controller
                 $post->user->append('avatar_url');
             }
 
-            $hideGroupContext = $request->filled('social_group_id');
-            // Render the post HTML without broadcast flag for the owner (so analytics button shows)
+            // Owner sees the post on the community page they just posted from — hide "in X" there
             $ownerPostHtml = view('partials.post', [
                 'post' => $post,
                 'is_broadcast' => false,
-                'hideGroupContext' => $hideGroupContext
+                'hideGroupContext' => $request->filled('social_group_id'),
             ])->render();
-            // Render with is_broadcast for non-owner recipients
-            $postHtml = view('partials.post', [
-                'post' => $post,
-                'is_broadcast' => true,
-                'hideGroupContext' => $hideGroupContext
-            ])->render();
+
+            // Render broadcast HTML in every supported locale so each recipient
+            // gets the version that matches their own language setting.
+            $currentLocale = app()->getLocale();
+            $broadcastViewData = ['post' => $post, 'is_broadcast' => true, 'hideGroupContext' => false];
+            app()->setLocale('en');
+            $postHtmlEn = view('partials.post', $broadcastViewData)->render();
+            app()->setLocale('ar');
+            $postHtmlAr = view('partials.post', $broadcastViewData)->render();
+            app()->setLocale($currentLocale);
+
+            $socketPayload = [
+                'id'              => $post->id,
+                'slug'            => $post->slug,
+                'user_id'         => $post->user_id,
+                'social_group_id' => $post->social_group_id,
+                'html'            => $postHtmlEn,
+                'html_ar'         => $postHtmlAr,
+            ];
 
             // Broadcast to all followers
             $socketService = app(\App\Services\SocketEmitService::class);
             foreach (auth()->user()->followers as $follower) {
-                $socketService->emitToUser($follower->follower_id, 'post:new', [
-                    'id' => $post->id,
-                    'slug' => $post->slug,
-                    'user_id' => $post->user_id,
-                    'social_group_id' => $post->social_group_id,
-                    'html' => $postHtml,
-                ]);
+                $socketService->emitToUser($follower->follower_id, 'post:new', $socketPayload);
             }
 
             // Broadcast to Group Members if it's a group post and approved
@@ -452,25 +458,13 @@ class PostController extends Controller
                     ->pluck('user_id');
 
                 foreach ($memberIds as $memberId) {
-                    $socketService->emitToUser($memberId, 'post:new', [
-                        'id' => $post->id,
-                        'slug' => $post->slug,
-                        'user_id' => $post->user_id,
-                        'social_group_id' => $post->social_group_id,
-                        'html' => $postHtml,
-                    ]);
+                    $socketService->emitToUser($memberId, 'post:new', $socketPayload);
                 }
             }
 
             // GLOBAL BROADCAST: If post is public and approved, send to everyone
             if (!$post->is_private && !$post->social_group_id && $post->is_approved) {
-                $socketService->emit('global', 'post:new', [
-                    'id' => $post->id,
-                    'slug' => $post->slug,
-                    'user_id' => $post->user_id,
-                    'social_group_id' => null,
-                    'html' => $postHtml,
-                ]);
+                $socketService->emit('global', 'post:new', array_merge($socketPayload, ['social_group_id' => null]));
             }
 
             return response()->json([

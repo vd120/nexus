@@ -4,10 +4,11 @@
     <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#000000':'#ffffff'})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+
     <title data-t="home.nexus" data-t-type="title">Nexus — {{ __('home.your_social_platform') }}</title>
     <link rel="stylesheet" href="/fonts/all.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <link rel="preload" href="/vendor/fontawesome/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css"></noscript>
 
     <style>
         :root {
@@ -755,8 +756,7 @@
 <nav class="waiting-for-typing">
     <div class="nav-inner">
         <a href="/" class="nav-logo">
-            <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-white" loading="eager" fetchpriority="high">
-            <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-black" loading="eager" fetchpriority="high">
+            <x-logo-text />
         </a>
         <div class="nav-links">
             <a href="/privacy" data-t="home.privacy_nav">{{ __('home.privacy_nav') }}</a>

@@ -27,6 +27,7 @@ pkill -f "php artisan octane"
 pkill -f "node src/index.js"
 pkill -f "node proxy.cjs"
 pkill -f "frankenphp"
+pkill -f "queue:work"
 
 echo "● Starting Services for https://nxs.qzz.io/"
 mkdir -p storage/logs
@@ -35,7 +36,7 @@ mkdir -p storage/logs
 export NODE_NO_WARNINGS=1
 
 # 1. Start Octane
-php artisan octane:start --host=127.0.0.1 --port=8000 --max-requests=100 --workers=8 > octane.log 2>&1 &
+php artisan octane:start --host=127.0.0.1 --port=8000 --max-requests=100 --workers=6 > octane.log 2>&1 &
 echo "  > Started Octane (8000)"
 
 # 2. Start Socket Server
@@ -50,7 +51,11 @@ echo "  > Started Proxy (8080)"
 cloudflared tunnel --config /home/awad/.cloudflared/config.yaml run nxs-tunnel > tunnel.log 2>&1 &
 echo "  > Started Tunnel"
 
-# 5. Warm-up
+# 5. Queue Worker
+php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 > storage/logs/queue.log 2>&1 &
+echo "  > Started Queue Worker (Redis)"
+
+# 6. Warm-up
 php artisan nexus:warm --force
 echo "✔ System Online."
 echo "------------------------------------------------"

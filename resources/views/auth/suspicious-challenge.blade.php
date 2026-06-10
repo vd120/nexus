@@ -4,15 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
+
 <title>{{ __('auth.suspicious_login_title') }} — Nexus</title>
 
-<script>
-    (function() {
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-    })();
-</script>
+<script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#0a0a0b':'#ffffff'})();</script>
 <style>
     html[data-theme="dark"] { background: #0a0a0b; color: #f5f5f7; }
     html[data-theme="light"] { background: #ffffff; color: #111111; }
@@ -38,8 +33,7 @@
 <nav>
     <div class="nav-container">
         <a href="{{ route('home') }}" class="nav-brand">
-            <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-dark">
-            <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-light">
+            <x-logo-text />
         </a>
         <div class="auth-header-actions">
             @include('partials.language-switcher')

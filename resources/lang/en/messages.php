@@ -960,4 +960,6 @@ return [
     // VoIP / Calls — errors
     'call_mic_denied'       => 'Microphone access denied. Please allow microphone permissions.',
     'call_start_failed'     => 'Could not start the call. Please try again.',
+
+    'in_community'          => 'in',
 ];

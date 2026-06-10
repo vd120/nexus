@@ -256,8 +256,10 @@
             const postCard = btn.closest('.post-card');
             const engagementCount = postCard?.querySelector('[data-engagement-count] span');
 
-            // Trigger haptic feedback
-            if (window.NexusHaptics) window.NexusHaptics.impact();
+            // Trigger haptic + sound feedback
+            if (window.NexusSoul) {
+                isCurrentlyLiked ? window.NexusSoul.feedback.unlike() : window.NexusSoul.feedback.like();
+            }
 
             // Immediate UI toggle
             if (isCurrentlyLiked) {
@@ -334,8 +336,10 @@
             const isCurrentlySaved = btn.classList.contains('saved');
             const icon = btn.querySelector('i');
 
-            // Trigger haptic feedback
-            if (window.NexusHaptics) window.NexusHaptics.impact();
+            // Trigger haptic + sound feedback
+            if (window.NexusSoul) {
+                isCurrentlySaved ? window.NexusSoul.feedback.unsave() : window.NexusSoul.feedback.save();
+            }
 
             // Immediate UI toggle
             if (isCurrentlySaved) {
@@ -733,10 +737,12 @@
         };
 
         window.quickFollow = function(username, btn) {
-            // Trigger haptic feedback
-            if (window.NexusHaptics) window.NexusHaptics.impact();
-
             const isFollowing = btn.getAttribute('data-following') === 'true';
+
+            // Trigger haptic + sound feedback
+            if (window.NexusSoul) {
+                isFollowing ? window.NexusSoul.feedback.unfollow() : window.NexusSoul.feedback.follow();
+            }
             const span = btn.querySelector('span');
 
             fetch('/users/' + username + '/follow', {

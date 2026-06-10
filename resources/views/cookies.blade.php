@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+
     <title data-t="home.cookies_title" data-t-type="title">{{ __('home.cookies_title') }} — Nexus</title>
     <link rel="stylesheet" href="/fonts/all.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t)})();</script>
+    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#0a0a0b':'#ffffff'})();</script>
 
     <style>
         :root {
@@ -323,8 +323,7 @@
 <nav>
     <div class="nav-inner">
         <a href="/" class="nav-logo">
-            <img src="{{ asset('images/nexus-logo-white.png') }}" alt="Nexus" class="logo-white">
-            <img src="{{ asset('images/nexus-logo-black.png') }}" alt="Nexus" class="logo-black">
+            <x-logo-text />
         </a>
         
         <div class="nav-actions">

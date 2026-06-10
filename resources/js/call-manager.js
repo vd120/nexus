@@ -79,9 +79,10 @@
     //   even when the user has previously interacted with the page.
     // ---------------------------------------------------------------------------
 
-    let ringtoneActive  = false;
-    let vibrateTimer    = null;
-    let ringSourceNode  = null;   // active Web Audio BufferSourceNode while ringing
+    let ringtoneActive    = false;
+    let vibrateTimer      = null;
+    let ringSourceNode    = null;   // active Web Audio BufferSourceNode while ringing
+    let _callAudioNeeded  = false;  // true only when a call is incoming/active — guards eager audio unlock
 
     var _audioCtx   = null;
     var _ringBuffer = null;   // decoded AudioBuffer, built once when ctx first runs
@@ -201,11 +202,13 @@
     }
 
     function onGesture() {
-        // Resume AudioContext — this is the critical unlock for ring-without-touch.
-        // Once resumed inside a gesture, the context stays 'running' for the page lifetime.
+        // Only unlock audio when a call is actually incoming or active.
+        // Eagerly creating/resuming AudioContext on every tap causes the OS to
+        // duck background music (iOS/Android audio session activation).
+        if (!_callAudioNeeded) return;
+
         _resumeCtxAndBuildBuffer();
 
-        // Fallback: also unlock <audio> elements for browsers without Web Audio API
         if (ringAudio.dataset.unlocked !== 'resolved') tryUnlockElement(ringAudio);
         var rem = document.getElementById('call-remote-audio');
         if (rem && rem.dataset.unlocked !== 'resolved') tryUnlockElement(rem);
@@ -279,7 +282,9 @@
 
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState !== 'visible') return;
-        // App came to foreground — resume context (iOS/Android suspend it on backgrounding)
+        // Only resume AudioContext when a call is active — avoids re-ducking background
+        // music every time the user switches tabs or comes back to the page.
+        if (!ringtoneActive && !_callAudioNeeded) return;
         _resumeCtxAndBuildBuffer();
         if (ringtoneActive) {
             if (_audioCtx && _audioCtx.state === 'running') {
@@ -625,8 +630,9 @@
     // ---------------------------------------------------------------------------
 
     function startCall(callId, toUserId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
-        currentCallId = callId;
-        targetUserId  = toUserId;
+        currentCallId    = callId;
+        targetUserId     = toUserId;
+        _callAudioNeeded = true;  // user initiated a call — safe to use audio session
 
         // Pre-unlock remote audio inside this user-gesture context (button click)
         const remoteAudio = getOrCreateRemoteAudio();
@@ -667,9 +673,10 @@
         // ------------------------------------------------------------------
         socket.on('call:incoming', (data) => {
             // data: { callId, callerId, callerName, callerAvatar, conversationId }
-            pendingIncomingCall = data;
-            currentCallId       = data.callId;
-            targetUserId        = data.callerId;
+            pendingIncomingCall  = data;
+            currentCallId        = data.callId;
+            targetUserId         = data.callerId;
+            _callAudioNeeded     = true;  // unlock audio on next gesture
 
             if (window.CallModal && typeof window.CallModal.showIncoming === 'function') {
                 window.CallModal.showIncoming(data);
