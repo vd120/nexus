@@ -12,8 +12,18 @@
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             document.documentElement.style.background = savedTheme === 'dark' ? '#0a0a0b' : '#ffffff';
+            // If we navigated here from a link, show the spinner immediately on first paint
+            // so there is no blank gap between the old page unloading and this page rendering.
+            if (sessionStorage.getItem('_nx_loading') === '1') {
+                document.documentElement.classList.add('nx-page-loading');
+            }
             if (window.self !== window.top) {
                 document.documentElement.classList.add('in-iframe');
+            }
+            // PWA animated splash: activate only in standalone mode, once per session
+            if (!sessionStorage.getItem('_nx_splash') &&
+                (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)) {
+                document.documentElement.classList.add('pwa-launch');
             }
         })();
 
@@ -30,6 +40,7 @@
             document.documentElement.classList.add('touch-device');
         }
 
+
     </script>
 
     <style>
@@ -41,6 +52,66 @@
 
     <meta name="theme-color" content="#111111">
     <link rel="manifest" href="/manifest.json">
+
+    {{-- Favicon — theme-aware SVG with ICO fallback for legacy browsers --}}
+    <link rel="icon" type="image/svg+xml" href="/images/nexus-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/svg+xml" href="/images/nexus-dark.svg" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/svg+xml" href="/images/nexus-dark.svg">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+
+    {{-- iOS PWA --}}
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Nexus">
+    <link rel="apple-touch-icon" href="/images/icons/nexus-icon-192.png">
+    {{-- Additional apple-touch-icon sizes (PWA additive) --}}
+    <link rel="apple-touch-icon" sizes="57x57"   href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="60x60"   href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="72x72"   href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="76x76"   href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/images/icons/nexus-icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/nexus-icon-512.png">
+    {{-- iOS Splash Screens (PWA additive — 13 unique sizes × 2 orientations) --}}
+    {{-- iPhone SE 2nd/3rd gen --}}
+    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/iphone-se2-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/iphone-se2-landscape.png">
+    {{-- iPhone 14 / 15 / 15 Pro / 16 --}}
+    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-landscape.png">
+    {{-- iPhone 14 Plus / 15 Plus / 15 Pro Max / 16 Plus --}}
+    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-plus-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-plus-landscape.png">
+    {{-- iPhone 14 Pro / 15 / 15 Pro / 16 --}}
+    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-landscape.png">
+    {{-- iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus --}}
+    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-max-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-max-landscape.png">
+    {{-- iPhone 16 Pro --}}
+    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-landscape.png">
+    {{-- iPhone 16 Pro Max --}}
+    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-max-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-max-landscape.png">
+    {{-- iPad 9th gen --}}
+    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-9-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-9-landscape.png">
+    {{-- iPad Mini 6 --}}
+    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-mini6-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-mini6-landscape.png">
+    {{-- iPad Air 5 --}}
+    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-air5-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-air5-landscape.png">
+    {{-- iPad Pro 11" --}}
+    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro11-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro11-landscape.png">
+    {{-- iPad Pro 12.9" --}}
+    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro129-portrait.png">
+    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro129-landscape.png">
 
     
     <script>
@@ -91,6 +162,10 @@
     {{-- Self-hosted font bundle — Cairo (Arabic) + Inter (body) + Plus Jakarta Sans + Bricolage Grotesque (display).
          No external CDN, no DNS handshake, no third-party tracking. Served from
          the same origin so the browser reuses an open HTTP/2 connection. --}}
+    {{-- Preload the two most-used latin font files so they are fetched in parallel with HTML parsing,
+         eliminating the FOUT caused by the browser discovering them late inside all.css --}}
+    <link rel="preload" href="{{ asset('fonts/gfonts/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2') }}" as="font" type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="{{ asset('fonts/gfonts/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInE.woff2') }}" as="font" type="font/woff2" crossorigin="anonymous">
     <link rel="stylesheet" href="{{ asset('fonts/all.css') }}">
     
     {{-- Critical CSS Fallback: Ensures branded background/text even if external CSS has a delay --}}
@@ -129,6 +204,68 @@
     <link rel="preload" href="{{ asset('vendor/fontawesome/css/all.min.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}"></noscript>
     
+    {{-- Nav loading indicator styles — inlined so they apply before any stylesheet loads --}}
+    <style>
+        /* Metaball gooey dots loader — visible while new page loads */
+        #nx-page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .nx-page-loading #nx-page-loader {
+            opacity: 1;
+            pointer-events: all;
+        }
+        @media (min-width: 768px) {
+            .nx-page-loading #nx-page-loader { opacity: 0; pointer-events: none; }
+        }
+        .nx-loader-ring {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--accent-500, #6366f1);
+            animation: nxSpin .7s linear infinite;
+        }
+        @keyframes nxSpin { to { transform: rotate(360deg); } }
+    </style>
+
+    {{-- PWA Animated Splash — inline so it applies before any stylesheet --}}
+    <style>
+        #pwa-splash {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: #0a0a0b;
+            align-items: center;
+            justify-content: center;
+        }
+        html.pwa-launch #pwa-splash {
+            display: flex;
+            animation: pwa-splash-out 0.5s cubic-bezier(0.4, 0, 1, 1) 1.6s forwards;
+        }
+        html.pwa-launch #pwa-splash svg {
+            width: 160px;
+            height: 160px;
+            animation: pwa-logo-wipe 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+        }
+        @keyframes pwa-logo-wipe {
+            from { clip-path: inset(110% 0 0 0); }
+            to   { clip-path: inset(0% 0 0 0); }
+        }
+        @keyframes pwa-splash-out {
+            to { opacity: 0; pointer-events: none; }
+        }
+    </style>
+
     {{-- Main Styles --}}
     @vite(['resources/css/app-layout.css', 'resources/css/mobile-header.css', 'resources/css/comments.css', 'resources/css/partial-posts.css', 'resources/css/modals.css', 'resources/css/life-chapters.css'])
 
@@ -233,6 +370,17 @@
     </style>
 </head>
 <body id="app-body">
+    {{-- PWA Animated Splash Screen --}}
+    <div id="pwa-splash" aria-hidden="true">
+        <svg viewBox="0 0 2048 2048" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path fill="#fefefe" d="M 1691.24 206.02 C 1696.46 205.148 1701.53 207.17 1706.8 208.634 C 1709.6 218.326 1709.53 228.043 1710.33 237.998 C 1713.48 277.105 1713.04 315.858 1713.03 355.049 C 1713.03 383.38 1713.7 411.894 1712.77 440.196 C 1712.15 459.294 1710.1 478.285 1709.7 497.413 C 1709.08 527.711 1710.21 558.241 1708.75 588.492 C 1707.61 612.411 1704.92 636.262 1703.04 660.121 C 1702.32 669.188 1702.33 678.3 1701.58 687.355 C 1696.77 745.555 1689.64 803.378 1682.21 861.273 C 1672.12 939.892 1658.45 1016.85 1639.61 1093.88 C 1634.64 1114.21 1630.22 1134.97 1624.19 1154.99 C 1618.65 1173.43 1612.15 1191.67 1606.03 1209.92 C 1576.56 1297.78 1539.64 1389.79 1467.77 1451.81 C 1457.21 1460.92 1447.03 1469.99 1434.62 1476.56 C 1385.03 1502.8 1347.17 1495.96 1300.45 1467.87 C 1196.04 1405.1 1110.21 1248.47 1048.96 1144.63 C 1029.71 1111.99 1011.03 1078.78 991.053 1046.61 C 979.464 1027.94 966.95 1009.8 954.913 991.419 C 919.814 937.809 881.391 882.96 832.23 841.235 C 812.007 824.071 790.434 808.313 764.762 800.495 C 737.352 792.147 703.554 793.523 678.098 807.299 C 635.196 830.516 604.648 881.263 583.357 923.497 C 523.132 1042.97 494.892 1175.06 470.867 1305.74 C 466.316 1330.5 460.787 1355.02 457.019 1379.94 C 450.651 1422.03 445.805 1464.86 441.592 1507.21 C 440.493 1518.26 440.796 1529.42 439.807 1540.5 C 438.004 1560.67 434.889 1580.74 433.873 1600.98 C 432.972 1618.96 433.546 1636.95 432.774 1654.91 C 432.2 1668.25 430.345 1681.7 428.743 1694.95 C 427.746 1703.19 427.325 1712.77 424.714 1720.65 C 422.758 1726.56 418.811 1729.11 413.473 1731.81 C 408.715 1732.27 402.777 1732.67 398.358 1730.56 C 395.141 1729.03 393.613 1726.54 392.426 1723.31 C 383.799 1699.9 386.786 1588.29 386.758 1558.88 C 386.724 1522.59 386.065 1486.07 387.125 1449.8 C 387.524 1436.17 389.699 1422.65 390.065 1409.03 C 390.807 1381.43 389.887 1353.74 391.073 1326.16 C 392.119 1301.85 395.378 1277.6 396.809 1253.35 C 397.551 1240.77 397.145 1228.12 398.186 1215.56 C 399.476 1200 401.757 1184.5 403.356 1168.97 C 404.502 1157.84 404.812 1146.63 406.133 1135.52 C 407.64 1122.86 410.059 1110.31 411.473 1097.64 C 414.022 1074.79 415.481 1051.99 418.519 1029.13 C 430.831 942.071 447.811 855.737 469.383 770.499 C 487.139 702.31 507.509 634.595 538.94 571.228 C 571.426 505.735 615.089 431.521 688.309 407.071 C 752.5 385.636 810.229 429.756 853.65 472.28 C 865.207 483.599 877.025 494.886 887.48 507.244 C 898.73 520.541 908.518 535.068 919.07 548.91 C 926.17 558.224 934.148 566.902 941.016 576.384 C 950.775 589.856 959.307 604.444 968.459 618.35 C 979.099 634.517 990.549 650.085 1000.84 666.499 C 1023.48 702.59 1044.25 739.825 1066.49 776.156 C 1108 843.952 1149.05 913.582 1198.92 975.688 C 1235.36 1021.09 1271.43 1057.59 1324.2 1083.68 C 1331.17 1087.13 1338.31 1090.13 1345.97 1091.63 C 1362.21 1094.83 1390.92 1094.93 1406.63 1089.51 C 1418.51 1085.41 1428.63 1078.8 1438.73 1071.46 C 1445.17 1066.78 1451.85 1062.09 1457.62 1056.6 C 1569.54 950.131 1628.47 644.894 1650.58 492.223 C 1651.92 482.921 1652.35 473.475 1653.51 464.14 L 1665.89 357.02 C 1668.09 336.765 1670.99 226.226 1677.35 214.474 C 1680.54 208.589 1685.24 207.539 1691.24 206.02 z"/>
+        </svg>
+    </div>
+
+    {{-- Navigation loading indicator --}}
+    <div id="nx-page-loader" aria-hidden="true">
+        <div class="nx-loader-ring"></div>
+    </div>
     <a href="#main-content" class="skip-link" style="
         position:absolute;top:-100%;left:1rem;
         background:var(--accent,#6366f1);color:#fff;
@@ -250,19 +398,22 @@
             </a>
 
             @auth
-            @php 
-                $unreadMessages = \App\Models\Message::where('sender_id', '!=', auth()->id())
-                    ->where('type', '!=', 'system')
-                    ->where('content', '!=', 'system_cleared')
-                    ->whereNull('read_at')
-                    ->whereHas('conversation', function($q) {
-                        $q->where('user1_id', auth()->id())
-                          ->orWhere('user2_id', auth()->id())
-                          ->orWhereHas('group.members', function($q2) {
-                              $q2->where('user_id', auth()->id());
-                          });
-                    })
-                    ->count();
+            @php
+                $unreadMessages = \Illuminate\Support\Facades\Cache::remember(
+                    'unread_messages_' . auth()->id(), 60,
+                    fn() => \App\Models\Message::where('sender_id', '!=', auth()->id())
+                        ->where('type', '!=', 'system')
+                        ->where('content', '!=', 'system_cleared')
+                        ->whereNull('read_at')
+                        ->whereHas('conversation', function($q) {
+                            $q->where('user1_id', auth()->id())
+                              ->orWhere('user2_id', auth()->id())
+                              ->orWhereHas('group.members', function($q2) {
+                                  $q2->where('user_id', auth()->id());
+                              });
+                        })
+                        ->count()
+                );
             @endphp
             <nav class="nav-links">
                 <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}"><i class="fas fa-home"></i> {{ __('navigation.home') }}</a>
@@ -275,6 +426,12 @@
                 </a>
                 <a href="{{ route('ai.index') }}" class="{{ request()->routeIs('ai.*') ? 'active' : '' }}"><i class="fas fa-robot"></i> {{ __('navigation.ai_assistant') }}</a>
             </nav>
+            @endauth
+
+            @auth
+            <a href="{{ route('search') }}" class="nav-action-btn {{ request()->routeIs('search') ? 'active' : '' }}" title="{{ __('users.search') }}" style="text-decoration:none;">
+                <i class="fas fa-search"></i>
+            </a>
             @endauth
 
             <div class="user-actions">
@@ -295,7 +452,12 @@
 
                 @auth
                 <div style="position: relative;">
-                    @php $unreadCount = auth()->user()->notifications()->unread()->count(); @endphp
+                    @php
+                        $unreadCount = \Illuminate\Support\Facades\Cache::remember(
+                            'unread_notifications_' . auth()->id(), 60,
+                            fn() => auth()->user()->notifications()->unread()->count()
+                        );
+                    @endphp
                     <button class="nav-action-btn" id="notifBtn" onclick="toggleNotifications(event)">
                     <i class="fas fa-bell" id="notif-bell-icon"></i>
                         <span class="badge" id="notif-badge" {!! $unreadCount > 0 ? '' : 'style="display: none;"' !!}>
@@ -373,6 +535,11 @@
         <a href="{{ route('admin.dashboard') }}"><i class="fas fa-shield-alt"></i> {{ __('navigation.admin_panel') }}</a>
         @endif
         <div class="divider"></div>
+
+        <!-- Download / Install App -->
+        <a href="{{ route('download') }}">
+            <i class="fas fa-download"></i> Get the App
+        </a>
 
         <!-- Push Notifications Settings -->
         <a href="javascript:void(0)" onclick="closeAllDropdowns(); setTimeout(() => showPushSettings(), 100);">
@@ -550,13 +717,14 @@
                                 <button type="button" onclick="dismiss2FANudge()" class="btn btn-ghost" style="font-size:.8rem; padding:.375rem .75rem;">{{ __('auth.close') }}</button>
                             </div>
                         </div>
-                        <button onclick="dismiss2FANudge()" style="background:none;border:none;cursor:pointer;opacity:.4;padding:0;font-size:1rem;line-height:1;" aria-label="{{ __('auth.close') }}">&times;</button>
+                        <button onclick="dismiss2FANudge()" style="background:none;border:none;cursor:pointer;opacity:.4;padding:0;font-size:1rem;line-height:1;color:inherit;" aria-label="{{ __('auth.close') }}">&times;</button>
                     </div>
                     <script>
                     (function() {
                         var b = document.getElementById('2fa-nudge-banner');
                         if (!b) return;
-                        function apply2faMobileStyle() {
+                        function stackNudgeBanners() {
+                            var nudge = document.getElementById('prompt-nudge-banner');
                             if (window.innerWidth <= 900) {
                                 b.style.bottom = 'calc(72px + env(safe-area-inset-bottom))';
                                 b.style.right = '0';
@@ -564,6 +732,15 @@
                                 b.style.margin = '0 auto';
                                 b.style.width = 'calc(100vw - 2rem)';
                                 b.style.maxWidth = '480px';
+                                if (nudge) {
+                                    var gap = 8;
+                                    nudge.style.bottom = 'calc(72px + env(safe-area-inset-bottom) + ' + (b.offsetHeight + gap) + 'px)';
+                                    nudge.style.right = '0';
+                                    nudge.style.left = '0';
+                                    nudge.style.margin = '0 auto';
+                                    nudge.style.width = 'calc(100vw - 2rem)';
+                                    nudge.style.maxWidth = '480px';
+                                }
                             } else {
                                 b.style.bottom = '1.5rem';
                                 b.style.right = '1.5rem';
@@ -571,15 +748,34 @@
                                 b.style.margin = '';
                                 b.style.width = 'calc(100vw - 3rem)';
                                 b.style.maxWidth = '360px';
+                                if (nudge) {
+                                    nudge.style.bottom = '';
+                                    nudge.style.right = '';
+                                    nudge.style.left = '';
+                                    nudge.style.margin = '';
+                                    nudge.style.width = '';
+                                    nudge.style.maxWidth = '';
+                                }
                             }
                         }
-                        apply2faMobileStyle();
-                        window.addEventListener('resize', apply2faMobileStyle);
+                        window.stack2faNudge = stackNudgeBanners;
+                        window.addEventListener('DOMContentLoaded', stackNudgeBanners);
+                        window.addEventListener('resize', stackNudgeBanners);
                     })();
                     </script>
                     <script>
                     function dismiss2FANudge() {
                         document.getElementById('2fa-nudge-banner')?.remove();
+                        // Reset REMINDER banner to its default CSS-driven position
+                        var nudge = document.getElementById('prompt-nudge-banner');
+                        if (nudge) {
+                            nudge.style.bottom = '';
+                            nudge.style.right = '';
+                            nudge.style.left = '';
+                            nudge.style.margin = '';
+                            nudge.style.width = '';
+                            nudge.style.maxWidth = '';
+                        }
                         fetch('/settings/2fa/nudge-dismiss', {
                             method: 'POST',
                             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
@@ -669,12 +865,12 @@
                 #prompt-nudge-banner .nudge-close:hover { opacity: .7; }
                 @@media (max-width: 900px) {
                     #prompt-nudge-banner {
-                        bottom: calc(72px + env(safe-area-inset-bottom));
                         left: 0;
                         right: 0;
                         margin: 0 auto;
                         width: calc(100vw - 2rem);
                         max-width: 480px;
+                        bottom: calc(72px + env(safe-area-inset-bottom));
                     }
                 }
                 </style>
@@ -728,6 +924,7 @@
                             banner.remove();
                         }
                     }
+                    if (typeof window.stack2faNudge === 'function') window.stack2faNudge();
                     fetch('/settings/prompt-nudge/dismiss', {
                         method: 'POST',
                         headers: {
@@ -737,6 +934,8 @@
                         body: JSON.stringify({ type: type })
                     });
                 }
+                // Stack banners now that both are in the DOM
+                if (typeof window.stack2faNudge === 'function') window.stack2faNudge();
                 </script>
                 @endif
             @endauth
@@ -745,9 +944,80 @@
         </div>
     </main>
 
+    {{-- ── PWA Banners (additive — do not affect website behavior) ─────────── --}}
+    {{-- Android install banner --}}
+    <div id="pwa-install-banner" hidden style="
+        position:fixed;bottom:0;left:0;right:0;z-index:9000;
+        background:var(--card-bg,#1e1e2e);border-top:1px solid rgba(99,102,241,.3);
+        display:flex;align-items:center;gap:12px;padding:12px 16px;
+        padding-bottom:calc(12px + env(safe-area-inset-bottom));
+    ">
+        <div style="flex:1;min-width:0;">
+            <strong style="display:block;font-size:.9rem;">{{ __('pwa.install_title') }}</strong>
+            <span style="font-size:.78rem;opacity:.65;">{{ __('pwa.install_subtitle') }}</span>
+        </div>
+        <button id="pwa-install-btn" style="
+            background:var(--accent-500,#6366f1);color:#fff;border:none;
+            border-radius:8px;padding:8px 16px;font-size:.875rem;font-weight:600;cursor:pointer;
+        ">{{ __('pwa.install_btn') }}</button>
+        <button id="pwa-install-dismiss" aria-label="{{ __('pwa.dismiss') }}" style="
+            background:none;border:none;color:inherit;opacity:.4;cursor:pointer;font-size:1.2rem;padding:4px;
+        ">&times;</button>
+    </div>
 
+    {{-- iOS Safari install guide --}}
+    <div id="ios-install-banner" hidden style="
+        position:fixed;bottom:0;left:0;right:0;z-index:9000;
+        background:var(--card-bg,#1e1e2e);border-top:1px solid rgba(99,102,241,.3);
+        padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));text-align:center;
+    ">
+        <strong style="display:block;margin-bottom:6px;">{{ __('pwa.ios_install_guide') }}</strong>
+        <p style="font-size:.82rem;opacity:.7;margin:0 0 12px;">{{ __('pwa.ios_share_then_add') }}</p>
+        <button id="ios-install-dismiss" style="
+            background:var(--accent-500,#6366f1);color:#fff;border:none;
+            border-radius:8px;padding:8px 24px;font-size:.875rem;font-weight:600;cursor:pointer;
+        ">{{ __('pwa.got_it') }}</button>
+    </div>
+
+    {{-- iOS non-Safari (Chrome/Firefox on iOS) --}}
+    <div id="ios-open-in-safari-banner" hidden style="
+        position:fixed;bottom:0;left:0;right:0;z-index:9000;
+        background:var(--card-bg,#1e1e2e);border-top:1px solid rgba(99,102,241,.3);
+        padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));
+        display:flex;align-items:center;gap:12px;
+    ">
+        <span style="font-size:.85rem;flex:1;">{{ __('pwa.ios_open_in_safari') }}</span>
+        <button id="ios-open-in-safari-dismiss" aria-label="{{ __('pwa.dismiss') }}" style="
+            background:none;border:none;color:inherit;opacity:.4;cursor:pointer;font-size:1.2rem;padding:4px;flex-shrink:0;
+        ">&times;</button>
+    </div>
+
+    {{-- SW update banner --}}
+    <div id="sw-update-banner" hidden style="
+        position:fixed;top:0;left:0;right:0;z-index:9001;
+        background:var(--accent-500,#6366f1);color:#fff;
+        display:flex;align-items:center;justify-content:center;gap:12px;
+        padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));
+        font-size:.875rem;
+    ">
+        <span>{{ __('pwa.update_available') }}</span>
+        <button id="sw-update-refresh" style="
+            background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);
+            border-radius:6px;padding:4px 12px;font-size:.8rem;cursor:pointer;font-weight:600;
+        ">{{ __('pwa.refresh') }}</button>
+    </div>
+
+    {{-- Offline indicator --}}
+    <div id="offline-indicator" hidden style="
+        position:fixed;bottom:0;left:0;right:0;z-index:8999;
+        background:#ef4444;color:#fff;text-align:center;
+        padding:8px 16px;padding-bottom:calc(8px + env(safe-area-inset-bottom));
+        font-size:.82rem;font-weight:600;
+    ">{{ __('pwa.offline_message') }}</div>
 
     <div id="toast-container"></div>
+
+    @stack('body-modals')
 
     @auth
         <script>
@@ -764,6 +1034,53 @@
             };
         </script>
     @endauth
+
+    <script>
+        // Nav loading indicator
+        var nxLoaderTimer = null;
+
+        function nxHideLoader() {
+            sessionStorage.removeItem('_nx_loading');
+            document.documentElement.classList.remove('nx-page-loading');
+            if (nxLoaderTimer) { clearTimeout(nxLoaderTimer); nxLoaderTimer = null; }
+        }
+
+        function nxShowLoader() {
+            sessionStorage.setItem('_nx_loading', '1');
+            document.documentElement.classList.add('nx-page-loading');
+            if (nxLoaderTimer) clearTimeout(nxLoaderTimer);
+            nxLoaderTimer = setTimeout(nxHideLoader, 8000);
+        }
+
+        // Hide as soon as the new page's DOM is ready
+        document.addEventListener('DOMContentLoaded', nxHideLoader);
+
+        // bfcache: hitting back/forward restores page instantly — no loading needed
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) nxHideLoader();
+        });
+
+        // Show loader on navigation clicks — bubble phase so child handlers run first
+        // This means if a child calls preventDefault(), we see it correctly
+        document.addEventListener('click', function(e) {
+            if (e.defaultPrevented) return;
+            var a = e.target.closest('a[href]');
+            if (!a) return;
+            var href = a.getAttribute('href');
+            if (!href) return;
+            // Skip non-navigation hrefs
+            if (href.startsWith('#') || href.startsWith('javascript') || href.startsWith('mailto') || href.startsWith('tel')) return;
+            if (a.hasAttribute('download')) return;
+            if (a.target === '_blank') return;
+            try {
+                var url = new URL(href, window.location.origin);
+                if (url.origin !== window.location.origin) return;
+                // Same page — only a hash change, no real navigation
+                if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+            } catch(err) { return; }
+            nxShowLoader();
+        }, false); // false = bubble phase
+    </script>
 
     <script>
         // GLOBAL UTILITIES - MUST LOAD FIRST
@@ -1738,6 +2055,26 @@
         }
     @endphp
     <script>window.CALL_CONFIG = { iceServers: @json($callIceServers) };</script>
+    <script>
+        // PWA install prompt — capture event and expose globally so any button can trigger it
+        window.__pwaInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.__pwaInstallPrompt = e;
+            document.dispatchEvent(new CustomEvent('pwa:installable'));
+        });
+        window.addEventListener('appinstalled', () => {
+            window.__pwaInstallPrompt = null;
+            document.dispatchEvent(new CustomEvent('pwa:installed'));
+        });
+        window.nexusInstallPWA = async () => {
+            if (!window.__pwaInstallPrompt) return false;
+            window.__pwaInstallPrompt.prompt();
+            const { outcome } = await window.__pwaInstallPrompt.userChoice;
+            if (outcome === 'accepted') window.__pwaInstallPrompt = null;
+            return outcome === 'accepted';
+        };
+    </script>
     <script src="{{ asset('js/call-manager.js') }}?v={{ filemtime(public_path('js/call-manager.js')) }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -1749,6 +2086,18 @@
                 });
             }
         });
+    </script>
+
+    {{-- PWA splash cleanup: hide after animation completes, mark session so it won't repeat --}}
+    <script>
+    (function() {
+        if (!document.documentElement.classList.contains('pwa-launch')) return;
+        setTimeout(function() {
+            var s = document.getElementById('pwa-splash');
+            if (s) s.style.display = 'none';
+            sessionStorage.setItem('_nx_splash', '1');
+        }, 2100);
+    })();
     </script>
 </body>
 </html>

@@ -189,4 +189,8 @@ return [
     'page_not_found' => 'Page Not Found',
     'lost_in_space' => "It seems you've drifted too far into the void. The coordinate you're looking for doesn't exist.",
     'go_back_home' => 'Return to Base',
+
+    'download_app' => 'Get the App',
+    'download_section_title' => 'Take Nexus Anywhere',
+    'download_section_desc' => 'Install the PWA for instant access, offline support, and a native app experience on any device.',
 ];

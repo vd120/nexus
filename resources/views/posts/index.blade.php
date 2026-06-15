@@ -139,6 +139,10 @@
             <script>showToast('{{ __('messages.email_verified_success_toast') }}', 'success');</script>
         @endif
 
+        @if(request()->query('share-intent') === '1' && session()->has('share_target_payload'))
+        <script>window.__shareTargetPayload = @json(session()->pull('share_target_payload'));</script>
+        @endif
+
         @auth
         {{-- Pulse — visible only on mobile/tablet where the right sidebar is hidden --}}
         <div class="pulse-mobile-host">
@@ -294,6 +298,12 @@
                 <div id="media-preview-container" style="display: none; margin-top: 12px;">
                     <div id="media-previews" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 </div>
+                <div id="post-upload-progress" style="display:none;margin-top:8px;">
+                    <div style="height:4px;background:rgba(139,92,246,0.15);border-radius:2px;overflow:hidden;">
+                        <div id="post-upload-progress-fill" style="height:100%;width:0%;background:var(--primary,#8b5cf6);transition:width 0.2s ease;border-radius:2px;"></div>
+                    </div>
+                    <span id="post-upload-progress-text" style="font-size:11px;color:var(--text-muted,#6b7280);float:right;margin-top:3px;">0%</span>
+                </div>
             </div>
         </div>
         @endauth
@@ -425,6 +435,23 @@
                 if (builder && builder.style.display === 'none') togglePollBuilder();
             }
         });
+
+        // PWA shortcut: ?action=new-post — auto-open the composer
+        if (new URLSearchParams(window.location.search).get('action') === 'new-post') {
+            openComposer();
+        }
+
+        // Share Target pre-fill (PWA share sheet — additive)
+        if (window.__shareTargetPayload) {
+            const payload = window.__shareTargetPayload;
+            const parts = [payload.title, payload.text, payload.url].filter(Boolean);
+            const text = parts.join('\n');
+            if (text) {
+                const ta = document.getElementById('post-content');
+                if (ta) ta.value = text;
+            }
+            openComposer();
+        }
     });
 })();
 
@@ -534,9 +561,50 @@ function viewStoryFromHome(username, slug) {
     window.location.href = `/stories/${username}/${slug}?from=home`;
 }
 
-window.previewMedia = function(input) {
-    if (!input || !input.files || input.files.length === 0) return;
-    Array.from(input.files).forEach(file => uploadedFiles.push(file));
+function compressImageFile(file) {
+    if (!file.type.startsWith('image/') || file.type === 'image/gif') return Promise.resolve(file);
+    if (file.size < 150 * 1024) return Promise.resolve(file);
+    return new Promise(function(resolve) {
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+            var w = img.naturalWidth, h = img.naturalHeight;
+            if (w > 1280 || h > 1280) {
+                if (w >= h) { h = Math.round(h * 1280 / w); w = 1280; }
+                else { w = Math.round(w * 1280 / h); h = 1280; }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+                if (!blob || blob.size >= file.size) { resolve(file); return; }
+                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() }));
+            }, 'image/jpeg', 0.78);
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}
+
+window.previewMedia = async function(input) {
+    if (!input || !input.files || input.files.length === 0) {
+        // PWA: check if camera permission was denied (additive — no effect on normal browser flow)
+        if (navigator.permissions && input.capture) {
+            navigator.permissions.query({ name: 'camera' }).then(function (result) {
+                if (result.state === 'denied' && window.showToast) {
+                    window.showToast(
+                        '{{ __('messages.camera_permission_denied', ['default' => 'Camera permission denied. Enable it in your device settings.']) }}',
+                        'error', null, null, 5000
+                    );
+                }
+            }).catch(function () {});
+        }
+        return;
+    }
+    for (var i = 0; i < input.files.length; i++) {
+        uploadedFiles.push(await compressImageFile(input.files[i]));
+    }
     renderMediaPreviews();
 };
 
@@ -660,19 +728,35 @@ window.submitPost = async function() {
     uploadedFiles.forEach((file, i) => formData.append(`media[${i}]`, file));
 
     try {
-        const response = await fetch('{{ route('posts.store') }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData
+        const {ok, data} = await new Promise(function(resolve) {
+            var xhr = new XMLHttpRequest();
+            var progressBar = document.getElementById('post-upload-progress');
+            var progressFill = document.getElementById('post-upload-progress-fill');
+            var progressText = document.getElementById('post-upload-progress-text');
+            xhr.upload.onprogress = function(e) {
+                if (!e.lengthComputable || !progressBar) return;
+                var pct = Math.round(e.loaded / e.total * 100);
+                progressBar.style.display = 'block';
+                if (progressFill) progressFill.style.width = pct + '%';
+                if (progressText) progressText.textContent = pct + '%';
+            };
+            xhr.onload = function() {
+                if (progressBar) progressBar.style.display = 'none';
+                try { resolve({ok: xhr.status >= 200 && xhr.status < 300, data: JSON.parse(xhr.responseText)}); }
+                catch(e) { resolve({ok: false, data: {}}); }
+            };
+            xhr.onerror = function() {
+                if (progressBar) progressBar.style.display = 'none';
+                resolve({ok: false, data: {}});
+            };
+            xhr.open('POST', '{{ route('posts.store') }}');
+            xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]')?.content || '');
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send(formData);
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (response.ok && data.success) {
+        if (ok && data.success) {
             if (window.NexusSoul) window.NexusSoul.feedback.post();
             if (window.showToast) window.showToast(data.message || '{{ __('messages.post_created_toast') }}', 'success');
 
@@ -721,6 +805,8 @@ window.submitPost = async function() {
             if (window.showToast) window.showToast(msg, 'error');
         }
     } catch (err) {
+        const pb = document.getElementById('post-upload-progress');
+        if (pb) pb.style.display = 'none';
         if (window.showToast) window.showToast('{{ __('messages.error_creating_post') }}', 'error');
     } finally {
         if (submitBtn) {
@@ -787,7 +873,7 @@ window.loadMorePosts = async function() {
 
     try {
         const nextPage = window.currentFeedPage + 1;
-        const response = await fetch(`/posts/load-more?page=${nextPage}`, {
+        const response = await fetch(`/posts/load-more?page=${nextPage}&per_page=5`, {
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
@@ -836,6 +922,13 @@ window.addEventListener('scroll', () => {
         window.loadMorePosts();
     }
 }, { passive: true });
+
+// If the initial 5 posts don't fill the viewport, auto-load the next batch
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.hasMorePosts && document.documentElement.scrollHeight <= window.innerHeight) {
+        window.loadMorePosts();
+    }
+});
 
 @php
     $globalChatPreviewMessagesPayload = $globalChatMessages->map(function ($message) {

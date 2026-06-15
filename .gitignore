@@ -45,3 +45,4 @@ jira.md
 /android-app/*
 .*
 *.md
+specs/

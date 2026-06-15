@@ -350,7 +350,12 @@ class UserController extends Controller
             'location' => 'nullable|string|max:255',
             'occupation' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
+            'show_phone'            => 'nullable|boolean',
             'gender' => 'nullable|in:male,female,other',
+            'show_gender'           => 'nullable|boolean',
+            'show_birth_date'       => 'nullable|boolean',
+            'show_location'         => 'nullable|boolean',
+            'show_occupation'       => 'nullable|boolean',
             'is_private'            => 'nullable|boolean',
             'show_online_status'    => 'nullable|boolean',
             'show_read_receipts'    => 'nullable|boolean',
@@ -364,6 +369,11 @@ class UserController extends Controller
 
         $data = $request->only(['bio', 'about', 'website', 'location', 'occupation', 'phone', 'gender', 'birth_date']);
         $data['is_private']          = $request->has('is_private');
+        $data['show_phone']          = $request->has('show_phone');
+        $data['show_gender']         = $request->has('show_gender');
+        $data['show_birth_date']     = $request->has('show_birth_date');
+        $data['show_location']       = $request->has('show_location');
+        $data['show_occupation']     = $request->has('show_occupation');
         $data['show_online_status']  = $request->has('show_online_status');
         $data['show_read_receipts']  = $request->has('show_read_receipts');
 
@@ -697,6 +707,151 @@ class UserController extends Controller
             });
 
         return response()->json(['success' => true, 'users' => $users]);
+    }
+
+    /**
+     * Unified full-text search across users, posts, and communities.
+     * GET /api/search?q=&type=all|users|posts|communities
+     */
+    public function search(Request $request)
+    {
+        $q    = trim($request->query('q', ''));
+        $type = $request->query('type', 'all');
+
+        if (strlen($q) < 2) {
+            return response()->json(['success' => true, 'users' => [], 'posts' => [], 'communities' => []]);
+        }
+
+        $user      = auth()->user();
+        $useFulltext = DB::getDriverName() === 'mysql';
+
+        $blockedIds = $user
+            ? Block::where('blocker_id', $user->id)->orWhere('blocked_id', $user->id)
+                ->get()
+                ->flatMap(fn($b) => [$b->blocker_id, $b->blocked_id])
+                ->unique()
+                ->reject(fn($id) => $id === $user->id)
+                ->values()
+                ->all()
+            : [];
+
+        $users       = collect();
+        $posts       = collect();
+        $communities = collect();
+
+        // ── Users ────────────────────────────────────────────────────────────
+        if (in_array($type, ['all', 'users'])) {
+            $userMapper = fn($u) => [
+                'id'          => $u->id,
+                'username'    => $u->username,
+                'name'        => $u->name,
+                'avatar_url'  => $u->avatar_url,
+                'is_online'   => (bool) $u->is_online,
+                'is_verified' => (bool) $u->is_verified,
+            ];
+
+            $baseUserQuery = fn($q_) => User::where(function ($query) use ($q_) {
+                    $query->where('username', 'LIKE', "%{$q_}%")
+                          ->orWhere('name', 'LIKE', "%{$q_}%");
+                })
+                ->when($user, fn($query) => $query->where('id', '!=', $user->id)->whereNotIn('id', $blockedIds))
+                ->limit(8);
+
+            if ($useFulltext) {
+                $users = User::whereRaw('MATCH(name, username) AGAINST(? IN BOOLEAN MODE)', ['"' . $q . '"'])
+                    ->when($user, fn($query) => $query->where('id', '!=', $user->id)->whereNotIn('id', $blockedIds))
+                    ->limit(8)
+                    ->get()
+                    ->map($userMapper);
+            }
+
+            if ($users->isEmpty()) {
+                $users = $baseUserQuery($q)->get()->map($userMapper);
+            }
+        }
+
+        // ── Posts ─────────────────────────────────────────────────────────────
+        if (in_array($type, ['all', 'posts'])) {
+            $basePostQuery = fn() => Post::where('content', 'LIKE', "%{$q}%")
+                ->where('is_approved', true)
+                ->where('is_anonymous', false)
+                ->whereNull('social_group_id')
+                ->when($user, fn($query) => $query->whereNotIn('user_id', $blockedIds))
+                ->when(!$user, fn($query) => $query->where('is_private', false))
+                ->with(['user:id,username,name', 'user.profile:user_id,avatar,is_private'])
+                ->limit(8);
+
+            if ($useFulltext) {
+                $posts = Post::whereRaw('MATCH(content) AGAINST(? IN BOOLEAN MODE)', ['"' . $q . '"'])
+                    ->where('is_approved', true)
+                    ->where('is_anonymous', false)
+                    ->whereNull('social_group_id')
+                    ->when($user, fn($query) => $query->whereNotIn('user_id', $blockedIds))
+                    ->when(!$user, fn($query) => $query->where('is_private', false))
+                    ->with(['user:id,username,name', 'user.profile:user_id,avatar,is_private'])
+                    ->limit(8)
+                    ->get();
+            }
+
+            if ($posts->isEmpty()) {
+                $posts = $basePostQuery()->get();
+            }
+
+            $posts = $posts->map(fn($p) => [
+                'id'         => $p->id,
+                'slug'       => $p->slug,
+                'content'    => $p->content ? \Illuminate\Support\Str::limit(strip_tags($p->content), 180) : '',
+                'created_at' => $p->created_at->diffForHumans(),
+                'user'       => [
+                    'username'   => $p->user->username ?? '',
+                    'name'       => $p->user->name ?? '',
+                    'avatar_url' => $p->user?->avatar_url ?? '',
+                ],
+            ]);
+        }
+
+        // ── Communities ───────────────────────────────────────────────────────
+        if (in_array($type, ['all', 'communities'])) {
+            $baseGroupQuery = fn() => \App\Models\SocialGroup::where(function ($query) use ($q) {
+                    $query->where('name', 'LIKE', "%{$q}%")
+                          ->orWhere('description', 'LIKE', "%{$q}%");
+                })
+                ->where(function ($query) {
+                    $query->where('privacy_level', 'public')->orWhere('is_discoverable', true);
+                })
+                ->withCount('members')
+                ->limit(8);
+
+            if ($useFulltext) {
+                $communities = \App\Models\SocialGroup::whereRaw('MATCH(name, description) AGAINST(? IN BOOLEAN MODE)', ['"' . $q . '"'])
+                    ->where(function ($query) {
+                        $query->where('privacy_level', 'public')->orWhere('is_discoverable', true);
+                    })
+                    ->withCount('members')
+                    ->limit(8)
+                    ->get();
+            }
+
+            if ($communities->isEmpty()) {
+                $communities = $baseGroupQuery()->get();
+            }
+
+            $communities = $communities->map(fn($g) => [
+                'id'            => $g->id,
+                'name'          => $g->name,
+                'slug'          => $g->slug,
+                'description'   => $g->description ? \Illuminate\Support\Str::limit($g->description, 100) : '',
+                'members_count' => $g->members_count ?? 0,
+                'avatar_url'    => $g->avatar ? asset('storage/' . $g->avatar) : null,
+            ]);
+        }
+
+        return response()->json([
+            'success'     => true,
+            'users'       => $users,
+            'posts'       => $posts,
+            'communities' => $communities,
+        ]);
     }
 
     /**

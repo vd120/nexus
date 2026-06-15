@@ -11,6 +11,9 @@ Artisan::command('inspire', function () {
 // Schedule story cleanup every hour (auto-delete stories after 24 hours)
 Schedule::command('stories:cleanup')->hourly();
 
+// Remind users without 2FA - runs daily, each user gets emailed at most once every 3 days
+Schedule::command('users:remind-2fa')->dailyAt('10:00');
+
 // Schedule inactive user reminders - runs daily at 10 AM
 Schedule::command('users:remind-inactive --days=3')->dailyAt('10:00');
 Schedule::command('users:remind-inactive --days=7')->weeklyOn(1, '10:00');

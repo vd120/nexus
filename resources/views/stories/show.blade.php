@@ -26,6 +26,8 @@
         <div class="story-overlay" onclick="closeViewer()"></div>
 
         <div class="story-container">
+            <div class="story-hold-overlay" id="story-hold-overlay"></div>
+
             <!-- Progress Bars -->
             <div class="story-progress">
                 @for($i = 0; $i < $stories->count(); $i++)
@@ -90,8 +92,8 @@
             </div>
 
             <!-- Tap Areas -->
-            <div class="tap-area tap-left" onclick="previousStory()"></div>
-            <div class="tap-area tap-right" onclick="nextStory()"></div>
+            <div class="tap-area tap-left" id="tap-left"></div>
+            <div class="tap-area tap-right" id="tap-right"></div>
 
             <!-- Navigation -->
             <button class="nav-btn prev-btn" onclick="previousStory()">
@@ -144,6 +146,16 @@
         let isPaused = false;
         let messageInput = null;
 
+        // Long-press hold state
+        let holdTimer = null;
+        let holdActivated = false;
+        let wasAlreadyPausedWhenHeld = false;
+        let pointerDownTime = 0;
+
+        // Timer accuracy tracking (for correct resume after pause)
+        let timerStartedAt = 0;
+        let timerDuration = 0;
+
 
         // Clear timer completely
         function clearStoryTimer() {
@@ -157,135 +169,80 @@
         function initMessageInput() {
             messageInput = document.getElementById('story-message');
             if (messageInput) {
-                // Focus: Pause timer immediately
-                messageInput.addEventListener('focus', function() {
-                    isPaused = true;
-                    clearStoryTimer();
-                    
-                    // Also pause CSS animation
-                    const activeBar = progressBars[currentIndex];
-                    if (activeBar) {
-                        const fill = activeBar.querySelector('.progress-fill');
-                        if (fill) {
-                            fill.classList.add('paused');
-                            fill.style.animationPlayState = 'paused';
-                        }
-                    }
-                });
-
-                // Blur: Resume only if empty
+                messageInput.addEventListener('focus', function() { pauseTimer(); });
                 messageInput.addEventListener('blur', function() {
-                    if (!this.value.trim()) {
-                        isPaused = false;
-                        
-                        // Resume CSS animation
-                        const activeBar = progressBars[currentIndex];
-                        if (activeBar) {
-                            const fill = activeBar.querySelector('.progress-fill');
-                            if (fill) {
-                                fill.classList.remove('paused');
-                                fill.style.animationPlayState = 'running';
-                            }
-                        }
-                        
-                        startTimer();
-                    }
+                    if (!this.value.trim()) resumeTimer();
                 });
-
-                // Input: Keep timer paused while typing
-                messageInput.addEventListener('input', function() {
-                    isPaused = true;
-                    clearStoryTimer();
-                });
-
-                // Also pause on click/touch
-                messageInput.addEventListener('click', function() {
-                    isPaused = true;
-                    clearStoryTimer();
-                });
+                messageInput.addEventListener('input', function() { pauseTimer(); });
+                messageInput.addEventListener('click', function() { pauseTimer(); });
             }
         }
 
-        function startTimer() {
+        function startTimer(remainingMs = null) {
             if (isPaused) return;
             clearTimeout(storyTimer);
             const currentStory = stories[currentIndex];
+
+            // After pause/resume: use remaining time so bar and timeout stay in sync
+            if (remainingMs !== null) {
+                const duration = Math.max(200, remainingMs);
+                timerDuration = duration;
+                timerStartedAt = Date.now();
+                storyTimer = setTimeout(() => nextStory(), duration);
+                // Keep video onended in sync with the new timeout
+                const vid = currentStory.querySelector('video');
+                if (vid) vid.onended = function() { clearTimeout(storyTimer); nextStory(); };
+                return;
+            }
+
             const isVideo = currentStory.querySelector('video');
-            
+
             if (isVideo) {
-                // For videos, wait for video to end or use a minimum timeout
                 const video = isVideo;
-                
-                // Max timeout is 1 minute (60000ms)
                 const maxTimeout = 60000;
-                
-                // If video is already loaded and has a valid duration
+
                 if (video.duration && !isNaN(video.duration) && video.duration > 0) {
-                    // Calculate remaining time if video is playing
                     const remainingTime = (video.duration - video.currentTime) * 1000;
-                    // Use at least 1 second minimum, at most the remaining video time + buffer, capped at 1 minute
                     const duration = Math.min(maxTimeout, Math.max(1000, remainingTime + 500));
-                    
-                    storyTimer = setTimeout(() => {
-                        nextStory();
-                    }, duration);
-                    
-                    // Also listen for video ended event as backup
-                    video.onended = function() {
-                        clearTimeout(storyTimer);
-                        nextStory();
-                    };
+                    timerDuration = duration;
+                    timerStartedAt = Date.now();
+                    storyTimer = setTimeout(() => nextStory(), duration);
+                    video.onended = function() { clearTimeout(storyTimer); nextStory(); };
                 } else {
-                    // If video duration not available, use default 30 seconds
-                    // and try to detect when video ends
-                    const duration = 30000;
-                    
-                    storyTimer = setTimeout(() => {
-                        nextStory();
-                    }, duration);
-                    
-                    // Try to detect when video ends
-                    video.addEventListener('loadedmetadata', function() {
+                    timerDuration = 30000;
+                    timerStartedAt = Date.now();
+                    storyTimer = setTimeout(() => nextStory(), 30000);
+                    video.addEventListener('loadedmetadata', function onMeta() {
+                        video.removeEventListener('loadedmetadata', onMeta);
                         if (video.duration && !isNaN(video.duration) && video.duration > 0) {
                             clearTimeout(storyTimer);
                             const remainingTime = (video.duration - video.currentTime) * 1000;
-                            const videoDuration = Math.min(maxTimeout, Math.max(1000, remainingTime + 500));
-                            
-                            storyTimer = setTimeout(() => {
-                                nextStory();
-                            }, videoDuration);
-                            
-                            video.onended = function() {
-                                clearTimeout(storyTimer);
-                                nextStory();
-                            };
+                            const duration = Math.min(maxTimeout, Math.max(1000, remainingTime + 500));
+                            timerDuration = duration;
+                            timerStartedAt = Date.now();
+                            storyTimer = setTimeout(() => nextStory(), duration);
+                            video.onended = function() { clearTimeout(storyTimer); nextStory(); };
                         }
                     });
                 }
             } else {
-                // Check if it's a text story or image story
                 const isTextStory = currentStory.querySelector('.story-text-container');
-                
-                if (isTextStory) {
-                    // For text stories, give more time to read (7 seconds)
-                    const duration = 7000;
-                    storyTimer = setTimeout(() => {
-                        nextStory();
-                    }, duration);
-                } else {
-                    // For images, use 5 seconds
-                    const duration = 5000;
-                    storyTimer = setTimeout(() => {
-                        nextStory();
-                    }, duration);
-                }
+                const duration = isTextStory ? 7000 : 5000;
+                timerDuration = duration;
+                timerStartedAt = Date.now();
+                storyTimer = setTimeout(() => nextStory(), duration);
             }
         }
 
         function pauseTimer() {
+            if (isPaused) return;
             isPaused = true;
+            // Record remaining time so resumeTimer can pick up where it left off
+            if (timerStartedAt > 0) {
+                timerDuration = Math.max(200, timerDuration - (Date.now() - timerStartedAt));
+                timerStartedAt = 0;
+            }
             clearStoryTimer();
-            // Also pause the CSS animation
             const activeBar = progressBars[currentIndex];
             if (activeBar) {
                 const fill = activeBar.querySelector('.progress-fill');
@@ -294,11 +251,13 @@
                     fill.style.animationPlayState = 'paused';
                 }
             }
+            const video = stories[currentIndex] && stories[currentIndex].querySelector('video');
+            if (video && !video.paused) video.pause();
         }
 
         function resumeTimer() {
+            if (!isPaused) return;
             isPaused = false;
-            // Remove the paused class to resume CSS animation
             const activeBar = progressBars[currentIndex];
             if (activeBar) {
                 const fill = activeBar.querySelector('.progress-fill');
@@ -307,7 +266,19 @@
                     fill.style.animationPlayState = 'running';
                 }
             }
-            startTimer();
+            const video = stories[currentIndex] && stories[currentIndex].querySelector('video');
+            if (video && video.paused) video.play().catch(() => {});
+            startTimer(timerDuration > 0 ? timerDuration : null);
+        }
+
+        function showHoldOverlay() {
+            const overlay = document.getElementById('story-hold-overlay');
+            if (overlay) overlay.classList.add('active');
+        }
+
+        function hideHoldOverlay() {
+            const overlay = document.getElementById('story-hold-overlay');
+            if (overlay) overlay.classList.remove('active');
         }
 
         function updateDisplay() {
@@ -690,20 +661,84 @@
         window.runOnPageLoad( () => {
             initMessageInput();
             updateDisplay();
-            startTimer();
 
             // Keyboard navigation
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowRight') nextStory();
                 if (e.key === 'ArrowLeft') previousStory();
                 if (e.key === 'Escape') closeViewer();
+                if (e.key === ' ') { e.preventDefault(); isPaused ? resumeTimer() : pauseTimer(); }
             });
-            
+
+            // ── Long-press / hold to pause (WhatsApp style) ──────────────────
+            const container = document.querySelector('.story-container');
+
+            function isInteractiveTarget(el) {
+                return !!el.closest('input, button, a, [role="button"]');
+            }
+
+            container.addEventListener('pointerdown', function(e) {
+                if (isInteractiveTarget(e.target)) return;
+                pointerDownTime = Date.now();
+                holdActivated = false;
+                clearTimeout(holdTimer);
+                holdTimer = setTimeout(function() {
+                    holdActivated = true;
+                    wasAlreadyPausedWhenHeld = isPaused;
+                    if (!isPaused) {
+                        pauseTimer();
+                        showHoldOverlay();
+                    }
+                }, 150);
+            });
+
+            container.addEventListener('pointerup', function() {
+                clearTimeout(holdTimer);
+                if (holdActivated) {
+                    holdActivated = false;
+                    if (!wasAlreadyPausedWhenHeld) {
+                        resumeTimer();
+                        hideHoldOverlay();
+                    }
+                }
+            });
+
+            container.addEventListener('pointercancel', function() {
+                clearTimeout(holdTimer);
+                if (holdActivated) {
+                    holdActivated = false;
+                    if (!wasAlreadyPausedWhenHeld) {
+                        resumeTimer();
+                        hideHoldOverlay();
+                    }
+                }
+            });
+
+            // Suppress browser long-press context menu
+            container.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+            // ── Tap navigation (short tap only — hold is handled above) ──────
+            const tapLeft = document.getElementById('tap-left');
+            const tapRight = document.getElementById('tap-right');
+
+            if (tapLeft) {
+                tapLeft.addEventListener('click', function() {
+                    if (Date.now() - pointerDownTime > 150) return;
+                    previousStory();
+                });
+            }
+            if (tapRight) {
+                tapRight.addEventListener('click', function() {
+                    if (Date.now() - pointerDownTime > 150) return;
+                    nextStory();
+                });
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             // Check if there's a pending story reply toast from navigation
             const pendingToast = sessionStorage.getItem('storyReplySent');
             if (pendingToast) {
                 const toastData = JSON.parse(pendingToast);
-                // Only show if it's recent (within 10 seconds)
                 if (Date.now() - toastData.time < 10000) {
                     setTimeout(() => {
                         if (typeof showToast === 'function') {
@@ -715,8 +750,7 @@
                     sessionStorage.removeItem('storyReplySent');
                 }
             }
-            
-            // Check if current user has already reacted to this story
+
             checkUserReaction();
         });
     </script>

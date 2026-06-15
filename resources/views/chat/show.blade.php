@@ -4932,6 +4932,34 @@ function scrollToMessage(event, messageId) {
 function processMessageQueue() {
     if (isSendingMessage || messageSendQueue.length === 0) return;
 
+    // PWA offline: enqueue text messages for sync when back online
+    if (!navigator.onLine && window._pwaEnqueue) {
+        const messageData = messageSendQueue.shift();
+        if (!messageData.isMedia && messageData.content) {
+            window._pwaEnqueue('chat_message', String(window.activeConversationId || ''), {
+                content: messageData.content,
+                conversation_id: window.activeConversationId,
+            });
+            const container = document.querySelector('.messages-container, .chat-messages');
+            if (container) {
+                const el = document.createElement('div');
+                el.className = 'message own';
+                el.style.cssText = 'opacity:0.55;';
+                el.innerHTML = '<div class="message-bubble"><div class="message-text">' +
+                    messageData.content.replace(/</g, '&lt;') +
+                    '</div><span style="font-size:10px;opacity:0.7;margin-top:2px;display:block;text-align:right;"><i class="fas fa-clock"></i></span></div>';
+                container.appendChild(el);
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        messageData.input.disabled = false;
+        messageData.sendButton.disabled = false;
+        messageData.input.value = '';
+        if (messageData.resolve) messageData.resolve({ offline: true });
+        if (messageSendQueue.length > 0) setTimeout(processMessageQueue, 50);
+        return;
+    }
+
     const messageData = messageSendQueue.shift();
     isSendingMessage = true;
 

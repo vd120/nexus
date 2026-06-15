@@ -116,6 +116,11 @@ trait SendsPushNotifications
                 $data['message'] ?? __('notifications.report_action_owner_message'),
                 route('notifications.index'),
             ],
+            'admin_post_deleted' => [
+                config('app.name'),
+                __('notifications.admin_post_deleted', ['reason' => $data['reason'] ?? __('notifications.no_reason_provided')]),
+                route('notifications.index'),
+            ],
             'community_report_new' => [
                 config('app.name'),
                 $data['message'] ?? __('notifications.community_report_new_message'),

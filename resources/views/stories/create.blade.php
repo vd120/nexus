@@ -98,6 +98,12 @@
                     <i class="fas fa-paper-plane"></i>
                     {{ __('messages.post_story') }}
                 </button>
+                <div id="story-upload-progress" style="display:none;margin-top:10px;">
+                    <div style="height:4px;background:rgba(139,92,246,0.15);border-radius:2px;overflow:hidden;">
+                        <div id="story-upload-progress-fill" style="height:100%;width:0%;background:var(--primary,#8b5cf6);transition:width 0.2s ease;border-radius:2px;"></div>
+                    </div>
+                    <span id="story-upload-progress-text" style="font-size:11px;color:var(--text-muted,#6b7280);float:right;margin-top:3px;">0%</span>
+                </div>
             </div>
         </form>
     </div>
@@ -166,13 +172,41 @@
 
 <script>
 let videoDuration = 0;
+let _storyCompressedFile = null;
 
-function previewMedia(input) {
+function compressStoryImage(file) {
+    if (!file.type.startsWith('image/') || file.type === 'image/gif') return Promise.resolve(file);
+    if (file.size < 150 * 1024) return Promise.resolve(file);
+    return new Promise(function(resolve) {
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+            var w = img.naturalWidth, h = img.naturalHeight;
+            if (w > 1080 || h > 1920) {
+                var ratio = Math.min(1080 / w, 1920 / h);
+                w = Math.round(w * ratio); h = Math.round(h * ratio);
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+                if (!blob || blob.size >= file.size) { resolve(file); return; }
+                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() }));
+            }, 'image/jpeg', 0.80);
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}
+
+async function previewMedia(input) {
     const preview = document.getElementById('media-preview');
     const placeholder = document.getElementById('upload-placeholder');
     const imagePreview = document.getElementById('image-preview');
     const videoContainer = document.getElementById('video-container');
     const submitBtn = document.getElementById('submit-btn');
+    _storyCompressedFile = null;
 
     if (input.files && input.files[0]) {
         const file = input.files[0];
@@ -182,13 +216,15 @@ function previewMedia(input) {
         preview.style.display = 'block';
 
         if (fileType.startsWith('image/')) {
+            const compressed = await compressStoryImage(file);
+            _storyCompressedFile = compressed;
             const reader = new FileReader();
             reader.onload = function(e) {
                 imagePreview.src = e.target.result;
                 imagePreview.style.display = 'block';
                 videoContainer.style.display = 'none';
             };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(compressed);
         } else if (fileType.startsWith('video/')) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -196,8 +232,7 @@ function previewMedia(input) {
                 videoPreview.src = e.target.result;
                 videoContainer.style.display = 'block';
                 imagePreview.style.display = 'none';
-                
-                // Get video duration when metadata loads
+
                 videoPreview.onloadedmetadata = function() {
                     videoDuration = videoPreview.duration;
                     initVideoTrimmer(videoDuration);
@@ -289,24 +324,74 @@ function previewTrim() {
     }, 100);
 }
 
-// Add hidden fields for trim values
+// Intercept story form for XHR upload with progress
 document.getElementById('story-form').addEventListener('submit', function(e) {
-    const videoContainer = document.getElementById('video-container');
-    if (videoContainer.style.display !== 'none') {
-        // Video is being uploaded - add trim values
-        const trimStart = document.createElement('input');
-        trimStart.type = 'hidden';
-        trimStart.name = 'trim_start';
-        trimStart.value = document.getElementById('trim-start').value;
-        
-        const trimEnd = document.createElement('input');
-        trimEnd.type = 'hidden';
-        trimEnd.name = 'trim_end';
-        trimEnd.value = document.getElementById('trim-end').value;
-        
-        this.appendChild(trimStart);
-        this.appendChild(trimEnd);
+    e.preventDefault();
+    const form = this;
+    const mediaInput = document.getElementById('media');
+    if (!mediaInput.files || !mediaInput.files[0]) {
+        if (window.showToast) showToast('Please upload a photo or video', 'error');
+        return;
     }
+    const submitBtn = document.getElementById('submit-btn');
+    const progressBar = document.getElementById('story-upload-progress');
+    const progressFill = document.getElementById('story-upload-progress-fill');
+    const progressText = document.getElementById('story-upload-progress-text');
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ __("messages.posting") }}';
+
+    const formData = new FormData(form);
+
+    // Use compressed image if available
+    if (_storyCompressedFile && mediaInput && mediaInput.files[0]) {
+        formData.set('media', _storyCompressedFile, _storyCompressedFile.name);
+    }
+
+    // Add trim values if video is active
+    const videoContainer = document.getElementById('video-container');
+    if (videoContainer && videoContainer.style.display !== 'none') {
+        formData.set('trim_start', document.getElementById('trim-start').value);
+        formData.set('trim_end', document.getElementById('trim-end').value);
+    }
+
+    var xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = function(e) {
+        if (!e.lengthComputable || !progressBar) return;
+        var pct = Math.round(e.loaded / e.total * 100);
+        progressBar.style.display = 'block';
+        if (progressFill) progressFill.style.width = pct + '%';
+        if (progressText) progressText.textContent = pct + '%';
+    };
+    xhr.onload = function() {
+        if (progressBar) progressBar.style.display = 'none';
+        if (xhr.status >= 200 && xhr.status < 400) {
+            // Try JSON response first; fall back to redirect URL
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success) {
+                    if (window.showToast) showToast(resp.message || '{{ __("messages.story_posted") }}', 'success');
+                    window.location.href = resp.redirect || '{{ route("stories.index") }}';
+                    return;
+                }
+            } catch(err) {}
+            // Server redirected (traditional form response)
+            window.location.href = '{{ route("stories.index") }}';
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> {{ __("messages.post_story") }}';
+            if (window.showToast) showToast('{{ __("messages.upload_failed") }}', 'error');
+        }
+    };
+    xhr.onerror = function() {
+        if (progressBar) progressBar.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> {{ __("messages.post_story") }}';
+        if (window.showToast) showToast('{{ __("messages.upload_failed") }}', 'error');
+    };
+    xhr.open('POST', form.action);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(formData);
 });
 
 function removeMedia() {
@@ -398,17 +483,5 @@ function changeTextStoryBackground(btn) {
     btn.classList.add('active');
 }
 
-// Form validation for media stories
-document.getElementById('story-form').addEventListener('submit', function(e) {
-    const textOnly = document.getElementById('text-only').value;
-    const mediaInput = document.getElementById('media');
-    
-    // If it's a media story (not text-only), require media file
-    if (textOnly === '0' && (!mediaInput.files || !mediaInput.files[0])) {
-        e.preventDefault();
-        showToast('Please upload a photo or video', 'error');
-        return false;
-    }
-});
 </script>
 @endsection

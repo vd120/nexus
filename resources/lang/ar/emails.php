@@ -93,6 +93,19 @@ return [
     'security_alert_time'     => 'الوقت',
     'security_alert_footer'   => 'لو ده أنت، أكمل التحقق في صفحة الدخول. لو ما حاولتش تدخل، غيّر كلمة السر فوراً.',
 
+    // Inactive User Reminder Email
+    'inactive_subject'  => 'بنفتقدك في :app',
+    'inactive_greeting' => 'أهلاً :name،',
+    'inactive_message'  => "بقالنا فترة مشفناكش واحنا بصراحة مفتقدينك\n\nحصل حاجات كتير وانت بعيد - بوستات جديدة ورسايل وكمان ناس مستنياك\n\nارجع شوف ايه اللي فاتك",
+
+    // 2FA Reminder Email
+    'two_factor_reminder_subject'  => ':app — خطوة بسيطة لحماية حسابك',
+    'two_factor_reminder_title'    => 'فعّل التحقق بخطوتين',
+    'two_factor_reminder_greeting' => 'أهلاً :name،',
+    'two_factor_reminder_body'     => 'حسابك لسه مش محمي بالكامل. التحقق بخطوتين بيضيف طبقة حماية إضافية — حتى لو حد عرف كلمة السر بتاعتك، مش هيقدر يدخل حسابك.',
+    'two_factor_reminder_cta'      => 'فعّل التحقق بخطوتين دلوقتي',
+    'two_factor_reminder_footer'   => 'بتوصلك الرسالة دي عشان التحقق بخطوتين لسه مش مفعّل على حسابك. لما تفعّله، الرسايل دي هتوقف.',
+
     // Data Export Email
     'data_export_subject' => ':app — بياناتك جاهزة للتحميل',
     'data_export_title' => 'بياناتك جاهزة للتحميل',

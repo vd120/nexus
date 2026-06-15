@@ -117,4 +117,6 @@ return [
     'report_action_owner_delete'     => 'تم حذف منشورك بعد بلاغ.',
     'community_report_new_message'   => 'يوجد بلاغ جديد على منشور يحتاج مراجعتك.',
     'new_report_from'                => 'بلاغ جديد من :user.',
+    'admin_post_deleted'             => 'تم حذف منشورك من قبل المسؤول. السبب: :reason',
+    'no_reason_provided'             => 'لم يُذكر سبب',
 ];

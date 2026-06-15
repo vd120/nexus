@@ -999,6 +999,12 @@ html[dir="rtl"] .feed-preview .reply-form--minimal .reply-hint { padding: 2px 38
                 <div id="media-preview-container" style="display: none; margin-top: 12px;">
                     <div id="media-previews" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                 </div>
+                <div id="post-upload-progress" style="display:none;margin-top:8px;">
+                    <div style="height:4px;background:rgba(139,92,246,0.15);border-radius:2px;overflow:hidden;">
+                        <div id="post-upload-progress-fill" style="height:100%;width:0%;background:var(--primary,#8b5cf6);transition:width 0.2s ease;border-radius:2px;"></div>
+                    </div>
+                    <span id="post-upload-progress-text" style="font-size:11px;color:var(--text-muted,#6b7280);float:right;margin-top:3px;">0%</span>
+                </div>
             </div>
         </div>
         @endauth
@@ -1153,9 +1159,37 @@ function viewStoryFromHome(username, slug) {
     window.location.href = `/stories/${username}/${slug}`;
 }
 
-window.previewMedia = function(input) {
+function compressImageFile(file) {
+    if (!file.type.startsWith('image/') || file.type === 'image/gif') return Promise.resolve(file);
+    if (file.size < 150 * 1024) return Promise.resolve(file);
+    return new Promise(function(resolve) {
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+            var w = img.naturalWidth, h = img.naturalHeight;
+            if (w > 1280 || h > 1280) {
+                if (w >= h) { h = Math.round(h * 1280 / w); w = 1280; }
+                else { w = Math.round(w * 1280 / h); h = 1280; }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+                if (!blob || blob.size >= file.size) { resolve(file); return; }
+                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() }));
+            }, 'image/jpeg', 0.78);
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}
+
+window.previewMedia = async function(input) {
     if (!input || !input.files || input.files.length === 0) return;
-    Array.from(input.files).forEach(file => uploadedFiles.push(file));
+    for (var i = 0; i < input.files.length; i++) {
+        uploadedFiles.push(await compressImageFile(input.files[i]));
+    }
     renderMediaPreviews();
 };
 
@@ -1258,19 +1292,35 @@ window.submitPost = async function() {
     uploadedFiles.forEach((file, i) => formData.append(`media[${i}]`, file));
 
     try {
-        const response = await fetch('{{ route('posts.store') }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData
+        const {ok, data} = await new Promise(function(resolve) {
+            var xhr = new XMLHttpRequest();
+            var progressBar = document.getElementById('post-upload-progress');
+            var progressFill = document.getElementById('post-upload-progress-fill');
+            var progressText = document.getElementById('post-upload-progress-text');
+            xhr.upload.onprogress = function(e) {
+                if (!e.lengthComputable || !progressBar) return;
+                var pct = Math.round(e.loaded / e.total * 100);
+                progressBar.style.display = 'block';
+                if (progressFill) progressFill.style.width = pct + '%';
+                if (progressText) progressText.textContent = pct + '%';
+            };
+            xhr.onload = function() {
+                if (progressBar) progressBar.style.display = 'none';
+                try { resolve({ok: xhr.status >= 200 && xhr.status < 300, data: JSON.parse(xhr.responseText)}); }
+                catch(e) { resolve({ok: false, data: {}}); }
+            };
+            xhr.onerror = function() {
+                if (progressBar) progressBar.style.display = 'none';
+                resolve({ok: false, data: {}});
+            };
+            xhr.open('POST', '{{ route('posts.store') }}');
+            xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]')?.content || '');
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send(formData);
         });
 
-        const data = await response.json().catch(() => ({}));
-
-        if (response.ok && data.success) {
+        if (ok && data.success) {
             if (window.showToast) window.showToast(data.message || '{{ __('messages.post_created_toast') }}', 'success');
 
             const container = document.getElementById('posts-container');
@@ -1310,6 +1360,8 @@ window.submitPost = async function() {
             if (window.showToast) window.showToast(msg, 'error');
         }
     } catch (err) {
+        const pb = document.getElementById('post-upload-progress');
+        if (pb) pb.style.display = 'none';
         if (window.showToast) window.showToast('{{ __('messages.error_creating_post') }}', 'error');
     } finally {
         if (submitBtn) {

@@ -1,12 +1,7 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.nexus.app",
-      "sha256_cert_fingerprints": [
-        "A8:26:C4:3E:90:6F:ED:C9:B0:CB:27:9A:04:A5:64:12:AB:68:FB:BF:64:79:BC:68:D1:8F:20:1F:8C:D4:04:C8"
-      ]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "web",
+    "site": "https://nxs.qzz.io"
   }
-]
+}]

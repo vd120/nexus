@@ -47,7 +47,7 @@
         <p>{{ __('emails.password_reset_body') }}</p>
 
         <div style="text-align: center;">
-            <a href="{{ $url }}" class="btn">{{ __('emails.password_reset_button') }}</a>
+            <a href="{{ $resetUrl }}" class="btn">{{ __('emails.password_reset_button') }}</a>
         </div>
 
         <p>{{ __('emails.password_reset_expire') }}</p>

@@ -77,6 +77,45 @@ class SocketEmitService
     }
 
     /**
+     * Emit the same event to many users in a single HTTP request (batch).
+     * Replaces N individual emitToUser() calls with one round-trip.
+     *
+     * @param int[]|iterable $userIds
+     */
+    public function emitToUsers(iterable $userIds, string $event, array $data = []): bool
+    {
+        $rooms = [];
+        foreach ($userIds as $id) {
+            $rooms[] = "user:{$id}";
+        }
+
+        if (empty($rooms)) {
+            return true;
+        }
+
+        if (empty($this->secret) || empty($this->url)) {
+            return false;
+        }
+
+        $payload = ['rooms' => $rooms, 'event' => $event, 'data' => $data];
+        $jsonPayload = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $signature = 'sha256=' . hash_hmac('sha256', $jsonPayload, $this->secret);
+
+        try {
+            $response = Http::withHeaders([
+                'X-Hub-Signature-256' => $signature,
+                'Content-Type'        => 'application/json',
+                'Accept'              => 'application/json',
+            ])->post($this->url . '/internal/emit-batch', $payload);
+
+            return !$response->failed();
+        } catch (\Exception $e) {
+            \Log::error('SocketEmitService: emitToUsers failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /**
      * Emit an event to a specific conversation
      */
     public function emitToConversation(int $conversationId, string $event, array $data = []): bool

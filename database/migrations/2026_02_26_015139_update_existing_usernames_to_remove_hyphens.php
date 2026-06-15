@@ -11,9 +11,12 @@ return new class extends Migration
     public function up(): void
     {
         // Get all users with usernames that contain hyphens or other special chars
-        $users = DB::table('users')
-            ->where('username', 'REGEXP', '[^a-zA-Z0-9]')
-            ->get();
+        // REGEXP is MySQL-only; on SQLite we fetch all and filter in PHP.
+        if (DB::getDriverName() === 'mysql') {
+            $users = DB::table('users')->where('username', 'REGEXP', '[^a-zA-Z0-9]')->get();
+        } else {
+            $users = DB::table('users')->get()->filter(fn($u) => preg_match('/[^a-zA-Z0-9]/', $u->username));
+        }
 
         foreach ($users as $user) {
             // Generate new username by removing all non-alphanumeric characters

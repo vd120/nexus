@@ -1,1 +1,10 @@
-<span style="font-family:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--text,#111111);line-height:1;display:inline-block">nexus<span style="color:#ec4899">.</span></span>
+<img src="/images/nexus-dark.svg"
+     alt="Nexus"
+     class="logo-icon logo-icon--dark"
+     width="36"
+     height="36">
+<img src="/images/nexus-light.svg"
+     alt="Nexus"
+     class="logo-icon logo-icon--light"
+     width="36"
+     height="36">

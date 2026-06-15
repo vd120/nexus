@@ -71,8 +71,6 @@
             transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
                         color 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
                         border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                        transform 1.2s cubic-bezier(0.16, 1, 0.3, 1),
-                        opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1),
                         box-shadow 0.5s ease;
         }
 
@@ -122,20 +120,11 @@
             -webkit-mask-composite: xor; mask-composite: exclude;
             pointer-events: none;
         }
-        nav::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            animation: shimmer 8s infinite;
-        }
-        @keyframes shimmer {
-            0% { left: -100%; }
-            30% { left: 200%; }
-            100% { left: 200%; }
-        }
+
 
         .nav-inner { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 12px 0 24px; height: 100%; }
         .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; height: 100%; min-width: 40px; }
-        .nav-logo img { height: 32px; width: auto; transition: 0.3s; display: block; }
+        .nav-logo img { height: 96px; width: auto; transition: 0.3s; display: block; }
         .nav-logo:hover img { transform: scale(1.05); }
         
         .logo-white, .logo-black { display: none !important; }
@@ -204,7 +193,7 @@
 
         @media (max-width: 480px) {
             nav { top: 12px; height: 56px; width: calc(100% - 24px); }
-            .nav-logo img { height: 26px; }
+            .nav-logo img { height: 72px; }
             .language-switcher-pill { width: 72px; height: 30px; }
             .lang-slide-bg { width: 32px; height: 22px; }
             html[lang="ar"] .lang-slide-bg { left: 36px; }
@@ -460,6 +449,43 @@
             backdrop-filter: blur(10px);
         }
 
+        /* Download Section */
+        .download-section {
+            text-align: center;
+            padding: 100px 24px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .download-section h2 {
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.03em;
+        }
+        .download-section p {
+            font-size: 19px;
+            color: var(--text-dim);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .download-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 40px;
+            border-radius: 100px;
+            background: var(--text);
+            color: var(--bg);
+            font-size: 17px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .download-cta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
         /* Footer */
         footer { 
             padding: 120px 0 60px; 
@@ -548,7 +574,6 @@
             transform: translateY(40px) scale(0.95); 
             transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), 
                         transform 1.2s cubic-bezier(0.16, 1, 0.3, 1); 
-            will-change: transform, opacity;
         }
         .reveal.visible { opacity: 1; transform: translateY(0) scale(1); }
 
@@ -629,7 +654,7 @@
             
             nav { top: 12px; width: calc(100% - 24px); height: 60px; border-radius: 24px; }
             .nav-inner { padding: 0 12px 0 16px; }
-            .nav-logo img { height: 28px; }
+            .nav-logo img { height: 64px; }
             .nav-links { display: none !important; }
             
             .hamburger { display: flex; order: 3; }
@@ -756,7 +781,7 @@
 <nav class="waiting-for-typing">
     <div class="nav-inner">
         <a href="/" class="nav-logo">
-            <x-logo-text />
+            <img src="/images/nexus_logo.svg" alt="Nexus">
         </a>
         <div class="nav-links">
             <a href="/privacy" data-t="home.privacy_nav">{{ __('home.privacy_nav') }}</a>
@@ -789,6 +814,7 @@
 <!-- Mobile Menu Overlay -->
 <div class="mobile-menu" id="mobileMenu">
     <a href="{{ route('privacy') }}" onclick="toggleMobileMenu()" data-t="home.privacy_nav">{{ __('home.privacy_nav') }}</a>
+    <a href="/download" onclick="toggleMobileMenu()" data-t="home.download_app" style="color: var(--primary); font-size: 32px;">{{ __('home.download_app') }}</a>
     <a href="{{ route('terms') }}" onclick="toggleMobileMenu()" data-t="home.terms_of_service">{{ __('home.terms_of_service') }}</a>
     <a href="{{ route('cookies') }}" onclick="toggleMobileMenu()" data-t="home.cookies_policy">{{ __('home.cookies_policy') }}</a>
     <a href="#features" onclick="toggleMobileMenu()" data-t="home.features_nav">{{ __('home.features_nav') }}</a>
@@ -812,7 +838,7 @@
 <section class="hero" id="hero">
     <div class="container reveal">
         <h1 data-t="home.nexus" class="stagger-1 waiting-for-typing">Nexus</h1>
-        <p id="typing-text" data-t="home.connect_share_belong" class="stagger-2" style="opacity: 0;">{{ __('home.connect_share_belong') }}</p>
+        <p id="typing-text" data-t="home.connect_share_belong" style="opacity: 0;">{{ __('home.connect_share_belong') }}</p>
         <div class="simple-cta-container stagger-3 waiting-for-typing" id="simpleCta">
             <button class="btn btn-blue" id="getStartedSimple" data-t="home.get_started_free">{{ __('home.get_started_free') }}</button>
             <div class="simple-reveal">
@@ -941,6 +967,14 @@
     </div>
 </section>
 
+<section class="download-section reveal">
+    <h2 data-t="home.download_section_title">{{ __('home.download_section_title') }}</h2>
+    <p data-t="home.download_section_desc">{{ __('home.download_section_desc') }}</p>
+    <a href="/download" class="download-cta">
+        <i class="fas fa-download"></i>
+        <span data-t="home.download_app">{{ __('home.download_app') }}</span>
+    </a>
+</section>
 
 <footer>
     <div class="container">
@@ -1104,12 +1138,18 @@
     }
 
     // Reveal Animation
-    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -100px 0px' };
     const observer = new IntersectionObserver((es) => {
-        es.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-    }, observerOptions);
+        es.forEach(e => {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                observer.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -100px 0px' });
 
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    requestAnimationFrame(() => {
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    });
 
     // Stagger delays
     document.querySelectorAll('.reveal').forEach(parent => {

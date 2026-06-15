@@ -1,10 +1,12 @@
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
+import { createHash } from 'node:crypto';
 
 export default defineConfig(({ mode }) => {
     // Load .env file
     const env = loadEnv(mode, process.cwd(), '');
+    const buildHash = createHash('sha256').update(String(Date.now())).digest('hex').slice(0, 8);
 
     return {
         plugins: [
@@ -94,6 +96,7 @@ export default defineConfig(({ mode }) => {
         define: {
             // Define environment variables for Vite
             'import.meta.env.VITE_APP_NAME': JSON.stringify(env.APP_NAME || 'Laravel'),
+            '__BUILD_HASH__': JSON.stringify(buildHash),
         },
         server: {
             watch: {

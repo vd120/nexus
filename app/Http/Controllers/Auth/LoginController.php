@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\SendLoginEmailJob;
+use App\Mail\VerificationCodeMail;
 use App\Services\ActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,10 +51,7 @@ class LoginController extends Controller
                 // Send Security Code Email
                 $originalLocale = app()->getLocale();
                 if ($user->language) app()->setLocale($user->language);
-                $verifySubject = __('emails.verification_code_security_subject', ['app' => config('app.name')]);
-                \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $verifySubject) {
-                    $message->to($user->email)->subject($verifySubject);
-                });
+                \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new VerificationCodeMail($user, $code));
                 app()->setLocale($originalLocale);
 
                 return redirect()->route('login.suspicious.view', $challengeUuid);
@@ -207,10 +205,7 @@ class LoginController extends Controller
         // Send the email in the user's language
         $originalLocale = app()->getLocale();
         if ($user->language) app()->setLocale($user->language);
-        $loginSubject = __('emails.verification_code_login_subject', ['app' => config('app.name')]);
-        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $loginSubject) {
-            $message->to($user->email)->subject($loginSubject);
-        });
+        \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new VerificationCodeMail($user, $code));
         app()->setLocale($originalLocale);
 
         return response()->json(['success' => true, 'message' => __('auth.verification_code_sent_to_email')]);

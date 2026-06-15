@@ -94,6 +94,19 @@ return [
     'security_alert_time'    => 'Time',
     'security_alert_footer'  => 'If this was you, please complete the verification on the login page. If you did not attempt to login, we recommend changing your password immediately.',
 
+    // Inactive User Reminder Email
+    'inactive_subject'  => 'We miss you at :app',
+    'inactive_greeting' => 'Hey :name,',
+    'inactive_message'  => "We haven't seen you in a while and honestly miss you.\n\nA lot has happened while you were away — new posts, messages, and people waiting for you.\n\nCome back and see what you missed.",
+
+    // 2FA Reminder Email
+    'two_factor_reminder_subject'  => ':app — One quick step to protect your account',
+    'two_factor_reminder_title'    => 'Enable Two-Factor Authentication',
+    'two_factor_reminder_greeting' => 'Hello :name,',
+    'two_factor_reminder_body'     => 'Your account is not fully secured yet. Two-factor authentication adds an extra layer of protection — even if someone gets your password, they still can\'t access your account.',
+    'two_factor_reminder_cta'      => 'Enable 2FA Now',
+    'two_factor_reminder_footer'   => 'You are receiving this because 2FA is not yet enabled on your account. Once you enable it, these reminders will stop.',
+
     // Data Export Email
     'data_export_subject' => ':app — Your data export is ready',
     'data_export_title' => 'Your data export is ready',

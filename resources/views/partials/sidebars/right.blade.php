@@ -662,7 +662,7 @@
     // =============   Trending Hashtags — poll   =================
     // ============================================================
     const TRENDING_LIMIT = 4;
-    const TRENDING_POLL_MS = 60000;
+    const TRENDING_POLL_MS = 300000; // 5 minutes — socket handles real-time updates
 
     function buildTrendingItemHTML(tag, rank) {
         const tier = Math.min(rank + 1, 4);

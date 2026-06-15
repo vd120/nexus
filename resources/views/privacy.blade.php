@@ -8,12 +8,12 @@
     <link rel="stylesheet" href="/fonts/all.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#0a0a0b':'#ffffff'})();</script>
+    <script data-cfasync="false">(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#0a0a0b':'#ffffff'})();</script>
 
     <style>
         :root {
-            --bg: #000000;
-            --bg-rgb: 0, 0, 0;
+            --bg: #0a0a0b;
+            --bg-rgb: 10, 10, 11;
             --bg-secondary: #0a0a0b;
             --text: #f5f5f7;
             --text-dim: rgba(255,255,255,0.55);
@@ -37,7 +37,8 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; background: var(--bg); }
+        [data-theme="light"] html { background: #ffffff; }
         body { 
             background: var(--bg); 
             color: var(--text); 
@@ -73,19 +74,6 @@
         html[lang="ar"] * { letter-spacing: normal !important; }
         html[lang="ar"] .hero h1 { line-height: 1.2; padding: 10px 0; }
 
-        /* --- BACKGROUND BLOOMS --- */
-        .blooms {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: -1; overflow: hidden;
-        }
-        .bloom {
-            position: absolute; border-radius: 50%; filter: blur(120px);
-            opacity: 0.15; transition: all 1s ease;
-        }
-        .bloom-1 { top: -10%; left: 20%; width: 40%; height: 40%; background: var(--primary); }
-        .bloom-2 { bottom: 10%; right: 10%; width: 30%; height: 30%; background: #6366f1; }
-        [data-theme="light"] .bloom { opacity: 0.05; }
-
         /* --- NAVIGATION --- */
         nav {
             position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
@@ -107,18 +95,8 @@
             -webkit-mask-composite: xor; mask-composite: exclude;
             pointer-events: none;
         }
-        nav::after {
-            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            animation: shimmer 8s infinite;
-        }
-        @keyframes shimmer { 0% { left: -100%; } 30% { left: 200%; } 100% { left: 200%; } }
-
         .nav-inner { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 12px 0 24px; height: 100%; }
         .nav-logo img { height: 32px; width: auto; transition: 0.3s; }
-        .logo-white, .logo-black { display: none !important; }
-        html[data-theme="dark"] .logo-white { display: block !important; }
-        html[data-theme="light"] .logo-black { display: block !important; }
 
         .nav-actions { display: flex; gap: 12px; align-items: center; }
 
@@ -170,14 +148,17 @@
             min-height: 100vh;
             min-height: 100dvh;
             width: 100%;
-            padding: 0 24px; 
-            text-align: center; 
+            padding: 0 24px;
+            text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             position: relative;
             z-index: 10;
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .hero { animation: nx-reveal 0.8s cubic-bezier(0.16,1,0.3,1) 0.05s both; }
         }
         .hero h1 {
             font-size: clamp(48px, 8vw, 90px);
@@ -332,9 +313,18 @@
         .footer-legal a { color: var(--text-dim); text-decoration: none; transition: 0.3s; }
         .footer-legal a:hover { color: var(--text); }
 
-        /* Reveal Animations */
-        .reveal { opacity: 0; transform: translateY(40px); transition: 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
-        .reveal.visible { opacity: 1; transform: translateY(0); }
+        /* Reveal — fade-in on scroll via IntersectionObserver + CSS animation */
+        .reveal {
+            opacity: 0;
+            transform: translateY(80px);
+        }
+        .reveal.visible {
+            animation: nx-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes nx-reveal {
+            from { opacity: 0; transform: translateY(80px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
 
         @media (max-width: 900px) {
             .section-focus { grid-template-columns: 1fr; gap: 40px; text-align: center; }
@@ -360,11 +350,6 @@
     </style>
 </head>
 <body>
-
-<div class="blooms">
-    <div class="bloom bloom-1"></div>
-    <div class="bloom bloom-2"></div>
-</div>
 
 <nav>
     <div class="nav-inner">
@@ -571,12 +556,18 @@
     }
 
     // Reveal Animation Logic
-    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -100px 0px' };
     const observer = new IntersectionObserver((es) => {
-        es.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-    }, observerOptions);
+        es.forEach(e => {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                observer.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.3 });
 
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    requestAnimationFrame(() => {
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    });
 
     // Init
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';

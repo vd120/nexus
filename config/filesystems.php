@@ -15,6 +15,9 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // Disk used for user-uploaded media (images, videos). Set MEDIA_DISK=s3 for Cloudflare R2.
+    'media_disk' => env('MEDIA_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

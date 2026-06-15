@@ -12,16 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modify the enum column to include new types
-        DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'file', 'system', 'group_invite') DEFAULT 'text'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'file', 'system', 'group_invite') DEFAULT 'text'");
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        // Revert back to original enum values
-        DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'file') DEFAULT 'text'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'file') DEFAULT 'text'");
+        }
     }
 };

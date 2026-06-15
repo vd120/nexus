@@ -1446,7 +1446,7 @@
          */
         function updatePinnedUI(postId, isPinned) {
             // Check if we are on the profile page
-            const isProfilePage = !!document.getElementById('pinnedPostsContainer');
+            const isProfilePage = !!document.getElementById('npTabs');
             
             if (isProfilePage) {
                 // On profile page, we reload the page as requested
@@ -2060,6 +2060,10 @@
                 });
             });
 
+            if (!navigator.onLine && window._pwaEnqueue) {
+                window._pwaEnqueue('post_reaction_remove', postSlug, {});
+                button.classList.add('reaction-pending');
+            } else {
             fetch('/posts/' + postSlug + '/react', {
                 method: 'DELETE',
                 headers: {
@@ -2086,6 +2090,7 @@
                     revertReactionBtn(button, snap);
                     applyOptimisticReactionDelta(card, '', snap.reaction);
                 });
+            }
         };
 
         window.closePostReactionPicker = function() {
@@ -2435,6 +2440,10 @@
                 option.classList.remove('active-reaction');
             });
 
+            if (!navigator.onLine && window._pwaEnqueue) {
+                window._pwaEnqueue('post_reaction', postSlug, { emoji: emoji });
+                reactionBtn.classList.add('reaction-pending');
+            } else {
             fetch('/posts/' + postSlug + '/react', {
                 method: 'POST',
                 headers: {
@@ -2461,6 +2470,7 @@
                     revertReactionBtn(reactionBtn, snap);
                     applyOptimisticReactionDelta(card, emoji, snap.reaction);
                 });
+            }
         };
 
         window.updatePostReactionSummary = function(card, reactionSummaries, postSlug, reactors) {

@@ -106,6 +106,12 @@
         <div id="comp-media-preview" style="display:none;margin-top:12px;">
             <div id="comp-media-previews" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
+        <div id="comm-upload-progress" style="display:none;margin-top:8px;">
+            <div style="height:4px;background:rgba(139,92,246,0.15);border-radius:2px;overflow:hidden;">
+                <div id="comm-upload-progress-fill" style="height:100%;width:0%;background:var(--primary,#8b5cf6);transition:width 0.2s ease;border-radius:2px;"></div>
+            </div>
+            <span id="comm-upload-progress-text" style="font-size:11px;color:var(--text-muted,#6b7280);float:right;margin-top:3px;">0%</span>
+        </div>
     </div>
 </div>
 
@@ -252,9 +258,37 @@
     }
 
     // ── Media ──
-    function previewCommunityMedia(input) {
+    function compressImageFile(file) {
+        if (!file.type.startsWith('image/') || file.type === 'image/gif') return Promise.resolve(file);
+        if (file.size < 150 * 1024) return Promise.resolve(file);
+        return new Promise(function(resolve) {
+            var img = new Image();
+            var url = URL.createObjectURL(file);
+            img.onload = function() {
+                URL.revokeObjectURL(url);
+                var w = img.naturalWidth, h = img.naturalHeight;
+                if (w > 1280 || h > 1280) {
+                    if (w >= h) { h = Math.round(h * 1280 / w); w = 1280; }
+                    else { w = Math.round(w * 1280 / h); h = 1280; }
+                }
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob(function(blob) {
+                    if (!blob || blob.size >= file.size) { resolve(file); return; }
+                    resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() }));
+                }, 'image/jpeg', 0.78);
+            };
+            img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+            img.src = url;
+        });
+    }
+
+    async function previewCommunityMedia(input) {
         if (!input.files || input.files.length === 0) return;
-        Array.from(input.files).forEach(file => commUploadedFiles.push(file));
+        for (var i = 0; i < input.files.length; i++) {
+            commUploadedFiles.push(await compressImageFile(input.files[i]));
+        }
         renderCommMediaPreviews();
     }
 
@@ -329,17 +363,34 @@
         commUploadedFiles.forEach((file, i) => formData.append(`media[${i}]`, file));
 
         try {
-            const response = await fetch('/posts', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                },
-                body: formData
+            const {ok, data} = await new Promise(function(resolve) {
+                var xhr = new XMLHttpRequest();
+                var progressBar = document.getElementById('comm-upload-progress');
+                var progressFill = document.getElementById('comm-upload-progress-fill');
+                var progressText = document.getElementById('comm-upload-progress-text');
+                xhr.upload.onprogress = function(e) {
+                    if (!e.lengthComputable || !progressBar) return;
+                    var pct = Math.round(e.loaded / e.total * 100);
+                    progressBar.style.display = 'block';
+                    if (progressFill) progressFill.style.width = pct + '%';
+                    if (progressText) progressText.textContent = pct + '%';
+                };
+                xhr.onload = function() {
+                    if (progressBar) progressBar.style.display = 'none';
+                    try { resolve({ok: xhr.status >= 200 && xhr.status < 300, data: JSON.parse(xhr.responseText)}); }
+                    catch(e) { resolve({ok: false, data: {}}); }
+                };
+                xhr.onerror = function() {
+                    if (progressBar) progressBar.style.display = 'none';
+                    resolve({ok: false, data: {}});
+                };
+                xhr.open('POST', '/posts');
+                xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').content);
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.send(formData);
             });
-
-            const data = await response.json();
-            if (data.success) {
+            if (ok && data.success) {
                 showToast(data.message, 'success');
                 if (data.post_html) {
                     const feedList = document.querySelector('.feed-posts-list');
@@ -378,6 +429,8 @@
                 btn.innerHTML = '{{ __("messages.post") }}';
             }
         } catch (error) {
+            const pb = document.getElementById('comm-upload-progress');
+            if (pb) pb.style.display = 'none';
             showToast('{{ __("messages.error_creating_post") }}', 'error');
             btn.disabled = false;
             btn.innerHTML = '{{ __("messages.post") }}';

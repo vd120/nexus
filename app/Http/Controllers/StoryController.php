@@ -50,25 +50,35 @@ class StoryController extends Controller
             // Clear stories cache for the current user to ensure it updates on feed
             cache()->forget('user_stories_' . auth()->id());
 
-            // Broadcast to followers in real time
-            try {
-                $socketService = app(\App\Services\SocketEmitService::class);
-                $user = auth()->user();
-                foreach ($user->followers as $follower) {
-                    $socketService->emitToUser($follower->follower_id, 'story:new', [
-                        'username' => $user->username,
-                        'storySlug' => $story->slug,
-                        'avatarUrl' => $user->avatar_url,
-                        'mediaType' => $story->media_type,
-                        'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
-                        'content' => $story->content,
-                        'bgColor' => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        'timeAgo' => $story->created_at->diffForHumans(),
-                        'is_verified' => (bool) $user->is_verified,
-                    ]);
+            // Defer broadcast until after response is sent — avoids N blocking HTTP calls
+            $user = auth()->user();
+            $followerIds = $user->followers()->pluck('follower_id');
+            $broadcastPayload = [
+                'username'  => $user->username,
+                'storySlug' => $story->slug,
+                'avatarUrl' => $user->avatar_url,
+                'mediaType' => $story->media_type,
+                'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
+                'content'   => $story->content,
+                'bgColor'   => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                'timeAgo'   => $story->created_at->diffForHumans(),
+                'is_verified' => (bool) $user->is_verified,
+            ];
+            app()->terminating(function () use ($followerIds, $broadcastPayload) {
+                try {
+                    app(\App\Services\SocketEmitService::class)
+                        ->emitToUsers($followerIds, 'story:new', $broadcastPayload);
+                } catch (\Exception $e) {
+                    \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
                 }
-            } catch (\Exception $e) {
-                \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
+            });
+
+            if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'success' => true,
+                    'redirect' => route('stories.index'),
+                    'message' => __('messages.story_posted'),
+                ]);
             }
 
             return redirect()->route('stories.index')->with('success', __('messages.story_posted'));
@@ -182,24 +192,34 @@ class StoryController extends Controller
         // Clear stories cache for the current user to ensure it updates on feed
         cache()->forget('user_stories_' . auth()->id());
 
-        // Broadcast to followers in real time
-        try {
-            $socketService = app(\App\Services\SocketEmitService::class);
-            $user = auth()->user();
-            foreach ($user->followers as $follower) {
-                $socketService->emitToUser($follower->follower_id, 'story:new', [
-                    'username' => $user->username,
-                    'storySlug' => $story->slug,
-                    'avatarUrl' => $user->avatar_url,
-                    'mediaType' => $story->media_type,
-                    'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
-                    'content' => $story->content,
-                    'bgColor' => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    'timeAgo' => $story->created_at->diffForHumans(),
-                ]);
+        // Defer broadcast until after response is sent
+        $user = auth()->user();
+        $followerIds = $user->followers()->pluck('follower_id');
+        $broadcastPayload = [
+            'username'  => $user->username,
+            'storySlug' => $story->slug,
+            'avatarUrl' => $user->avatar_url,
+            'mediaType' => $story->media_type,
+            'mediaPath' => $story->media_path ? asset('storage/' . $story->media_path) : null,
+            'content'   => $story->content,
+            'bgColor'   => $story->metadata['bg_color'] ?? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'timeAgo'   => $story->created_at->diffForHumans(),
+        ];
+        app()->terminating(function () use ($followerIds, $broadcastPayload) {
+            try {
+                app(\App\Services\SocketEmitService::class)
+                    ->emitToUsers($followerIds, 'story:new', $broadcastPayload);
+            } catch (\Exception $e) {
+                \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            \Log::error('Real-time story broadcast failed: ' . $e->getMessage());
+        });
+
+        if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('stories.index'),
+                'message' => __('messages.story_posted'),
+            ]);
         }
 
         return redirect()->route('stories.index')->with('success', __('messages.story_posted'));

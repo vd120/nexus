@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\VerificationCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,9 +29,7 @@ class EmailVerificationNotificationController extends Controller
 
         \Log::info('Resending verification code to ' . $request->user()->email);
         try {
-            \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $verificationCode], function ($message) use ($request, $subject) {
-                $message->to($request->user()->email)->subject($subject);
-            });
+            \Illuminate\Support\Facades\Mail::to($request->user()->email, $request->user()->name)->send(new VerificationCodeMail($request->user(), $verificationCode));
             \Log::info('Resending: Email sent successfully to ' . $request->user()->email);
         } catch (\Exception $e) {
             \Log::error('Resending: Failed to send verification email to ' . $request->user()->email . '. Error: ' . $e->getMessage());

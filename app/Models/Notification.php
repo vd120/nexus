@@ -115,6 +115,7 @@ class Notification extends Model
             'group_member_role_changed' => $this->getGroupMemberRoleChangedMessage(),
             'community_report_new'      => $this->getCommunityReportNewMessage(),
             'report_action_owner' => $this->data['message'] ?? __('messages.new_notification'),
+            'admin_post_deleted' => $this->getAdminPostDeletedMessage(),
             default => __('messages.new_notification')
         };
     }
@@ -347,6 +348,12 @@ class Notification extends Model
         return __('notifications.community_report_new', ['user' => $user, 'group' => $group]);
     }
 
+    private function getAdminPostDeletedMessage(): string
+    {
+        $reason = $this->data['reason'] ?? __('notifications.no_reason_provided');
+        return __('notifications.admin_post_deleted', ['reason' => $reason]);
+    }
+
 
 
     public function getLinkAttribute(): ?string
@@ -380,6 +387,7 @@ class Notification extends Model
             'group_join_accepted'      => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
             'group_post_rejected'      => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
             'group_member_role_changed' => ($this->data['group_slug'] ?? null) ? url('/communities/' . $this->data['group_slug']) : null,
+            'admin_post_deleted' => url('/notifications'),
             default => null
         };
 

@@ -475,10 +475,13 @@
             </div>
         `;
 
-        messagesWrapper.appendChild(div);
-        
-        // If user is near bottom, scroll automatically, otherwise increment badge
-        const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 300;
+        // Check scroll position BEFORE inserting (accurate before DOM change)
+        const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 150;
+
+        // Insert BEFORE the sentinel so it stays at the very bottom (keeps IntersectionObserver working)
+        const sentinel = document.getElementById('scrollSentinel');
+        messagesWrapper.insertBefore(div, sentinel);
+
         if (isAtBottom) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         } else {

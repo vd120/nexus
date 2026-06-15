@@ -340,6 +340,8 @@ class ChatController extends Controller
         
         foreach ($recipientIds as $recipientId) {
             \App\Http\Controllers\NotificationController::createMessageNotification($recipientId, $currentUser, $message);
+            // Bust the unread messages cache for each recipient
+            \Illuminate\Support\Facades\Cache::forget('unread_messages_' . $recipientId);
         }
 
         // Real-time broadcast
@@ -459,6 +461,9 @@ class ChatController extends Controller
         }
         
         // Always prepare emit data to ensure UI sync for the reader
+        // Bust unread messages cache so the nav badge updates on next page load
+        \Illuminate\Support\Facades\Cache::forget('unread_messages_' . $userId);
+
         $emitData = [
             'conversation_id' => $conversation->id,
             'reader_id' => $userId,
@@ -559,7 +564,7 @@ class ChatController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'deleted_message_id' => $message->id, 'conversation_slug' => $conversation->slug, 'delete_type' => $deleteType]);
+        return response()->json(['success' => true, 'deleted_message_id' => $message->id, 'conversation_slug' => $conversation->slug, 'delete_type' => $deleteType, 'deleted_by_sender' => (bool) $message->fresh()->deleted_by_sender]);
     }
 
     /**

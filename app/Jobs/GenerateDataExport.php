@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Mail\DataExportReadyMail;
 use App\Models\DataExportRequest;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -113,15 +114,9 @@ class GenerateDataExport implements ShouldQueue
                 ['token' => $token]
             );
 
-            Mail::send('emails.data-export-ready', [
-                'user'        => $user,
-                'downloadUrl' => $downloadUrl,
-                'expiresAt'   => $expiresAt->format('F j, Y g:i A'),
-            ], function ($mail) use ($user) {
-                $mail->to($user->email)->subject(
-                    __('emails.data_export_subject', ['app' => config('app.name')])
-                );
-            });
+            Mail::to($user->email, $user->name)->send(
+                new DataExportReadyMail($user, $downloadUrl, $expiresAt->format('F j, Y g:i A'))
+            );
 
         } finally {
             // Restore original locale

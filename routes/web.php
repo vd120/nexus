@@ -13,6 +13,8 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LanguageController;
 use App\Http\Controllers\GlobalChatController;
+use App\Http\Controllers\ShareTargetController;
+use App\Http\Controllers\ManifestController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
@@ -57,6 +59,9 @@ Route::get('/dashboard', function () {
 // Language switch route (placed early to avoid conflicts)
 Route::get('/lang/{locale}', [LanguageController::class, 'switch'])->name('language.switch')->middleware('web');
 
+// Dynamic PWA manifest — injects lang/dir per user locale
+Route::get('/manifest.json', [ManifestController::class, 'show'])->name('manifest');
+
 Route::get('/privacy', function () {
     return view('privacy');
 })->name('privacy');
@@ -68,6 +73,10 @@ Route::get('/terms', function () {
 Route::get('/cookies', function () {
     return view('cookies');
 })->name('cookies');
+
+Route::get('/download', function () {
+    return view('download');
+})->name('download');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', function () {
@@ -148,6 +157,9 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
         }
         return response()->noContent();
     })->name('prompt.nudge.dismiss');
+
+    // PWA Share Target — receives content shared from the device share sheet
+    Route::post('/share-target', [ShareTargetController::class, 'store'])->name('share.target');
 });
 
 Route::middleware(['auth', 'suspended'])->group(function () {
@@ -214,16 +226,11 @@ Route::post('/email/verification-notification', function (Request $request) {
         // Generate and send new verification code
         $verificationCode = $user->generateVerificationCode();
 
-        // Send simple verification code via email
-        \Illuminate\Support\Facades\Mail::raw(
-            "Welcome to " . config('app.name') . "!\n\n" .
-            "Your verification code is: {$verificationCode}\n\n" .
-            "Please enter this code to verify your account.",
-            function ($message) use ($user) {
-                $message->to($user->email)
-                        ->subject(config('app.name') . ' - Verification Code');
-            }
-        );
+        // Send verification code via email
+        $originalLocale = app()->getLocale();
+        if ($user->language) app()->setLocale($user->language);
+        \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new \App\Mail\VerificationCodeMail($user, $verificationCode));
+        app()->setLocale($originalLocale);
 
         // Return JSON response for AJAX
         if ($request->expectsJson()) {
@@ -451,6 +458,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
     Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
     Route::get('/api/search-users', [App\Http\Controllers\UserController::class, 'apiSearch'])->name('api.search-users');
+    Route::get('/api/search', [App\Http\Controllers\UserController::class, 'search'])->name('api.search');
     Route::get('/api/user/{user}/username', [App\Http\Controllers\UserController::class, 'getUsername'])->name('api.user.username');
     Route::get('/user/{user}/online-status', [App\Http\Controllers\UserController::class, 'getOnlineStatus'])->name('user.get-online-status');
     Route::get('/users/online-status/bulk', [App\Http\Controllers\UserController::class, 'getBulkOnlineStatus'])->name('users.online-status.bulk');

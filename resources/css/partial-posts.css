@@ -2424,7 +2424,6 @@ html[dir="rtl"] .reactor-user-info {
     border: 1.5px solid var(--surface);
     border-radius: 50%;
     margin-inline-end: -6px;
-    margin-right: 0; /* override base margin-right: -6px */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3165,4 +3164,12 @@ html[dir="rtl"] .hidden-replies::before {
 /* Hide everything inside the wrapper that isn't the overlay */
 .sensitive-text-only > *:not(.sensitive-overlay) {
     display: none !important;
+}
+
+/* PWA offline pending state for reaction buttons */
+.reaction-pending {
+    opacity: 0.6;
+    filter: grayscale(0.5);
+    cursor: default;
+    pointer-events: none;
 }

@@ -41,6 +41,10 @@
     /** Data stored when an incoming call arrives, used when accepting. */
     let pendingIncomingCall = null;
 
+    /** Peer display info — set when a call begins so mediaSession can use it. */
+    let _peerName   = '';
+    let _peerAvatar = '';
+
     // ---------------------------------------------------------------------------
     // CSRF helper
     // ---------------------------------------------------------------------------
@@ -79,9 +83,10 @@
     //   even when the user has previously interacted with the page.
     // ---------------------------------------------------------------------------
 
-    let ringtoneActive  = false;
-    let vibrateTimer    = null;
-    let ringSourceNode  = null;   // active Web Audio BufferSourceNode while ringing
+    let ringtoneActive    = false;
+    let vibrateTimer      = null;
+    let ringSourceNode    = null;   // active Web Audio BufferSourceNode while ringing
+    let _callAudioNeeded  = false;  // true only when a call is incoming/active — guards eager audio unlock
 
     var _audioCtx   = null;
     var _ringBuffer = null;   // decoded AudioBuffer, built once when ctx first runs
@@ -134,8 +139,10 @@
         return true;
     }
 
-    // WAV data URI kept for the <audio> fallback element only.
-    var RING_SRC = (function () {
+    // WAV data URI for the <audio> fallback. Built lazily on first call only.
+    var RING_SRC = null;
+    function getRingSrc() {
+        if (RING_SRC) return RING_SRC;
         var SR = 22050, ringLen = Math.ceil(SR * 1.0), totalLen = Math.ceil(SR * 3.0);
         var ab = new ArrayBuffer(44 + totalLen * 2), v = new DataView(ab);
         function ws(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
@@ -154,19 +161,27 @@
         var bytes = new Uint8Array(ab), bin = '', chunk = 8192;
         for (var j = 0; j < bytes.length; j += chunk)
             bin += String.fromCharCode.apply(null, bytes.subarray(j, j + chunk));
-        return 'data:audio/wav;base64,' + btoa(bin);
-    })();
+        RING_SRC = 'data:audio/wav;base64,' + btoa(bin);
+        return RING_SRC;
+    }
 
-    var ringAudio = (function () {
+    // ringAudio — created lazily inside startRingtone() only.
+    // Having ANY <audio> element in the DOM (even silent, even without src) causes iOS/Android
+    // to activate their audio session and duck background music. Defer until a call needs it.
+    var ringAudio = null;
+    function getRingAudio() {
+        if (ringAudio) return ringAudio;
         var el = document.createElement('audio');
-        el.src     = RING_SRC;
+        el.src     = getRingSrc();
         el.loop    = true;
         el.volume  = 0.9;
         el.preload = 'none';
         el.setAttribute('playsinline', '');
+        el.style.cssText = 'position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
         document.body.appendChild(el);
+        ringAudio = el;
         return el;
-    })();
+    }
 
     function _resumeCtxAndBuildBuffer() {
         var ctx = getAudioCtx();
@@ -177,8 +192,8 @@
                 // If ringing but Web Audio hadn't started yet, start it now
                 if (ringtoneActive && !ringSourceNode) {
                     _playRingViaWebAudio();
-                    ringAudio.pause();
-                    ringAudio.currentTime = 0;
+                    getRingAudio().pause();
+                    getRingAudio().currentTime = 0;
                 }
             }).catch(function () {});
         } else {
@@ -190,8 +205,7 @@
         if (!el || el.dataset.unlocked === 'resolved') return;
         el.play().then(function () {
             el.dataset.unlocked = 'resolved';
-            // Keep playing if ring is active or remote audio has a live stream
-            if (el === ringAudio && ringtoneActive) return;
+            if (el === getRingAudio() && ringtoneActive) return;
             if (el === document.getElementById('call-remote-audio') && el.srcObject) return;
             el.pause();
             el.currentTime = 0;
@@ -201,12 +215,13 @@
     }
 
     function onGesture() {
-        // Resume AudioContext — this is the critical unlock for ring-without-touch.
-        // Once resumed inside a gesture, the context stays 'running' for the page lifetime.
+        // Only activate audio when a call is actually incoming/active.
+        // Calling _resumeCtxAndBuildBuffer() on every tap creates an AudioContext which
+        // activates the OS audio session and ducks background music on iOS/Android.
+        if (!_callAudioNeeded) return;
         _resumeCtxAndBuildBuffer();
-
-        // Fallback: also unlock <audio> elements for browsers without Web Audio API
-        if (ringAudio.dataset.unlocked !== 'resolved') tryUnlockElement(ringAudio);
+        var ra = getRingAudio();
+        if (ra.dataset.unlocked !== 'resolved') tryUnlockElement(ra);
         var rem = document.getElementById('call-remote-audio');
         if (rem && rem.dataset.unlocked !== 'resolved') tryUnlockElement(rem);
     }
@@ -215,77 +230,16 @@
         document.addEventListener(evt, onGesture, { passive: true });
     });
 
-    // ---------------------------------------------------------------------------
-    // Audio unlock banner
-    // Mobile browsers block all audio until the first user gesture. We show a
-    // small persistent banner asking the user to tap once to enable call audio.
-    // It is dismissed on first interaction and never shown again (sessionStorage).
-    // ---------------------------------------------------------------------------
-    (function () {
-        // Only show on touch devices and only if not already unlocked this session
-        var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (!isTouchDevice) return;
-        if (sessionStorage.getItem('_callAudioUnlocked') === '1') return;
-
-        var banner = document.createElement('div');
-        banner.id = '_call-audio-banner';
-        banner.setAttribute('role', 'alert');
-        banner.style.cssText = [
-            'position:fixed',
-            'bottom:calc(56px + env(safe-area-inset-bottom, 8px) + 8px)',
-            'left:50%',
-            'transform:translateX(-50%)',
-            'z-index:99999',
-            'background:rgba(30,30,30,0.92)',
-            'color:#fff',
-            'font-size:13px',
-            'font-family:system-ui,sans-serif',
-            'padding:10px 18px',
-            'border-radius:24px',
-            'box-shadow:0 4px 18px rgba(0,0,0,0.35)',
-            'cursor:pointer',
-            'white-space:nowrap',
-            'backdrop-filter:blur(6px)',
-            '-webkit-backdrop-filter:blur(6px)',
-            'border:1px solid rgba(255,255,255,0.12)',
-            'transition:opacity 0.4s',
-            'display:flex',
-            'align-items:center',
-            'gap:8px',
-        ].join(';');
-
-        banner.innerHTML = '<span style="font-size:17px">🔔</span><span>Tap to enable call audio</span>';
-
-        function dismissBanner() {
-            sessionStorage.setItem('_callAudioUnlocked', '1');
-            banner.style.opacity = '0';
-            setTimeout(function () {
-                if (banner.parentNode) banner.parentNode.removeChild(banner);
-            }, 420);
-        }
-
-        // Dismiss on any real gesture — onGesture will handle the actual AudioContext unlock
-        ['click', 'touchend', 'pointerdown'].forEach(function (e) {
-            document.addEventListener(e, dismissBanner, { once: true, passive: true });
-        });
-
-        // Show after a short delay so it doesn't flash on every navigation
-        setTimeout(function () {
-            if (sessionStorage.getItem('_callAudioUnlocked') !== '1') {
-                document.body.appendChild(banner);
-            }
-        }, 1200);
-    })();
-
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState !== 'visible') return;
-        // App came to foreground — resume context (iOS/Android suspend it on backgrounding)
+        if (!ringtoneActive && !_callAudioNeeded) return;
         _resumeCtxAndBuildBuffer();
         if (ringtoneActive) {
+            var ra = getRingAudio();
             if (_audioCtx && _audioCtx.state === 'running') {
                 if (!ringSourceNode) _playRingViaWebAudio();
-            } else if (ringAudio.paused) {
-                ringAudio.play().catch(function () {});
+            } else if (ra.paused) {
+                ra.play().catch(function () {});
             }
         }
     });
@@ -313,26 +267,22 @@
     // Called when user taps the in-modal "Tap to hear ringtone" button
     window._callUnblockRing = function () {
         _showRingUnblockBtn(false);
-        sessionStorage.setItem('_callAudioUnlocked', '1');
-        var banner = document.getElementById('_call-audio-banner');
-        if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
-
         var ctx = getAudioCtx();
         if (ctx && ctx.state === 'suspended') {
             ctx.resume().then(function () {
                 _ensureRingBuffer();
                 if (ringtoneActive && !ringSourceNode) {
                     _playRingViaWebAudio();
-                    ringAudio.pause();
-                    ringAudio.currentTime = 0;
+                    getRingAudio().pause();
+                    getRingAudio().currentTime = 0;
                 }
             }).catch(function () {});
         }
-        // Also unlock <audio> fallback
-        if (ringAudio.dataset.unlocked !== 'resolved') {
-            tryUnlockElement(ringAudio);
-        } else if (ringtoneActive && ringAudio.paused && !ringSourceNode) {
-            ringAudio.play().catch(function () {});
+        var ra = getRingAudio();
+        if (ra.dataset.unlocked !== 'resolved') {
+            tryUnlockElement(ra);
+        } else if (ringtoneActive && ra.paused && !ringSourceNode) {
+            ra.play().catch(function () {});
         }
     };
 
@@ -341,37 +291,33 @@
         ringtoneActive = true;
         startVibration();
 
-        // Primary: Web Audio API — works immediately if context is already running
-        // (which it is whenever the user has previously tapped anything on the page)
         var ctx = getAudioCtx();
         if (ctx && ctx.state === 'running') {
             _ensureRingBuffer();
             if (_playRingViaWebAudio()) {
                 _showRingUnblockBtn(false);
-                return;   // success — skip <audio> fallback
+                return;
             }
         }
 
-        // Context is suspended (no prior gesture on this page load) — try to resume.
         if (ctx && ctx.state === 'suspended') {
             ctx.resume().then(function () {
                 if (!ringtoneActive) return;
                 _ensureRingBuffer();
                 if (_playRingViaWebAudio()) {
                     _showRingUnblockBtn(false);
-                    ringAudio.pause();
-                    ringAudio.currentTime = 0;
+                    getRingAudio().pause();
+                    getRingAudio().currentTime = 0;
                 }
             }).catch(function () {});
         }
 
-        // Fallback: <audio> element
-        ringAudio.currentTime = 0;
-        var p = ringAudio.play();
+        var ra = getRingAudio();
+        ra.currentTime = 0;
+        var p = ra.play();
         if (p) p.catch(function (err) {
             console.warn('[CallManager] Ring blocked:', err.message);
-            delete ringAudio.dataset.unlocked;
-            // Audio is blocked — show the in-modal tap-to-ring button
+            delete ra.dataset.unlocked;
             _showRingUnblockBtn(true);
         });
     }
@@ -384,8 +330,10 @@
             try { ringSourceNode.stop(); } catch (e) {}
             ringSourceNode = null;
         }
-        ringAudio.pause();
-        ringAudio.currentTime = 0;
+        if (ringAudio) {
+            ringAudio.pause();
+            ringAudio.currentTime = 0;
+        }
     }
 
     function unlockAudio() {
@@ -452,6 +400,9 @@
                 }
                 remoteAudio.srcObject.addTrack(event.track);
             }
+
+            // Register mediaSession so audio persists when the screen locks
+            setMediaSessionActive(_peerName, _peerAvatar);
 
             // Must call play() explicitly — browsers block autoplay on
             // programmatic srcObject assignment, especially on mobile
@@ -576,6 +527,24 @@
         remoteDescSet       = false;
         iceCandidateBuffer  = [];
         speakerEnabled      = true;
+        _peerName           = '';
+        _peerAvatar         = '';
+        if ('mediaSession' in navigator) {
+            try { navigator.mediaSession.metadata = null; } catch (e) {}
+            try { navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+        }
+    }
+
+    function setMediaSessionActive(name, avatar) {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title:  name || 'Nexus Call',
+                artist: 'Nexus',
+                artwork: avatar ? [{ src: avatar, sizes: '192x192', type: 'image/png' }] : [],
+            });
+            navigator.mediaSession.playbackState = 'playing';
+        } catch (e) {}
     }
 
     // ---------------------------------------------------------------------------
@@ -634,6 +603,8 @@
     function startCall(callId, toUserId, conversationId, calleeName, calleeAvatar, calleeUsername, calleeVerified) {
         currentCallId = callId;
         targetUserId  = toUserId;
+        _peerName     = calleeName   || '';
+        _peerAvatar   = calleeAvatar || '';
 
         // Pre-unlock remote audio inside this user-gesture context (button click)
         const remoteAudio = getOrCreateRemoteAudio();
@@ -1064,6 +1035,8 @@
             if (!pendingIncomingCall) return;
             stopRingtone();
             const { callId } = pendingIncomingCall;
+            _peerName   = pendingIncomingCall.callerName   || '';
+            _peerAvatar = pendingIncomingCall.callerAvatar || '';
 
             // Pre-unlock the remote audio element while inside this user-gesture
             // handler — critical for iOS Safari which blocks audio without gesture

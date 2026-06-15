@@ -2,6 +2,8 @@ require('dotenv').config({ path: '../.env' });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
+const Redis = require('ioredis');
 const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('./logger');
@@ -20,33 +22,54 @@ const io = new Server(server, {
 });
 
 // Internal communication should always prefer localhost to avoid tunnel loopback issues
-const APP_URL = process.env.APP_URL || 'http://127.0.0.1:8000';
-const INTERNAL_APP_URL = 'http://127.0.0.1:8000'; 
+const INTERNAL_APP_URL = 'http://127.0.0.1:8000';
 const PORT = process.env.SOCKET_IO_PORT || 3001;
 const INTERNAL_SECRET = process.env.SOCKET_INTERNAL_SECRET;
+const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
-const activeUsers    = new Map(); // userId -> Set of socketIds
-const hiddenUsers    = new Set(); // userIds with show_online_status=false
-const userInCall     = new Map(); // userId -> { callId, otherUserId, startedAt }
-const callEndTimers  = new Map(); // userId -> setTimeout handle for delayed call:ended
+// Redis clients — pub for commands, sub for adapter subscriptions
+const pubClient = new Redis(REDIS_URL);
+const subClient = pubClient.duplicate();
+
+pubClient.on('error', (err) => logger.error({ err: err.message }, 'Redis pub client error'));
+subClient.on('error', (err) => logger.error({ err: err.message }, 'Redis sub client error'));
+
+// In-memory only: setTimeout handles cannot be serialized or shared across instances
+const callEndTimers = new Map();
+
+// Redis key helpers
+const rk = {
+    userSockets:  (userId)   => `nexus:socket:user:${userId}`,
+    onlineUsers:  ()         => 'nexus:onlineUsers',
+    hiddenUsers:  ()         => 'nexus:hiddenUsers',
+    userCall:     (userId)   => `nexus:call:${userId}`,
+    roomMembers:  (roomName) => `nexus:room:${roomName}`,
+};
 
 // Purge stale userInCall entries every 5 minutes (covers ICE failures
 // where neither party disconnects cleanly and call:end is never emitted)
-setInterval(() => {
-    const staleMs = 5 * 60 * 1000;
-    const now = Date.now();
-    for (const [uid, entry] of userInCall.entries()) {
-        if (now - entry.startedAt > staleMs) {
-            logger.warn({ uid, callId: entry.callId }, 'Purging stale userInCall entry');
-            userInCall.delete(uid);
+setInterval(async () => {
+    try {
+        const staleMs = 5 * 60 * 1000;
+        const now = Date.now();
+        const callKeys = await pubClient.keys('nexus:call:*');
+        for (const key of callKeys) {
+            const entry = await pubClient.hgetall(key);
+            if (entry && entry.startedAt && (now - parseInt(entry.startedAt)) > staleMs) {
+                const uid = key.replace('nexus:call:', '');
+                logger.warn({ uid, callId: entry.callId }, 'Purging stale userInCall entry');
+                await pubClient.del(key);
+            }
         }
+    } catch (err) {
+        logger.error({ err: err.message }, 'Error during stale call purge');
     }
 }, 60 * 1000);
 
 const getActualSecret = () => {
     if (!INTERNAL_SECRET) return null;
-    return INTERNAL_SECRET.startsWith('base64:') 
-        ? Buffer.from(INTERNAL_SECRET.substring(7), 'base64') 
+    return INTERNAL_SECRET.startsWith('base64:')
+        ? Buffer.from(INTERNAL_SECRET.substring(7), 'base64')
         : INTERNAL_SECRET;
 };
 
@@ -81,18 +104,10 @@ io.use((socket, next) => {
     next();
 });
 
-// Room tracking registry (RoomName -> Map(userId -> socketCount))
-const roomMemberRegistry = new Map();
-
-const broadcastRoomUsers = (io, conversationId) => {
+const broadcastRoomUsers = async (io, conversationId) => {
     const roomName = `conversation:${conversationId}`;
-    const registry = roomMemberRegistry.get(roomName);
-    const userIds = registry ? Array.from(registry.keys()) : [];
-    
-    io.to(roomName).emit('conversation:users', {
-        conversationId,
-        userIds
-    });
+    const userIds = await pubClient.hkeys(rk.roomMembers(roomName));
+    io.to(roomName).emit('conversation:users', { conversationId, userIds });
     logger.info({ conversationId, userCount: userIds.length }, 'Broadcasted room users');
 };
 
@@ -105,32 +120,35 @@ io.on('connection', async (socket) => {
         callEndTimers.delete(userId);
     }
 
-    if (!activeUsers.has(userId)) {
-        activeUsers.set(userId, new Set());
-    }
-    const userSockets = activeUsers.get(userId);
-    userSockets.add(socket.id);
+    // Track this socket in Redis
+    await pubClient.hset(rk.userSockets(userId), socket.id, '1');
+    const socketCount = await pubClient.hlen(rk.userSockets(userId));
 
     socket.join(`user:${userId}`);
     socket.join('public');
     socket.join('global');
 
     // If first connection for this user
-    if (userSockets.size === 1) {
-        updateLaravelStatus(userId, 'online').then(data => {
+    if (socketCount === 1) {
+        await pubClient.sadd(rk.onlineUsers(), userId);
+        updateLaravelStatus(userId, 'online').then(async (data) => {
             // notify_user_ids === [] means show_online_status is off — track and skip broadcast
             if (data && Array.isArray(data.notify_user_ids) && data.notify_user_ids.length === 0) {
-                hiddenUsers.add(userId);
+                await pubClient.sadd(rk.hiddenUsers(), userId);
                 return;
             }
-            hiddenUsers.delete(userId);
+            await pubClient.srem(rk.hiddenUsers(), userId);
             io.emit('user:online', { userId, last_active: data?.last_active });
         });
     }
 
-    // Filter hidden users out of the bulk sync so reloads don't resurrect hidden users
-    const onlineUserIds = Array.from(activeUsers.keys()).filter(id => !hiddenUsers.has(id));
-    socket.emit('users:online', { userIds: onlineUserIds });
+    // Send bulk online users list to the newly connected socket (filter hidden users)
+    const [allOnlineIds, hiddenIds] = await Promise.all([
+        pubClient.smembers(rk.onlineUsers()),
+        pubClient.smembers(rk.hiddenUsers()),
+    ]);
+    const hiddenSet = new Set(hiddenIds);
+    socket.emit('users:online', { userIds: allOnlineIds.filter(id => !hiddenSet.has(id)) });
 
     socket.on('admin:join', () => {
         if (socket.user && socket.user.is_admin) {
@@ -141,50 +159,33 @@ io.on('connection', async (socket) => {
         }
     });
 
-    socket.on('pulse:join', () => {
-        socket.join('pulse');
-    });
+    socket.on('pulse:join',  () => socket.join('pulse'));
+    socket.on('memory:join', () => socket.join('memory'));
 
-    socket.on('memory:join', () => {
-        socket.join('memory');
-    });
-
-    socket.on('conversation:join', ({ conversationId }) => {
+    socket.on('conversation:join', async ({ conversationId }) => {
         if (!conversationId) return;
         const roomName = `conversation:${conversationId}`;
         socket.join(roomName);
-
-        if (!roomMemberRegistry.has(roomName)) {
-            roomMemberRegistry.set(roomName, new Map());
-        }
-        const registry = roomMemberRegistry.get(roomName);
-        registry.set(userId, (registry.get(userId) || 0) + 1);
-        
-        console.log(`\x1b[32m[USER JOINED ROOM]\x1b[0m User: ${userId}, Room: ${roomName}, Total Unique Users: ${registry.size}`);
-        broadcastRoomUsers(io, conversationId);
+        await pubClient.hincrby(rk.roomMembers(roomName), userId, 1);
+        const memberCount = await pubClient.hlen(rk.roomMembers(roomName));
+        console.log(`\x1b[32m[USER JOINED ROOM]\x1b[0m User: ${userId}, Room: ${roomName}, Total Unique Users: ${memberCount}`);
+        await broadcastRoomUsers(io, conversationId);
     });
 
-    socket.on('conversation:leave', ({ conversationId }) => {
+    socket.on('conversation:leave', async ({ conversationId }) => {
         if (!conversationId) return;
         const roomName = `conversation:${conversationId}`;
         socket.leave(roomName);
-
-        const registry = roomMemberRegistry.get(roomName);
-        if (registry && registry.has(userId)) {
-            const count = registry.get(userId) - 1;
-            if (count <= 0) registry.delete(userId);
-            else registry.set(userId, count);
-        }
-        
-        console.log(`\x1b[31m[USER LEFT ROOM]\x1b[0m User: ${userId}, Room: ${roomName}, Total Unique Users: ${registry ? registry.size : 0}`);
-        broadcastRoomUsers(io, conversationId);
+        const current = parseInt(await pubClient.hget(rk.roomMembers(roomName), userId)) || 0;
+        if (current - 1 <= 0) await pubClient.hdel(rk.roomMembers(roomName), userId);
+        else await pubClient.hset(rk.roomMembers(roomName), userId, current - 1);
+        const memberCount = await pubClient.hlen(rk.roomMembers(roomName));
+        console.log(`\x1b[31m[USER LEFT ROOM]\x1b[0m User: ${userId}, Room: ${roomName}, Total Unique Users: ${memberCount}`);
+        await broadcastRoomUsers(io, conversationId);
     });
 
     socket.on('chat:typing', (data) => {
-        socket.to(`conversation:${data.conversationId}`).emit('chat:typing', {
-            ...data,
-            userId
-        });
+        socket.to(`conversation:${data.conversationId}`).emit('chat:typing', { ...data, userId });
     });
 
     socket.on('chat:delivered', async (data) => {
@@ -212,130 +213,97 @@ io.on('connection', async (socket) => {
     });
 
     // VoIP: relay WebRTC SDP offer to callee
-    socket.on('call:offer', ({ targetUserId, callId, sdp }) => {
+    socket.on('call:offer', async ({ targetUserId, callId, sdp }) => {
         if (!targetUserId || !sdp) return;
-        io.to(`user:${targetUserId}`).emit('call:offer', {
-            fromUserId: userId,
-            callId,
-            sdp
-        });
-        // Track that this user is in a call
-        userInCall.set(userId, { callId, otherUserId: String(targetUserId), startedAt: Date.now() });
+        io.to(`user:${targetUserId}`).emit('call:offer', { fromUserId: userId, callId, sdp });
+        await pubClient.hset(rk.userCall(userId), { callId, otherUserId: String(targetUserId), startedAt: String(Date.now()) });
     });
 
     // VoIP: relay WebRTC SDP answer to caller
-    socket.on('call:answer', ({ targetUserId, callId, sdp }) => {
+    socket.on('call:answer', async ({ targetUserId, callId, sdp }) => {
         if (!targetUserId || !sdp) return;
-        io.to(`user:${targetUserId}`).emit('call:answer', {
-            fromUserId: userId,
-            callId,
-            sdp
-        });
-        // Track callee in call too
-        userInCall.set(userId, { callId, otherUserId: String(targetUserId), startedAt: Date.now() });
+        io.to(`user:${targetUserId}`).emit('call:answer', { fromUserId: userId, callId, sdp });
+        await pubClient.hset(rk.userCall(userId), { callId, otherUserId: String(targetUserId), startedAt: String(Date.now()) });
     });
 
     // VoIP: relay ICE candidates
     socket.on('call:ice-candidate', ({ targetUserId, callId, candidate }) => {
         if (!targetUserId || !candidate) return;
-        io.to(`user:${targetUserId}`).emit('call:ice-candidate', {
-            fromUserId: userId,
-            callId,
-            candidate
-        });
+        io.to(`user:${targetUserId}`).emit('call:ice-candidate', { fromUserId: userId, callId, candidate });
     });
 
     // VoIP: either party ended the call via socket (e.g. browser crash fallback)
-    socket.on('call:end', ({ targetUserId, callId }) => {
+    socket.on('call:end', async ({ targetUserId, callId }) => {
         if (!targetUserId) return;
-        io.to(`user:${targetUserId}`).emit('call:ended', {
-            fromUserId: userId,
-            callId,
-            reason: 'hung_up'
-        });
-        userInCall.delete(userId);
-        // Clean up the other party's entry to prevent duplicate call:ended on their disconnect
+        io.to(`user:${targetUserId}`).emit('call:ended', { fromUserId: userId, callId, reason: 'hung_up' });
+        await pubClient.del(rk.userCall(userId));
         const tId = String(targetUserId);
-        if (userInCall.get(tId)?.otherUserId === userId) userInCall.delete(tId);
+        const otherCallUserId = await pubClient.hget(rk.userCall(tId), 'otherUserId');
+        if (otherCallUserId === userId) await pubClient.del(rk.userCall(tId));
     });
 
-    socket.on('disconnecting', () => {
+    socket.on('disconnecting', async () => {
         const rooms = Array.from(socket.rooms);
-        rooms.forEach(roomName => {
-            if (roomName.startsWith('conversation:')) {
-                const conversationId = roomName.split(':')[1];
-                const registry = roomMemberRegistry.get(roomName);
-                if (registry && registry.has(userId)) {
-                    const count = registry.get(userId) - 1;
-                    if (count <= 0) registry.delete(userId);
-                    else registry.set(userId, count);
-                    broadcastRoomUsers(io, conversationId);
-                }
-            }
-        });
+        for (const roomName of rooms) {
+            if (!roomName.startsWith('conversation:')) continue;
+            const conversationId = roomName.split(':')[1];
+            const current = parseInt(await pubClient.hget(rk.roomMembers(roomName), userId)) || 0;
+            if (current - 1 <= 0) await pubClient.hdel(rk.roomMembers(roomName), userId);
+            else await pubClient.hset(rk.roomMembers(roomName), userId, current - 1);
+            await broadcastRoomUsers(io, conversationId);
+        }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
         // VoIP cleanup on unexpected disconnect.
-        // Use a 2-second delay so Socket.IO auto-reconnects don't falsely end the call —
-        // the client typically reconnects in < 1 second on a transient network hiccup.
-        if (userInCall.has(userId)) {
-            const { callId, otherUserId } = userInCall.get(userId);
-            const timer = setTimeout(() => {
+        // Use a 2-second delay so Socket.IO auto-reconnects don't falsely end the call.
+        const callEntry = await pubClient.hgetall(rk.userCall(userId));
+        if (callEntry && callEntry.callId) {
+            const { callId, otherUserId } = callEntry;
+            const timer = setTimeout(async () => {
                 callEndTimers.delete(userId);
-                // Only emit if the user truly never reconnected
-                const sockets = activeUsers.get(userId);
-                if (!sockets || sockets.size === 0) {
-                    io.to(`user:${otherUserId}`).emit('call:ended', {
-                        fromUserId: userId,
-                        callId,
-                        reason: 'disconnected'
-                    });
-                    userInCall.delete(userId);
-                    // Clean up the other party's entry to prevent a duplicate call:ended
-                    const tId = String(otherUserId);
-                    if (userInCall.get(tId)?.otherUserId === userId) userInCall.delete(tId);
+                const remaining = await pubClient.hlen(rk.userSockets(userId));
+                if (remaining === 0) {
+                    io.to(`user:${otherUserId}`).emit('call:ended', { fromUserId: userId, callId, reason: 'disconnected' });
+                    await pubClient.del(rk.userCall(userId));
+                    const otherCallUserId = await pubClient.hget(rk.userCall(otherUserId), 'otherUserId');
+                    if (otherCallUserId === userId) await pubClient.del(rk.userCall(otherUserId));
                 }
             }, 2000);
             callEndTimers.set(userId, timer);
         }
 
-        const userSockets = activeUsers.get(userId);
-        if (userSockets) {
-            userSockets.delete(socket.id);
-            if (userSockets.size === 0) {
-                // Use a small timeout to allow for page refreshes
-                logger.info({ userId }, 'User disconnected, starting 5s offline timeout');
-                setTimeout(async () => {
-                    const currentSockets = activeUsers.get(userId);
-                    const socketCount = currentSockets ? currentSockets.size : 0;
-                    
-                    if (socketCount === 0) {
-                        logger.info({ userId }, 'Timeout finished: User still has no sockets, broadcasting OFFLINE');
-                        activeUsers.delete(userId);
-                        hiddenUsers.delete(userId);
+        await pubClient.hdel(rk.userSockets(userId), socket.id);
+        const remainingSockets = await pubClient.hlen(rk.userSockets(userId));
 
-                        // Cancel any ringing calls where this user is the callee
-                        // so the caller can re-call immediately after a refresh
-                        const secret = getActualSecret();
-                        if (secret) {
-                            const cleanupPayload = { user_id: userId };
-                            const cleanupJson = JSON.stringify(cleanupPayload);
-                            const cleanupSig = 'sha256=' + require('crypto').createHmac('sha256', secret).update(cleanupJson).digest('hex');
-                            axios.post(`${INTERNAL_APP_URL}/api/internal/call/cleanup`, cleanupPayload, {
-                                headers: { 'X-Hub-Signature-256': cleanupSig, 'Content-Type': 'application/json' }
-                            }).catch(err => logger.warn({ err: err.message }, 'call/cleanup failed'));
-                        }
+        if (remainingSockets === 0) {
+            logger.info({ userId }, 'User disconnected, starting 5s offline timeout');
+            setTimeout(async () => {
+                const currentCount = await pubClient.hlen(rk.userSockets(userId));
+                if (currentCount === 0) {
+                    logger.info({ userId }, 'Timeout finished: User still has no sockets, broadcasting OFFLINE');
+                    await pubClient.del(rk.userSockets(userId));
+                    await pubClient.srem(rk.onlineUsers(), userId);
+                    await pubClient.srem(rk.hiddenUsers(), userId);
 
-                        const data = await updateLaravelStatus(userId, 'offline');
-                        // Only broadcast if user had show_online_status on (notify_user_ids non-empty)
-                        if (data && Array.isArray(data.notify_user_ids) && data.notify_user_ids.length === 0) return;
-                        io.emit('user:offline', { userId, last_active: data?.last_active });
-                    } else {
-                        logger.info({ userId, socketCount }, 'Timeout finished: User reconnected, cancelling OFFLINE broadcast');
+                    // Cancel any ringing calls where this user is the callee
+                    const secret = getActualSecret();
+                    if (secret) {
+                        const cleanupPayload = { user_id: userId };
+                        const cleanupJson = JSON.stringify(cleanupPayload);
+                        const cleanupSig = 'sha256=' + crypto.createHmac('sha256', secret).update(cleanupJson).digest('hex');
+                        axios.post(`${INTERNAL_APP_URL}/api/internal/call/cleanup`, cleanupPayload, {
+                            headers: { 'X-Hub-Signature-256': cleanupSig, 'Content-Type': 'application/json' }
+                        }).catch(err => logger.warn({ err: err.message }, 'call/cleanup failed'));
                     }
-                }, 5000);
-            }
+
+                    const data = await updateLaravelStatus(userId, 'offline');
+                    if (data && Array.isArray(data.notify_user_ids) && data.notify_user_ids.length === 0) return;
+                    io.emit('user:offline', { userId, last_active: data?.last_active });
+                } else {
+                    logger.info({ userId, currentCount }, 'Timeout finished: User reconnected, cancelling OFFLINE broadcast');
+                }
+            }, 5000);
         }
     });
 
@@ -352,20 +320,29 @@ app.post('/internal/emit', validateInternalSignature, (req, res) => {
     res.json({ success: true });
 });
 
+// Batch emit: broadcast the same event to many rooms in one request
+app.post('/internal/emit-batch', validateInternalSignature, (req, res) => {
+    const { rooms, event, data } = req.body;
+    if (!Array.isArray(rooms) || !event) {
+        return res.status(400).json({ error: 'rooms (array) and event are required' });
+    }
+    for (const room of rooms) {
+        io.to(room).emit(event, data);
+    }
+    res.json({ success: true, count: rooms.length });
+});
+
 // Internal endpoint to update a user's online-status visibility in real-time
-app.post('/internal/set-visibility', validateInternalSignature, (req, res) => {
+app.post('/internal/set-visibility', validateInternalSignature, async (req, res) => {
     const { userId, visible } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
     const id = String(userId);
     if (visible) {
-        hiddenUsers.delete(id);
-        // If user is connected, broadcast online to everyone now
-        if (activeUsers.has(id)) {
-            io.emit('user:online', { userId: id });
-        }
+        await pubClient.srem(rk.hiddenUsers(), id);
+        const isOnline = await pubClient.sismember(rk.onlineUsers(), id);
+        if (isOnline) io.emit('user:online', { userId: id });
     } else {
-        hiddenUsers.add(id);
-        // Broadcast offline so existing viewers update immediately
+        await pubClient.sadd(rk.hiddenUsers(), id);
         io.emit('user:offline', { userId: id });
     }
     res.json({ success: true });
@@ -392,7 +369,20 @@ const clearAllOnlineStatuses = async () => {
     }
 };
 
-server.listen(PORT, '0.0.0.0', () => {
-    logger.info(`Socket server running on port ${PORT}`);
-    clearAllOnlineStatuses();
+// Bootstrap: wait for Redis to be ready, then attach adapter and start server
+pubClient.once('ready', async () => {
+    logger.info({ url: REDIS_URL }, 'Connected to Redis');
+
+    // Clear stale state from any previous server run
+    const staleKeys = await pubClient.keys('nexus:socket:user:*');
+    const staleRoomKeys = await pubClient.keys('nexus:room:*');
+    const allStale = [rk.onlineUsers(), rk.hiddenUsers(), ...staleKeys, ...staleRoomKeys];
+    if (allStale.length) await pubClient.del(...allStale);
+
+    io.adapter(createAdapter(pubClient, subClient));
+
+    server.listen(PORT, '0.0.0.0', () => {
+        logger.info(`Socket server running on port ${PORT}`);
+        clearAllOnlineStatuses();
+    });
 });

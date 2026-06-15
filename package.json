@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build && node scripts/minify-terser.js",
+        "build": "vite build",
         "dev": "vite",
         "lint": "eslint resources/js --ext .js,.ts,.vue --ignore-path .gitignore --fix"
     },

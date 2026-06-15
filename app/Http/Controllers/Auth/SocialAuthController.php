@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\LoginSecurityAlert;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -25,9 +26,8 @@ class SocialAuthController extends Controller
     public function redirectToGoogle()
     {
         return Socialite::driver('google')
-            ->stateless()
             ->with([
-                'prompt' => 'select_account consent', 
+                'prompt' => 'select_account consent',
                 'access_type' => 'offline'
             ])
             ->redirect();
@@ -39,7 +39,7 @@ class SocialAuthController extends Controller
     public function handleGoogleCallback()
     {
         try {
-            $googleUser = Socialite::driver('google')->stateless()->user();
+            $googleUser = Socialite::driver('google')->user();
             
             $user = User::where('email', $googleUser->getEmail())->first();
 
@@ -79,10 +79,7 @@ class SocialAuthController extends Controller
                 // Send Security Alert Email
                 $originalLocale = app()->getLocale();
                 if ($user->language) app()->setLocale($user->language);
-                $alertSubject = __('emails.security_alert_subject', ['app' => config('app.name')]);
-                \Illuminate\Support\Facades\Mail::send('emails.login-security-alert', ['activity' => $activity, 'user' => $user], function ($message) use ($user, $alertSubject) {
-                    $message->to($user->email)->subject($alertSubject);
-                });
+                \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new LoginSecurityAlert($activity));
                 app()->setLocale($originalLocale);
 
                 return redirect()->route('login.suspicious.view', $challengeUuid);

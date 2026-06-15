@@ -2232,3 +2232,12 @@ body:has(.chat-page) .mobile-nav {
         max-width: 100%;
     }
 }
+
+/* PWA: safe area insets + keyboard avoidance on iOS standalone (additive) */
+@supports (padding: env(safe-area-inset-bottom)) {
+    @media (max-width: 900px) {
+        .chat-input-area {
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+        }
+    }
+}

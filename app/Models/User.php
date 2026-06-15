@@ -58,7 +58,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_online'               => 'boolean',
             'is_verified'             => 'boolean',
             'onboarding_completed_at' => 'datetime',
-            'two_factor_recovery_codes' => 'array',
+            'two_factor_recovery_codes'   => 'array',
+            'two_factor_reminder_sent_at' => 'datetime',
         ];
     }
 
@@ -548,12 +549,7 @@ class User extends Authenticatable implements MustVerifyEmail
             app()->setLocale($this->language);
         }
 
-        $subject = __('emails.password_reset_subject', ['app' => config('app.name')]);
-        $email   = $this->email;
-
-        \Illuminate\Support\Facades\Mail::send('emails.password-reset', ['resetUrl' => $resetUrl, 'url' => $resetUrl], function ($message) use ($email, $subject) {
-            $message->to($email)->subject($subject);
-        });
+        \Illuminate\Support\Facades\Mail::to($this->email, $this->name)->send(new \App\Mail\PasswordResetMail($resetUrl));
 
         app()->setLocale($originalLocale);
     }

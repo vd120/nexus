@@ -37,9 +37,12 @@ class AppServiceProvider extends ServiceProvider
         // Register rate limiters
         $this->registerRateLimiters();
 
-        // Register model observers (auto-tag Life Chapter on Post/PulseAnswer creation)
+        // Register model observers
         \App\Models\Post::observe(\App\Observers\PostObserver::class);
         \App\Models\PulseAnswer::observe(\App\Observers\PulseAnswerObserver::class);
+        \App\Models\Like::observe(\App\Observers\LikeObserver::class);
+        \App\Models\Comment::observe(\App\Observers\CommentObserver::class);
+        \App\Models\PostReaction::observe(\App\Observers\PostReactionObserver::class);
 
         // Pulse & memory reminder nudge
         View::composer('layouts.app', \App\View\Composers\PromptNudgeComposer::class);

@@ -13,13 +13,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('messages', function (Blueprint $table) {
-            // Add 'voice' to the enum type
-            DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'audio', 'document', 'gif', 'sticker', 'story_reply', 'group_invite', 'voice') DEFAULT 'text'");
-            
-            // Add duration field for voice messages (in seconds)
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'audio', 'document', 'gif', 'sticker', 'story_reply', 'group_invite', 'voice') DEFAULT 'text'");
+            }
             $table->integer('duration')->nullable()->after('type');
-            
-            // Add waveform data for voice messages (JSON array of peaks)
             $table->json('waveform_peaks')->nullable()->after('duration');
         });
     }
@@ -31,9 +28,9 @@ return new class extends Migration
     {
         Schema::table('messages', function (Blueprint $table) {
             $table->dropColumn(['duration', 'waveform_peaks']);
-            
-            // Revert enum type
-            DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'audio', 'document', 'gif', 'sticker', 'story_reply', 'group_invite') DEFAULT 'text'");
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE messages MODIFY COLUMN type ENUM('text', 'image', 'video', 'audio', 'document', 'gif', 'sticker', 'story_reply', 'group_invite') DEFAULT 'text'");
+            }
         });
     }
 };

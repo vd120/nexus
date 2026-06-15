@@ -8,7 +8,7 @@
     $totalComments = $post->comments_count ?? $post->comments->count();
     $groupedReactions = $post->getGroupedReactions();
     $hasEngagement = $totalReactions > 0 || $totalComments > 0;
-    $isPinnedPost = (isset($isPinned) && $isPinned) || $post->isPinned();
+    $isPinnedPost = isset($isPinned) && $isPinned;
 @endphp
 
 <article class="post-card {{ $isPinnedPost ? 'pinned-post' : '' }} {{ $post->is_anonymous ? 'is-anonymous' : '' }} {{ isset($is_broadcast) && $is_broadcast ? 'viewer-context-needed' : '' }}"

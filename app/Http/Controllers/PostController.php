@@ -30,7 +30,7 @@ class PostController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 5);
         $page = $request->get('page', 1);
         $followedUsers = collect();
         $topHashtags = collect();
@@ -38,9 +38,15 @@ class PostController extends Controller
 
         if ($user) {
             $blockedUserIds = $this->getBlockedUserIds($user);
-            $posts = $this->buildFeedQuery($user, $blockedUserIds)
-                ->paginate($perPage)
-                ->withQueryString();
+            // Anchor ranking time to page-1 load so it stays stable across paginated requests
+            $anchorKey = "feed_anchor_{$user->id}";
+            $rankingAnchor = \Illuminate\Support\Facades\Cache::remember($anchorKey, 120, fn() => now()->toDateTimeString());
+            $feedCacheKey = "feed_{$user->id}_p{$page}_pp{$perPage}";
+            $posts = \Illuminate\Support\Facades\Cache::remember($feedCacheKey, 120, function () use ($user, $blockedUserIds, $perPage, $page, $rankingAnchor) {
+                return $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor)
+                    ->paginate($perPage, ['*'], 'page', $page)
+                    ->withQueryString();
+            });
 
             // Cache stories for 5 minutes to reduce load
             $cacheKey = 'user_stories_' . $user->id;
@@ -111,12 +117,14 @@ class PostController extends Controller
     public function loadMore(Request $request)
     {
         $user = auth()->user();
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 5);
         $page = $request->get('page', 1);
 
         if ($user) {
             $blockedUserIds = $this->getBlockedUserIds($user);
-            $posts = $this->buildFeedQuery($user, $blockedUserIds)
+            // Reuse the same ranking anchor set by the initial page load
+            $rankingAnchor = \Illuminate\Support\Facades\Cache::get("feed_anchor_{$user->id}", now()->toDateTimeString());
+            $posts = $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor)
                 ->paginate($perPage, ['*'], 'page', $page)
                 ->withQueryString();
         } else {
@@ -291,6 +299,9 @@ class PostController extends Controller
 
         $post = auth()->user()->posts()->create($postData);
 
+        \Illuminate\Support\Facades\Cache::forget("feed_" . auth()->id() . "_p1_pp5");
+        \Illuminate\Support\Facades\Cache::forget("feed_anchor_" . auth()->id());
+
         // Create poll if provided
         if ($request->filled('poll_options')) {
             $options = array_filter(array_map('trim', (array) $request->poll_options));
@@ -398,13 +409,13 @@ class PostController extends Controller
                     // Move video to storage
                     $file->move($fullVideoDir, $filename);
 
-                    // Generate thumbnail using FileUploadService
-                    $thumbnailSuccess = $fileService->generateVideoThumbnail($path, $thumbnailPath);
+                    // Generate thumbnail in background so the HTTP response is not blocked.
+                    $fileService->generateVideoThumbnail($path, $thumbnailPath, background: true);
 
                     $post->media()->create([
                         'media_type' => 'video',
                         'media_path' => $path,
-                        'media_thumbnail' => $thumbnailSuccess ? $thumbnailPath : null,
+                        'media_thumbnail' => $thumbnailPath, // will exist within ~2s
                         'sort_order' => $sortOrder++
                     ]);
                 }
@@ -444,28 +455,41 @@ class PostController extends Controller
                 'html_ar'         => $postHtmlAr,
             ];
 
-            // Broadcast to all followers
-            $socketService = app(\App\Services\SocketEmitService::class);
-            foreach (auth()->user()->followers as $follower) {
-                $socketService->emitToUser($follower->follower_id, 'post:new', $socketPayload);
-            }
-
-            // Broadcast to Group Members if it's a group post and approved
+            // Collect broadcast targets before returning, then fire after response
+            $followerIds   = auth()->user()->followers()->pluck('follower_id');
+            $isPublicPost  = !$post->is_private && !$post->social_group_id && $post->is_approved;
+            $groupMemberIds = collect();
             if ($post->social_group_id && $post->is_approved) {
-                $memberIds = $post->socialGroup->members()
+                $groupMemberIds = $post->socialGroup->members()
                     ->where('status', 'approved')
                     ->where('user_id', '!=', auth()->id())
                     ->pluck('user_id');
+            }
 
-                foreach ($memberIds as $memberId) {
-                    $socketService->emitToUser($memberId, 'post:new', $socketPayload);
+            app()->terminating(function () use (
+                $followerIds, $groupMemberIds, $isPublicPost, $socketPayload
+            ) {
+                try {
+                    $socketService = app(\App\Services\SocketEmitService::class);
+
+                    // Followers — one batch call
+                    if ($followerIds->isNotEmpty()) {
+                        $socketService->emitToUsers($followerIds, 'post:new', $socketPayload);
+                    }
+
+                    // Group members — one batch call
+                    if ($groupMemberIds->isNotEmpty()) {
+                        $socketService->emitToUsers($groupMemberIds, 'post:new', $socketPayload);
+                    }
+
+                    // Global broadcast
+                    if ($isPublicPost) {
+                        $socketService->emit('global', 'post:new', array_merge($socketPayload, ['social_group_id' => null]));
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Post broadcast failed: ' . $e->getMessage());
                 }
-            }
-
-            // GLOBAL BROADCAST: If post is public and approved, send to everyone
-            if (!$post->is_private && !$post->social_group_id && $post->is_approved) {
-                $socketService->emit('global', 'post:new', array_merge($socketPayload, ['social_group_id' => null]));
-            }
+            });
 
             return response()->json([
                 'success' => true,
@@ -639,15 +663,18 @@ class PostController extends Controller
         }
 
         // LOGGING & ACCOUNTABILITY: If admin is deleting someone else's post
-        if ($user->is_admin && $post->user_id !== $user->id) {
-            $reason = $request->input('reason', 'No reason provided');
-            
+        $adminDeletedOwnersPost = $user->is_admin && $post->user_id !== $user->id;
+        $adminDeleteReason = null;
+        $postOwnerId = $post->user_id;
+
+        if ($adminDeletedOwnersPost) {
+            $adminDeleteReason = trim($request->input('reason', '')) ?: 'No reason provided';
+
             // Log this action for audit
-            $actionStr = "admin_delete_post:#{$post->id}_reason:" . mb_substr($reason, 0, 100);
+            $actionStr = "admin_delete_post:#{$post->id}_reason:" . mb_substr($adminDeleteReason, 0, 100);
             app(\App\Services\ActivityService::class)->logActivity($actionStr, $user->id);
-            
-            // Also log to standard Laravel logs for safety
-            \Log::warning("ADMIN ACTION: User #{$user->id} ({$user->username}) deleted post #{$post->id} by user #{$post->user_id}. Reason: {$reason}");
+
+            \Log::warning("ADMIN ACTION: User #{$user->id} ({$user->username}) deleted post #{$post->id} by user #{$post->user_id}. Reason: {$adminDeleteReason}");
         }
 
         // Remove hashtags associated with this post
@@ -655,6 +682,19 @@ class PostController extends Controller
 
         $postId = $post->id;
         $post->delete();
+
+        // Notify the post owner when an admin deletes their post
+        if ($adminDeletedOwnersPost) {
+            \App\Http\Controllers\NotificationController::createNotification(
+                $postOwnerId,
+                'admin_post_deleted',
+                [
+                    'reason'           => $adminDeleteReason,
+                    'admin_username'   => $user->username,
+                    'post_id'          => $postId,
+                ]
+            );
+        }
 
         // BROADCAST: Notify all users to remove this post from their feed
         app(\App\Services\SocketEmitService::class)->emit('global', 'post:deleted', [
@@ -1011,8 +1051,11 @@ class PostController extends Controller
         );
     }
 
-    private function buildFeedQuery(User $user, array $blockedUserIds)
+    private function buildFeedQuery(User $user, array $blockedUserIds, ?string $rankingAnchor = null)
     {
+        // Use a fixed anchor so ranking thresholds don't shift across paginated requests
+        $anchor = $rankingAnchor ?? now()->toDateTimeString();
+
         $query = Post::withCount(['likes', 'reactions', 'comments'])
             ->with([
                 'user',
@@ -1054,7 +1097,23 @@ class PostController extends Controller
             ->when(!empty($blockedUserIds), function($q) use ($blockedUserIds) {
                 $q->whereNotIn('posts.user_id', $blockedUserIds);
             })
-            ->latest();
+            ->orderByRaw("
+                (
+                    COALESCE(posts.cached_likes_count, 0) * 2 +
+                    COALESCE(posts.cached_reactions_count, 0) * 2 +
+                    COALESCE(posts.cached_comments_count, 0) * 3 +
+                    CASE
+                        WHEN posts.created_at >= ? THEN 20
+                        WHEN posts.created_at >= ? THEN 10
+                        WHEN posts.created_at >= ? THEN 5
+                        ELSE 0
+                    END
+                ) DESC, posts.created_at DESC
+            ", [
+                \Carbon\Carbon::parse($anchor)->subHours(6)->toDateTimeString(),
+                \Carbon\Carbon::parse($anchor)->subHours(24)->toDateTimeString(),
+                \Carbon\Carbon::parse($anchor)->subHours(48)->toDateTimeString(),
+            ]);
 
         return $query;
     }

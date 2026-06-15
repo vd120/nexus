@@ -17,7 +17,12 @@ class Profile extends Model
         'occupation',
         'about',
         'phone',
+        'show_phone',
         'gender',
+        'show_gender',
+        'show_birth_date',
+        'show_location',
+        'show_occupation',
         'is_private',
         'social_links',
         'show_online_status',
@@ -26,11 +31,16 @@ class Profile extends Model
     ];
 
     protected $casts = [
-        'is_private'           => 'boolean',
-        'show_online_status'   => 'boolean',
-        'show_read_receipts'   => 'boolean',
+        'is_private'             => 'boolean',
+        'show_phone'             => 'boolean',
+        'show_gender'            => 'boolean',
+        'show_birth_date'        => 'boolean',
+        'show_location'          => 'boolean',
+        'show_occupation'        => 'boolean',
+        'show_online_status'     => 'boolean',
+        'show_read_receipts'     => 'boolean',
         'show_sensitive_content' => 'boolean',
-        'social_links'         => 'array',
+        'social_links'           => 'array',
     ];
 
     public function user()

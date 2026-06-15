@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\VerificationCodeMail;
 use App\Models\User;
 use App\Services\SocketEmitService;
 use Illuminate\Http\Request;
@@ -128,10 +129,7 @@ class SuspiciousLoginController extends Controller
 
         $originalLocale = app()->getLocale();
         if ($user->language) app()->setLocale($user->language);
-        $secSubject = __('emails.verification_code_security_subject', ['app' => config('app.name')]);
-        \Illuminate\Support\Facades\Mail::send('emails.verification-code', ['verificationCode' => $code], function ($message) use ($user, $secSubject) {
-            $message->to($user->email)->subject($secSubject);
-        });
+        \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new VerificationCodeMail($user, $code));
         app()->setLocale($originalLocale);
 
         return response()->json(['success' => true]);

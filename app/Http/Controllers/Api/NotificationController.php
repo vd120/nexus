@@ -199,6 +199,8 @@ class NotificationController extends Controller
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . auth()->id());
+
         return response()->json([
             'success' => true,
             'unread_count' => 0
@@ -222,6 +224,8 @@ class NotificationController extends Controller
 
             
             $deletedCount = Notification::where('user_id', $user->id)->delete();
+
+            \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . $user->id);
 
             return response()->json([
                 'success' => true,
@@ -251,7 +255,8 @@ class NotificationController extends Controller
 
         $notification->delete();
 
-        
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . auth()->id());
+
         $unreadCount = Notification::where('user_id', auth()->id())
             ->whereNull('read_at')
             ->count();

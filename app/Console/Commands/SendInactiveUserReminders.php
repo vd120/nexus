@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Mail\InactiveUserReminderMail;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
@@ -62,15 +63,10 @@ class SendInactiveUserReminders extends Command
         foreach ($inactiveUsers as $user) {
             try {
                 // Send email
-                $htmlContent = $this->getEmailContent($user, $days);
-                
-                Mail::html($htmlContent, function ($message) use ($user, $days) {
-                    $subject = $this->option('subject') ?? $this->getDefaultSubject($user, $days);
-
-                    $message->to($user->email, $user->name)
-                            ->subject($subject)
-                            ->from(config('mail.from.address', 'noreply@nexus.com'), config('app.name'));
-                });
+                $originalLocale = app()->getLocale();
+                app()->setLocale($user->language ?? 'en');
+                Mail::to($user->email, $user->name)->send(new InactiveUserReminderMail($user, $days));
+                app()->setLocale($originalLocale);
 
                 // Update reminder sent timestamp
                 $user->update(['inactive_reminder_sent_at' => now()]);

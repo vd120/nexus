@@ -4,7 +4,7 @@
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "bacon/bacon-qr-code": "^2.0",

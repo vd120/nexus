@@ -117,4 +117,6 @@ return [
     'report_action_owner_delete'     => 'Your post was removed following a report.',
     'community_report_new_message'   => 'A new post report needs your review.',
     'new_report_from'                => 'New report from :user.',
+    'admin_post_deleted'             => 'Your post was removed by an administrator. Reason: :reason',
+    'no_reason_provided'             => 'No reason provided',
 ];

@@ -82,6 +82,8 @@ class NotificationController extends Controller
         $notification = Auth::user()->notifications()->findOrFail($id);
         $notification->markAsRead();
 
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . Auth::id());
+
         // Emit updated count
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'notification:count', [
             'unread_count' => Auth::user()->notifications()->unread()->count(),
@@ -99,6 +101,8 @@ class NotificationController extends Controller
     public function markAllAsRead(): JsonResponse
     {
         Auth::user()->notifications()->unread()->update(['read_at' => now()]);
+
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . Auth::id());
 
         // Emit updated count
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'notification:count', [
@@ -129,6 +133,8 @@ class NotificationController extends Controller
             $notification->markAsRead();
         }
 
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . $user->id);
+
         // Emit updated count
         app(\App\Services\SocketEmitService::class)->emitToUser($user->id, 'notification:count', [
             'unread_count' => $user->notifications()->unread()->count(),
@@ -148,6 +154,8 @@ class NotificationController extends Controller
         $notification = Auth::user()->notifications()->findOrFail($id);
         $notification->delete();
 
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . Auth::id());
+
         // Emit updated count
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'notification:count', [
             'unread_count' => Auth::user()->notifications()->unread()->count(),
@@ -164,6 +172,8 @@ class NotificationController extends Controller
     public function clearAll(): JsonResponse
     {
         Auth::user()->notifications()->delete();
+
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . Auth::id());
 
         // Emit updated count
         app(\App\Services\SocketEmitService::class)->emitToUser(Auth::id(), 'notification:count', [
@@ -267,7 +277,10 @@ class NotificationController extends Controller
 
         // Emit real-time events
         $socketService = app(\App\Services\SocketEmitService::class);
-        
+
+        // Bust the cached unread count so next page load reflects the new notification
+        \Illuminate\Support\Facades\Cache::forget('unread_notifications_' . $userId);
+
         // 1. Send the full notification payload
         $socketService->emitToUser($userId, 'notification:new', [
             'id' => $notification->id,

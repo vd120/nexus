@@ -54,48 +54,25 @@ class PushNotificationController extends Controller
             ], 401);
         }
 
-        // Check if subscription already exists
-        $subscription = PushSubscription::where('user_id', $user->id)
-            ->where('endpoint', $request->endpoint)
-            ->first();
-
-        if ($subscription) {
-            // Update existing subscription
-            $subscription->update([
-                'p256dh' => $request->p256dh,
-                'auth' => $request->auth,
+        // Use updateOrCreate to handle re-subscriptions after logout cleanly
+        $subscription = PushSubscription::updateOrCreate(
+            ['user_id' => $user->id, 'endpoint' => $request->endpoint],
+            [
+                'p256dh'           => $request->p256dh,
+                'auth'             => $request->auth,
                 'content_encoding' => $request->content_encoding ?? 'aesgcm',
-                'last_used_at' => now(),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => __('messages.push_subscription_updated'),
-                'subscription' => $subscription,
-            ]);
-        }
-
-        // Create new subscription
-        $subscription = PushSubscription::create([
-            'user_id' => $user->id,
-            'endpoint' => $request->endpoint,
-            'p256dh' => $request->p256dh,
-            'auth' => $request->auth,
-            'content_encoding' => $request->content_encoding ?? 'aesgcm',
-            'settings' => PushSubscription::getDefaultSettings(),
-            'last_used_at' => now(),
-        ]);
-
-        Log::info('New push subscription created', [
-            'user_id' => $user->id,
-            'subscription_id' => $subscription->id,
-        ]);
+                'settings'         => PushSubscription::getDefaultSettings(),
+                'last_used_at'     => now(),
+            ]
+        );
 
         return response()->json([
-            'success' => true,
-            'message' => __('messages.push_subscription_created'),
+            'success'      => true,
+            'message'      => $subscription->wasRecentlyCreated
+                ? __('messages.push_subscription_created')
+                : __('messages.push_subscription_updated'),
             'subscription' => $subscription,
-        ], 201);
+        ], $subscription->wasRecentlyCreated ? 201 : 200);
     }
 
     /**

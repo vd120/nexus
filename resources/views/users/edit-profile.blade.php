@@ -215,6 +215,13 @@
                 <div class="form-group">
                     <label>{{ __('users.location') }}</label>
                     <input type="text" name="location" class="form-input" value="{{ old('location', $user->profile->location ?? '') }}">
+                    <label class="form-checkbox" style="margin-top:10px;">
+                        <input type="checkbox" name="show_location" value="1" {{ (old('show_location', $user->profile->show_location ?? true)) ? 'checked' : '' }}>
+                        <div class="form-checkbox-text">
+                            <strong>{{ __('users.show_location_public') }}</strong>
+                            <span>{{ __('users.show_location_public_desc') }}</span>
+                        </div>
+                    </label>
                 </div>
                 <div class="form-group">
                     <label>{{ __('users.website') }}</label>
@@ -226,10 +233,24 @@
                 <div class="form-group">
                     <label>{{ __('users.occupation') }}</label>
                     <input type="text" name="occupation" class="form-input" value="{{ old('occupation', $user->profile->occupation ?? '') }}">
+                    <label class="form-checkbox" style="margin-top:10px;">
+                        <input type="checkbox" name="show_occupation" value="1" {{ (old('show_occupation', $user->profile->show_occupation ?? true)) ? 'checked' : '' }}>
+                        <div class="form-checkbox-text">
+                            <strong>{{ __('users.show_occupation_public') }}</strong>
+                            <span>{{ __('users.show_occupation_public_desc') }}</span>
+                        </div>
+                    </label>
                 </div>
                 <div class="form-group">
                     <label>{{ __('users.phone') }}</label>
                     <input type="text" name="phone" class="form-input" value="{{ old('phone', $user->profile->phone ?? '') }}">
+                    <label class="form-checkbox" style="margin-top:10px;">
+                        <input type="checkbox" name="show_phone" value="1" {{ (old('show_phone', $user->profile->show_phone ?? false)) ? 'checked' : '' }}>
+                        <div class="form-checkbox-text">
+                            <strong>{{ __('users.show_phone_public') }}</strong>
+                            <span>{{ __('users.show_phone_public_desc') }}</span>
+                        </div>
+                    </label>
                 </div>
             </div>
 
@@ -242,10 +263,24 @@
                         <option value="female" {{ (old('gender', $user->profile->gender ?? '') == 'female') ? 'selected' : '' }}>{{ __('users.female') }}</option>
                         <option value="other" {{ (old('gender', $user->profile->gender ?? '') == 'other') ? 'selected' : '' }}>{{ __('users.other') }}</option>
                     </select>
+                    <label class="form-checkbox" style="margin-top:10px;">
+                        <input type="checkbox" name="show_gender" value="1" {{ (old('show_gender', $user->profile->show_gender ?? true)) ? 'checked' : '' }}>
+                        <div class="form-checkbox-text">
+                            <strong>{{ __('users.show_gender_public') }}</strong>
+                            <span>{{ __('users.show_gender_public_desc') }}</span>
+                        </div>
+                    </label>
                 </div>
                 <div class="form-group">
                     <label>{{ __('users.birth_date') }}</label>
                     <input type="date" name="birth_date" class="form-input" value="{{ old('birth_date', $user->profile->birth_date ?? '') }}">
+                    <label class="form-checkbox" style="margin-top:10px;">
+                        <input type="checkbox" name="show_birth_date" value="1" {{ (old('show_birth_date', $user->profile->show_birth_date ?? true)) ? 'checked' : '' }}>
+                        <div class="form-checkbox-text">
+                            <strong>{{ __('users.show_birth_date_public') }}</strong>
+                            <span>{{ __('users.show_birth_date_public_desc') }}</span>
+                        </div>
+                    </label>
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class FileUploadService
 {
@@ -98,8 +99,18 @@ class FileUploadService
         return $mapping[$mimeType] ?? [];
     }
 
+    private function mediaDisk(): string
+    {
+        return config('filesystems.media_disk', 'public');
+    }
+
+    private function isLocalDisk(string $disk): bool
+    {
+        return in_array($disk, ['local', 'public'], true);
+    }
+
     /**
-     * Compress an uploaded image to WebP and save it under storage/app/public/{folder}.
+     * Compress an uploaded image to WebP and save via the configured media disk.
      *
      * Options:
      *   maxWidth  (int)    — resize ceiling (preserves aspect ratio)
@@ -120,12 +131,15 @@ class FileUploadService
         $prefix = isset($options['prefix']) ? (string) $options['prefix'] : '';
 
         $folder = trim($folder, '/');
-        $fullDirPath = storage_path('app/public/' . $folder);
-        if (!file_exists($fullDirPath)) {
-            mkdir($fullDirPath, 0755, true);
-        }
-
+        $disk = $this->mediaDisk();
         $basename = time() . '_' . ($prefix !== '' ? $prefix . '_' : '') . uniqid();
+
+        if ($this->isLocalDisk($disk)) {
+            $localDir = storage_path('app/public/' . $folder);
+            if (!file_exists($localDir)) {
+                mkdir($localDir, 0755, true);
+            }
+        }
 
         try {
             $manager = new \Intervention\Image\ImageManager(
@@ -143,19 +157,35 @@ class FileUploadService
                 }
             }
 
-            $filename = $basename . '.webp';
-            $path = $folder . '/' . $filename;
-            $image->toWebp($quality)->save(storage_path('app/public/' . $path));
+            $path = $folder . '/' . $basename . '.webp';
+
+            if ($this->isLocalDisk($disk)) {
+                $image->toWebp($quality)->save(storage_path('app/public/' . $path));
+            } else {
+                $temp = tempnam(sys_get_temp_dir(), 'nexus_img_');
+                try {
+                    $image->toWebp($quality)->save($temp);
+                    Storage::disk($disk)->put($path, file_get_contents($temp));
+                } finally {
+                    @unlink($temp);
+                }
+            }
 
             return $path;
         } catch (\Throwable $e) {
-            \Log::warning('compressImage failed, falling back to original: ' . $e->getMessage());
+            \Log::warning('compressImage WebP failed, falling back to original: ' . $e->getMessage());
 
             try {
                 $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-                $filename = $basename . '.' . $ext;
-                $file->move($fullDirPath, $filename);
-                return $folder . '/' . $filename;
+                $fallbackPath = $folder . '/' . $basename . '.' . $ext;
+
+                if ($this->isLocalDisk($disk)) {
+                    $file->move($localDir ?? storage_path('app/public/' . $folder), $basename . '.' . $ext);
+                } else {
+                    Storage::disk($disk)->put($fallbackPath, file_get_contents($file->getPathname()));
+                }
+
+                return $fallbackPath;
             } catch (\Throwable $e2) {
                 \Log::error('compressImage fallback also failed: ' . $e2->getMessage());
                 return null;
@@ -164,34 +194,76 @@ class FileUploadService
     }
 
     /**
-     * Generate a thumbnail from a video file using FFMpeg
+     * Generate a thumbnail from a video file using FFMpeg.
+     *
+     * For cloud storage (S3/R2), the video is streamed to a temp file for FFmpeg,
+     * then the generated thumbnail is uploaded via the Storage facade.
+     *
+     * @param bool $background  Non-blocking local-disk only. Cloud storage always runs synchronously.
      */
-    public function generateVideoThumbnail(string $videoPath, string $outputPath): bool
+    public function generateVideoThumbnail(string $videoPath, string $outputPath, bool $background = false): bool
     {
+        $disk = $this->mediaDisk();
+
         try {
-            $fullVideoPath = storage_path('app/public/' . $videoPath);
-            $fullOutputPath = storage_path('app/public/' . $outputPath);
-            
-            // Ensure directory exists
-            $dir = dirname($fullOutputPath);
-            if (!file_exists($dir)) {
-                mkdir($dir, 0755, true);
+            if ($this->isLocalDisk($disk)) {
+                $fullVideoPath = storage_path('app/public/' . $videoPath);
+                $fullOutputPath = storage_path('app/public/' . $outputPath);
+
+                $dir = dirname($fullOutputPath);
+                if (!file_exists($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+
+                if ($background) {
+                    $command = 'ffmpeg -i ' . escapeshellarg($fullVideoPath)
+                        . ' -ss 00:00:01.000 -vframes 1 '
+                        . escapeshellarg($fullOutputPath)
+                        . ' > /dev/null 2>&1 &';
+                    exec($command);
+                    return true;
+                }
+
+                $command = 'ffmpeg -i ' . escapeshellarg($fullVideoPath)
+                    . ' -ss 00:00:01.000 -vframes 1 '
+                    . escapeshellarg($fullOutputPath)
+                    . ' 2>&1';
+                exec($command, $output, $returnCode);
+
+                if ($returnCode !== 0) {
+                    \Log::error('FFMpeg thumbnail generation failed: ' . implode("\n", $output));
+                    return false;
+                }
+
+                return true;
             }
 
-            // Command: Capture frame at 1 second mark (usually has content)
-            // -i: input file, -ss: seek to time, -vframes 1: capture 1 frame
-            $command = "ffmpeg -i " . escapeshellarg($fullVideoPath) . " -ss 00:00:01.000 -vframes 1 " . escapeshellarg($fullOutputPath) . " 2>&1";
-            
-            exec($command, $output, $returnCode);
-            
-            if ($returnCode !== 0) {
-                \Log::error("FFMpeg thumbnail generation failed: " . implode("\n", $output));
-                return false;
+            // Cloud storage: stage video locally, generate thumbnail, upload result
+            $tempVideo = tempnam(sys_get_temp_dir(), 'nexus_vid_');
+            $tempThumb = sys_get_temp_dir() . '/' . uniqid('nexus_thumb_') . '.jpg';
+
+            try {
+                file_put_contents($tempVideo, Storage::disk($disk)->get($videoPath));
+
+                $command = 'ffmpeg -i ' . escapeshellarg($tempVideo)
+                    . ' -ss 00:00:01.000 -vframes 1 '
+                    . escapeshellarg($tempThumb)
+                    . ' 2>&1';
+                exec($command, $output, $returnCode);
+
+                if ($returnCode !== 0 || !file_exists($tempThumb)) {
+                    \Log::error('FFMpeg thumbnail generation failed: ' . implode("\n", $output));
+                    return false;
+                }
+
+                Storage::disk($disk)->put($outputPath, file_get_contents($tempThumb));
+                return true;
+            } finally {
+                @unlink($tempVideo);
+                if (file_exists($tempThumb)) @unlink($tempThumb);
             }
-            
-            return true;
         } catch (\Exception $e) {
-            \Log::error("Error generating video thumbnail: " . $e->getMessage());
+            \Log::error('Error generating video thumbnail: ' . $e->getMessage());
             return false;
         }
     }

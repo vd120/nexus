@@ -12,16 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modify the enum to include 'text'
-        DB::statement("ALTER TABLE stories MODIFY COLUMN media_type ENUM('image', 'video', 'text') NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE stories MODIFY COLUMN media_type ENUM('image', 'video', 'text') NULL");
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        // Revert to original enum
-        DB::statement("ALTER TABLE stories MODIFY COLUMN media_type ENUM('image', 'video') NOT NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE stories MODIFY COLUMN media_type ENUM('image', 'video') NOT NULL");
+        }
     }
 };
