@@ -2537,16 +2537,6 @@ html[dir="rtl"] .reactor-user-info {
         border-color: rgba(255,255,255,0.06);
     }
     .post-engagement-bar { padding: 6px 12px 2px; }
-    /* 4-button grid: like / comment / share / save — evenly distributed */
-    .post-actions {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        padding: 4px 0 8px;
-        gap: 0;
-        align-items: center;
-        justify-items: center;
-    }
-    .left-actions { display: contents; }
     .action-btn { padding: 6px 10px; font-size: 1rem; }
     .action-btn i { font-size: 1.05rem; }
 }
