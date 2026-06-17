@@ -20,6 +20,10 @@ $chatTitle = $isGroup
 /* Hide layout mobile nav on chat page */
 .mobile-nav, .mobile-bottom-nav { display: none !important; }
 
+/* Failed-to-send optimistic message */
+.message-failed .message-bubble { outline: 1px solid rgba(224,36,94,0.35); }
+.message-failed .msg-failed-label { font-size: 11px; }
+
 /* Override layout constraints for full width chat */
 .app-layout, .main-content {
     max-width: 100% !important;
@@ -4929,6 +4933,11 @@ function scrollToMessage(event, messageId) {
     }
 }
 
+// Real IDs of messages sent from THIS device/tab — used to suppress the socket echo
+// of our own message (which we already rendered optimistically). Other devices of the
+// same user will NOT have the ID here, so they DO render the echo.
+window._locallySentIds = window._locallySentIds || new Set();
+
 function processMessageQueue() {
     if (isSendingMessage || messageSendQueue.length === 0) return;
 
@@ -4939,6 +4948,7 @@ function processMessageQueue() {
             window._pwaEnqueue('chat_message', String(window.activeConversationId || ''), {
                 content: messageData.content,
                 conversation_id: window.activeConversationId,
+                store_url: '{{ route('chat.store', $conversation) }}',
             });
             const container = document.querySelector('.messages-container, .chat-messages');
             if (container) {
@@ -4969,6 +4979,9 @@ function processMessageQueue() {
         return;
     }
 
+    // Capture reply state before cancelReply() clears it
+    const capturedReply = replyingTo ? { ...replyingTo } : null;
+
     const body = { content: messageData.content };
     if (replyingTo) {
         body.reply_to_id = replyingTo.id;
@@ -4977,6 +4990,44 @@ function processMessageQueue() {
     if (messageData.link_preview) {
         body.link_preview = messageData.link_preview;
     }
+
+    // Optimistic UI: render the message instantly, reconcile with real ID after server responds
+    const tempId = 'opt_' + Date.now();
+    let optimisticContent = messageData.content;
+    if (capturedReply) {
+        optimisticContent = JSON.stringify({
+            __nexus_reply__: true,
+            reply_to: {
+                id: capturedReply.id,
+                username: capturedReply.user,
+                sender_name: capturedReply.user,
+                user: capturedReply.user,
+                content: capturedReply.content,
+                type: 'text'
+            },
+            content: messageData.content
+        });
+    }
+    window.addMessage({
+        id: tempId,
+        sender_id: {{ auth()->id() }},
+        type: 'text',
+        content: optimisticContent,
+        created_at: new Date().toISOString(),
+        delivered_at: null,
+        read_at: null,
+        reactions: [],
+        link_preview: messageData.link_preview || null,
+        media_path: null,
+    });
+
+    // Re-enable input immediately so the user can keep typing
+    messageData.input.value = '';
+    messageData.input.disabled = false;
+    messageData.sendButton.disabled = false;
+    if (window.sendTypingStatus) window.sendTypingStatus(false);
+    isTyping = false;
+    if (typingTimeout) clearTimeout(typingTimeout);
 
     fetch(`{{ route('chat.store', $conversation) }}`, {
         method: 'POST',
@@ -4989,40 +5040,59 @@ function processMessageQueue() {
     })
     .then(r => r.json())
     .then(data => {
+        const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
         if (data.success) {
-            const message = data.message;
+            const realId = String(data.message.id);
+            // Swap temp ID → real ID in-place (no visual flash, no DOM re-append)
+            if (tempEl) {
+                tempEl.dataset.messageId = realId;
+                tempEl.innerHTML = tempEl.innerHTML.replace(
+                    new RegExp(tempId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+                    realId
+                );
 
-            addMessage(message);
-            if (window.updateExistingConversationItem) {
-                window.updateExistingConversationItem(message);
+                // Flush any socket status that arrived before the ID swap.
+                // Always also check the server response — flush() may return true but the
+                // icon could still be at single-check if applyFn's querySelector missed.
+                window._statusRetry && window._statusRetry.flush(realId, tempEl);
+                const checkEl = tempEl.querySelector('.message-time i[class*="fa-check"]');
+                if (checkEl && !checkEl.classList.contains('read')) {
+                    if (data.message.read_at) {
+                        checkEl.className = 'fas fa-check-double read';
+                    } else if (data.message.delivered_at && checkEl.className !== 'fas fa-check-double sent') {
+                        checkEl.className = 'fas fa-check-double sent';
+                    }
+                }
+                // If a socket echo already rendered this realId before the swap, keep one.
+                const dupes = document.querySelectorAll(`.message[data-message-id="${realId}"]`);
+                if (dupes.length > 1) {
+                    for (let i = 1; i < dupes.length; i++) dupes[i].remove();
+                }
             }
-
-            // Sync with RealTime state to prevent polling from missing messages
+            if (window.updateExistingConversationItem) {
+                window.updateExistingConversationItem(data.message);
+            }
             lastSentMessageId = data.message.id;
+            window._locallySentIds.add(String(data.message.id));
             if (window.RealTime && window.RealTime.updateLastMessageId) {
                 window.RealTime.updateLastMessageId(data.message.id);
             }
-
-            if (window.sendTypingStatus) window.sendTypingStatus(false);
-            isTyping = false;
-            if (typingTimeout) clearTimeout(typingTimeout);
             messageData.resolve(data);
         } else {
+            if (tempEl) window.markMessageFailed(tempEl, messageData.content);
             messageData.reject(new Error(data.error || 'Failed to send message'));
         }
     })
     .catch(err => {
+        const tempEl = document.querySelector(`[data-message-id="${tempId}"]`);
+        if (tempEl) window.markMessageFailed(tempEl, messageData.content);
         console.error('Send message error:', err);
         messageData.reject(err);
     })
     .finally(() => {
         isSendingMessage = false;
-        messageData.input.disabled = false;
-        messageData.sendButton.disabled = false;
-        messageData.input.value = '';
-        // Process next message in queue if any
         if (messageSendQueue.length > 0) {
-            setTimeout(processMessageQueue, 50); // Small delay between sends
+            setTimeout(processMessageQueue, 50);
         }
     });
 }
@@ -5141,6 +5211,7 @@ function processMediaMessage(messageData) {
 
             // Sync with RealTime state
             lastSentMessageId = data.message.id;
+            window._locallySentIds.add(String(data.message.id));
             if (window.RealTime && window.RealTime.updateLastMessageId) {
                 window.RealTime.updateLastMessageId(data.message.id);
             }
@@ -5152,13 +5223,13 @@ function processMediaMessage(messageData) {
             if (typingTimeout) clearTimeout(typingTimeout);
             messageData.resolve(data);
         } else {
-            alert(data.error || window.chatTranslations.failed_to_send_media);
+            if (window.showToast) window.showToast(data.error || window.chatTranslations.failed_to_send_media, 'error');
             messageData.reject(new Error(data.error || 'Failed to send media'));
         }
     })
     .catch(err => {
         console.error('Error sending media:', err);
-        alert(window.chatTranslations.error_sending_media);
+        if (window.showToast) window.showToast(window.chatTranslations.error_sending_media, 'error');
         messageData.reject(err);
     })
     .finally(() => {
@@ -5176,13 +5247,16 @@ function processMediaMessage(messageData) {
 window.lastMessageDate = '{{ $lastDate ?? '' }}';
 
 // Add message to chat - make it globally accessible
-window.addMessage = function(msg) {
+window.addMessage = function(msg, opts) {
+    opts = opts || {};
     try {
         const container = document.getElementById('chatMessages');
         if (!container) {
             console.error('addMessage: chatMessages container not found');
             return;
         }
+        // Prepend (older history) inserts before a fixed boundary node and never auto-scrolls.
+        const anchor = opts.prepend ? (opts.beforeNode || null) : null;
 
         // Capture scroll state before any DOM changes
         const threshold = 150;
@@ -5218,7 +5292,7 @@ window.addMessage = function(msg) {
         else displayDate = fullDate.toLocaleDateString();
         
         divider.innerHTML = `<span>${displayDate}</span>`;
-        container.appendChild(divider);
+        container.insertBefore(divider, anchor);
         window.lastMessageDate = dateStr;
     }
 
@@ -5267,8 +5341,8 @@ window.addMessage = function(msg) {
             <span class="system-text" dir="auto">${escapeHtml(clearText)}</span>
             <span class="system-time">${time}</span>
         `;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        container.insertBefore(div, anchor);
+        if (!opts.prepend) container.scrollTop = container.scrollHeight;
         void div.offsetWidth;
         return;
     }
@@ -5302,8 +5376,8 @@ window.addMessage = function(msg) {
                         </button>
                     </div>
             `;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            container.insertBefore(div, anchor);
+            if (!opts.prepend) container.scrollTop = container.scrollHeight;
             void div.offsetWidth;
             return;
         } catch (e) {
@@ -5412,6 +5486,15 @@ window.addMessage = function(msg) {
             </div>
             <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)" title="${escapeHtml(window.chatTranslations.playback_speed)}">1x</button>
         </div>`;
+    } else if (msg.type === 'audio' && msg.media_path) {
+        contentHtml += `<div class="message-media"><audio controls preload="metadata" src="/storage/${escapeHtml(msg.media_path)}"></audio></div>`;
+    } else if (msg.type === 'document' && msg.media_path) {
+        const docName = String(msg.media_path).split('/').pop();
+        contentHtml += `<div class="message-document"><a href="/storage/${escapeHtml(msg.media_path)}" download rel="noopener"><i class="fas fa-file"></i><span class="doc-name">${escapeHtml(docName)}</span></a></div>`;
+    } else if (msg.type === 'gif' && msg.media_path) {
+        contentHtml += `<div class="message-media"><img class="message-gif" src="/storage/${escapeHtml(msg.media_path)}" alt="GIF" onclick="openMediaViewerFromAlbum(this, ${msg.id}, 0)"></div>`;
+    } else if (msg.type === 'sticker' && msg.media_path) {
+        contentHtml += `<div class="message-sticker"><img src="/storage/${escapeHtml(msg.media_path)}" alt="Sticker"></div>`;
     }
 
     // Text content with story reply and general reply detection
@@ -5524,11 +5607,13 @@ window.addMessage = function(msg) {
         </div>
     `;
 
-    container.appendChild(div);
-    
+    container.insertBefore(div, anchor);
+
     const scrollBtn = document.getElementById('scrollToBottomBtn');
 
-    if (isOwn || isAtBottom) {
+    if (opts.prepend) {
+        // Older history: no scroll changes, no new-message badge.
+    } else if (isOwn || isAtBottom) {
         if (window.scrollToBottom) {
             window.scrollToBottom(isOwn ? 'smooth' : 'auto');
         } else {
@@ -5551,7 +5636,7 @@ window.addMessage = function(msg) {
     const media = div.querySelectorAll('img, video');
     media.forEach(m => {
         m.addEventListener('load', () => {
-            if (container.scrollHeight - container.scrollTop - container.clientHeight < threshold) {
+            if (!opts.prepend && container.scrollHeight - container.scrollTop - container.clientHeight < threshold) {
                 container.scrollTop = container.scrollHeight;
             }
         });
@@ -5849,6 +5934,29 @@ const NexusGallery = {
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => NexusGallery.init());
 
+// Mark an optimistic bubble as failed-to-send, with tap-to-retry.
+window.markMessageFailed = function(el, content) {
+    if (!el) return;
+    el.classList.add('message-failed');
+    const meta = el.querySelector('.message-time');
+    const failText = (window.chatTranslations && window.chatTranslations.failed_to_send) || 'Failed — tap to retry';
+    if (meta) {
+        meta.innerHTML = `<span class="msg-failed-label" style="color:#e0245e;cursor:pointer;">${failText} <i class="fas fa-rotate-right"></i></span>`;
+    }
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', function retry() {
+        el.removeEventListener('click', retry);
+        el.remove();
+        const input = document.getElementById('messageInput');
+        if (input && typeof sendMessage === 'function') {
+            input.value = content;
+            sendMessage({ preventDefault: function() {} });
+        } else if (input) {
+            input.value = content;
+        }
+    }, { once: true });
+};
+
 // Global function for Blade/Dynamic handlers
 window.openMediaViewerFromAlbum = function(el, messageId, index = 0) {
     NexusGallery.open(messageId, index);
@@ -6133,6 +6241,40 @@ window.handleDeleteMessage = function(messageId, deleteType, deletedFor) {
     }
 };
 
+// Retry module for deferred status updates.
+// Handles the race where socket events arrive before the optimistic element's ID is swapped.
+// Falls back to scanning every 100ms for up to 5 seconds.
+window._statusRetry = (function() {
+    var pending = new Map(); // realId (string) → {type, applyFn, ts}
+    var PRIORITY = { read: 2, delivered: 1 };
+
+    setInterval(function() {
+        if (!pending.size) return;
+        var now = Date.now();
+        pending.forEach(function(entry, realId) {
+            if (now - entry.ts > 5000) { pending.delete(realId); return; }
+            var el = document.querySelector('.message[data-message-id="' + realId + '"]');
+            if (el) { pending.delete(realId); entry.applyFn(el); }
+        });
+    }, 100);
+
+    return {
+        add: function(realId, type, applyFn) {
+            var existing = pending.get(realId);
+            if (existing && (PRIORITY[existing.type] || 0) > (PRIORITY[type] || 0)) return;
+            pending.set(realId, { type: type, applyFn: applyFn, ts: Date.now() });
+        },
+        // Called at ID-swap time for immediate (zero-latency) application.
+        flush: function(realId, el) {
+            var entry = pending.get(realId);
+            if (!entry) return false;
+            pending.delete(realId);
+            entry.applyFn(el);
+            return true;
+        }
+    };
+})();
+
 window.updateReadReceiptsUI = function(readMessageIds, readerId, data) {
     if (!readMessageIds || !Array.isArray(readMessageIds)) return;
 
@@ -6144,31 +6286,35 @@ window.updateReadReceiptsUI = function(readMessageIds, readerId, data) {
         }
     }
 
+    function applyRead(el, isAllRead) {
+        const checkIcon = el.querySelector('.message-time i[class*="fa-check"]');
+        if (checkIcon) {
+            checkIcon.className = isAllRead ? 'fas fa-check-double read' : 'fas fa-check-double sent';
+        }
+    }
+
     // New format supports per-message 'all_read' status
     if (data && data.read_messages) {
-        data.read_messages.forEach(msgInfo => {
+        data.read_messages.forEach(function(msgInfo) {
             const msgEl = document.querySelector('.message[data-message-id="' + msgInfo.id + '"]');
             if (msgEl) {
-                const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
-                if (checkIcon) {
-                    if (msgInfo.is_all_read) {
-                        checkIcon.className = 'fas fa-check-double read';
-                    } else {
-                        // If not read by all, it should at least be delivered to some (double check grey)
-                        checkIcon.className = 'fas fa-check-double sent';
-                    }
-                }
+                applyRead(msgEl, msgInfo.is_all_read);
+            } else {
+                window._statusRetry.add(String(msgInfo.id), 'read', function(el) {
+                    applyRead(el, msgInfo.is_all_read);
+                });
             }
         });
     } else {
         // Fallback for old format or 1-1 chats where read always means read by all
-        readMessageIds.forEach(id => {
+        readMessageIds.forEach(function(id) {
             const msgEl = document.querySelector('.message[data-message-id="' + id + '"]');
             if (msgEl) {
-                const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
-                if (checkIcon) {
-                    checkIcon.className = 'fas fa-check-double read';
-                }
+                applyRead(msgEl, true);
+            } else {
+                window._statusRetry.add(String(id), 'read', function(el) {
+                    applyRead(el, true);
+                });
             }
         });
     }
@@ -6177,18 +6323,18 @@ window.updateReadReceiptsUI = function(readMessageIds, readerId, data) {
 window.updateDeliveredReceiptsUI = function(messageId, data) {
     if (!messageId) return;
     const msgEl = document.querySelector('.message[data-message-id="' + messageId + '"]');
-    if (msgEl) {
-        const checkIcon = msgEl.querySelector('.message-time i[class*="fa-check"]');
+    function applyDelivered(el) {
+        const checkIcon = el.querySelector('.message-time i[class*="fa-check"]');
         if (checkIcon && !checkIcon.classList.contains('read')) {
-            // Only show double grey check if all participants received it
-            // or if it's a 1-1 chat (which defaults to true in data)
-            if (data && data.is_all_delivered) {
-                checkIcon.className = 'fas fa-check-double sent';
-            } else {
-                // Stay as single check if not delivered to all
-                checkIcon.className = 'fas fa-check sent';
-            }
+            checkIcon.className = data && data.is_all_delivered
+                ? 'fas fa-check-double sent'
+                : 'fas fa-check sent';
         }
+    }
+    if (msgEl) {
+        applyDelivered(msgEl);
+    } else {
+        window._statusRetry.add(String(messageId), 'delivered', applyDelivered);
     }
 };
 
@@ -6452,6 +6598,7 @@ window.chatTranslations = Object.assign(window.chatTranslations || {}, {
     story_reply: '{{ __('chat.story_reply') }}',
     failed_to_send_media: '{{ __('chat.failed_to_send_media') }}',
     error_sending_media: '{{ __('chat.error_sending_media') }}',
+    failed_to_send: '{{ __('chat.failed_to_send') }}',
     group: '{{ __('chat.group') }}',
     invited_you_to_join: '{{ __('chat.invited_you_to_join') }}',
     join: '{{ __('chat.join') }}',
@@ -6645,6 +6792,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show/hide button based on scroll position
         container.addEventListener('scroll', () => {
+            // Near the top → load older history
+            if (container.scrollTop < 80 && window.loadOlderMessages) window.loadOlderMessages();
+
             const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
             if (isAtBottom) {
                 scrollBtn.classList.remove('visible', 'has-new-msg');
@@ -6658,6 +6808,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, { passive: true });
     }
+
+    // ── Scroll-up pagination: load older messages ───────────────────────────
+    window._oldestMessageId = null;
+    window._isLoadingOlder = false;
+    window._noMoreOlder = false;
+
+    (function initOldestId() {
+        const c = document.getElementById('chatMessages');
+        if (!c) return;
+        const first = c.querySelector('.message[data-message-id]');
+        if (first) window._oldestMessageId = first.dataset.messageId;
+    })();
+
+    window.loadOlderMessages = async function() {
+        if (window._isLoadingOlder || window._noMoreOlder || !window._oldestMessageId) return;
+        const c = document.getElementById('chatMessages');
+        if (!c) return;
+
+        window._isLoadingOlder = true;
+        try {
+            const url = `/chat/{{ $conversation->slug }}/messages?before_id=${encodeURIComponent(window._oldestMessageId)}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+            const json = await res.json();
+            const older = (json && json.messages) || [];
+            if (older.length === 0) { window._noMoreOlder = true; return; }
+
+            // Preserve scroll position across the prepend.
+            const prevHeight = c.scrollHeight;
+            const anchor = c.firstElementChild; // stable boundary for the whole batch
+            older.forEach((m) => window.addMessage(m, { prepend: true, beforeNode: anchor }));
+            c.scrollTop = c.scrollHeight - prevHeight;
+
+            // Oldest id is now the first of this batch (chronological asc).
+            window._oldestMessageId = String(older[0].id);
+            if (older.length < 50) window._noMoreOlder = true;
+        } catch (e) {
+            console.error('loadOlderMessages failed', e);
+        } finally {
+            window._isLoadingOlder = false;
+        }
+    };
 
     // Handle real-time chat cleared event
     window.handleChatCleared = (data) => {

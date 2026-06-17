@@ -109,6 +109,7 @@ class SocialAuthController extends Controller
 
             Auth::login($user, true);
             request()->session()->regenerate();
+            $this->activityService->logActivity('login', $user->id);
             
             return redirect()->intended('/');
 

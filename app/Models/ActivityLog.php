@@ -152,7 +152,7 @@ class ActivityLog extends Model
             ->where('action', 'login')
             ->where('id', '<', $this->id)
             ->orderBy('logged_at', 'desc')
-            ->limit(3)
+            ->limit(5)
             ->get();
 
         if ($recentLogins->isEmpty()) {

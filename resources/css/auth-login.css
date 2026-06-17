@@ -71,25 +71,8 @@ nav{
 }
 
 .nav-brand img {
-    height: 44px;
+    height: 96px;
     width: auto;
-    transition: opacity 0.3s ease;
-}
-
-.logo-dark {
-    display: block;
-}
-
-.logo-light {
-    display: none;
-}
-
-[data-theme="light"] .logo-dark {
-    display: none;
-}
-
-[data-theme="light"] .logo-light {
-    display: block;
 }
 
 .nav-link{
@@ -476,7 +459,7 @@ html[lang="ar"] .lang-slide-bg { left: 43px !important; }
     }
     
     .nav-brand img {
-        height: 34px;
+        height: 72px;
     }
     
     .auth-header-actions {

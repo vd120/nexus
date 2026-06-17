@@ -33,10 +33,17 @@ trait SendsPushNotifications
 
         app()->setLocale($originalLocale);
 
-        $pushService->sendToUser($user, $title, $body, $url, [
-            'type'            => $notification->type,
-            'notification_id' => $notification->id,
-        ]);
+        $pushService->sendToUser(
+            $user,
+            $title,
+            $body,
+            $url,
+            [
+                'type'            => $notification->type,
+                'notification_id' => $notification->id,
+                'message_id'      => $notification->data['message_id'] ?? null,
+            ]
+        );
     }
 
     /**

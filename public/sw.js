@@ -51,7 +51,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body:               payload.body || '',
     icon:               payload.icon || '/images/icons/nexus-icon-192.png',
-    badge:              payload.badge || '/images/icons/nexus-icon-192.png',
+    badge:              payload.badge || '/images/icons/nexus-notification-badge.png',
     tag:                payload.tag || 'nexus-notification',
     requireInteraction: payload.requireInteraction || false,
     silent:             payload.silent || false,
@@ -72,7 +72,19 @@ self.addEventListener('push', (event) => {
           focusedClient.postMessage({ type: 'PUSH_FOREGROUND', payload });
           return;
         }
-        return self.registration.showNotification(title, options);
+        const showPromise = self.registration.showNotification(title, options);
+        if (payload.data && payload.data.message_id) {
+          return showPromise.then(() =>
+            fetch('/chat/confirm-delivery', {
+              method: 'POST',
+              credentials: 'include',
+              redirect: 'error', // an auth redirect (302 → login) must fail, not masquerade as success
+              headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              body: JSON.stringify({ message_id: payload.data.message_id }),
+            }).catch(() => {}) // delivery is also confirmed server-side by SendPushNotificationJob
+          );
+        }
+        return showPromise;
       })
     );
   } else {
@@ -103,6 +115,8 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Ask any controlled page to re-sync the app badge from the server count.
+      windowClients.forEach((c) => c.postMessage({ type: 'REFRESH_BADGE' }));
       for (const client of windowClients) {
         if (client.url.includes(url) && 'focus' in client) {
           return client.focus();

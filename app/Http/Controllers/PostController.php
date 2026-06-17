@@ -867,7 +867,7 @@ class PostController extends Controller
             'is_anonymous' => 'nullable|boolean',
         ]);
 
-        if (!in_array($validated['emoji'], Post::REACTION_EMOJIS)) {
+        if (!in_array($validated['emoji'], Post::POST_REACTION_EMOJIS)) {
             return response()->json(['success' => false, 'message' => __('messages.invalid_reaction_type')], 422);
         }
 

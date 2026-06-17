@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,52 @@ use Illuminate\Support\Str;
 
 class GroupController extends Controller
 {
+    /**
+     * Persist a group system message and broadcast it live to all members.
+     * Content is built in the acting user's locale (a single string for the room),
+     * matching how regular message content is not re-localized per viewer.
+     */
+    private function emitGroupSystemMessage(Group $group, string $content): void
+    {
+        $conversation = $group->conversation;
+        if (!$conversation) {
+            return;
+        }
+
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'sender_id'       => Auth::id(),
+            'content'         => $content,
+            'type'            => 'system',
+        ]);
+
+        $conversation->update(['last_message_at' => now()]);
+
+        $socket = app(\App\Services\SocketEmitService::class);
+
+        // System bubble to everyone currently in the conversation room
+        $socket->emitToConversation($conversation->id, 'chat:message', $message->toPayload());
+
+        // Per-member sidebar preview (also lets a brand-new member's sidebar create the item)
+        $preview = mb_substr($content, 0, 30) . (mb_strlen($content) > 30 ? '...' : '');
+        $avatarUrl = $group->avatar ? asset('storage/' . $group->avatar) : null;
+
+        foreach ($group->members()->pluck('user_id') as $memberId) {
+            $socket->emitToUser($memberId, 'chat:conversation:updated', [
+                'conversation_id'   => $conversation->id,
+                'conversation_slug' => $conversation->slug,
+                'is_group'          => true,
+                'display_name'      => $conversation->display_name,
+                'avatar_url'        => $avatarUrl,
+                'last_message'      => $preview,
+                'last_message_id'   => $message->id,
+                'show_checkmarks'   => false,
+                'last_message_time' => $message->created_at->toISOString(),
+                'unread_count'      => $conversation->unreadCountFor($memberId),
+            ]);
+        }
+    }
+
     /**
      * Display a listing of groups.
      */
@@ -78,6 +125,11 @@ class GroupController extends Controller
         // Create a conversation for this group
         $conversation = Conversation::createGroupConversation($group);
 
+        $this->emitGroupSystemMessage(
+            $group->fresh('conversation'),
+            __('chat.system_group_created', ['actor' => Auth::user()->username])
+        );
+
         return redirect()->route('chat.show', $conversation->slug)->with('success', 'Group created successfully.');
     }
 
@@ -130,6 +182,14 @@ class GroupController extends Controller
 
         $group->update($data);
 
+        $actor = Auth::user()->username;
+        if (array_key_exists('name', $data) && $group->wasChanged('name')) {
+            $this->emitGroupSystemMessage($group, __('chat.system_group_renamed', ['actor' => $actor, 'name' => $group->name]));
+        }
+        if (array_key_exists('avatar', $data) && $group->wasChanged('avatar')) {
+            $this->emitGroupSystemMessage($group, __('chat.system_group_avatar', ['actor' => $actor]));
+        }
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -166,6 +226,12 @@ class GroupController extends Controller
             'user_id' => $request->user_id,
             'role' => 'member'
         ]);
+
+        $added = User::find($request->user_id);
+        $this->emitGroupSystemMessage($group, __('chat.system_member_added', [
+            'actor' => Auth::user()->username,
+            'user'  => $added->username ?? 'user',
+        ]));
 
         if ($request->ajax()) {
             $user = User::find($request->user_id);
@@ -205,6 +271,25 @@ class GroupController extends Controller
             ->where('user_id', $userId)
             ->delete();
 
+        $removed = User::find($userId);
+        if (Auth::id() == $userId) {
+            $this->emitGroupSystemMessage($group, __('chat.system_member_left', [
+                'user' => $removed->username ?? 'user',
+            ]));
+        } else {
+            $this->emitGroupSystemMessage($group, __('chat.system_member_removed', [
+                'actor' => Auth::user()->username,
+                'user'  => $removed->username ?? 'user',
+            ]));
+            // Drop the conversation from the removed user's sidebar
+            if ($group->conversation) {
+                app(\App\Services\SocketEmitService::class)->emitToUser($userId, 'chat:conversation:deleted', [
+                    'conversation_id' => $group->conversation->id,
+                    'deleted_by'      => Auth::id(),
+                ]);
+            }
+        }
+
         if (Auth::id() == $userId) {
             if ($request->ajax()) return response()->json(['success' => true, 'redirect' => route('chat.index'), 'message' => __('chat.left_group_successfully')]);
             return redirect()->route('chat.index')->with('success', __('chat.left_group_successfully'));
@@ -242,6 +327,13 @@ class GroupController extends Controller
         GroupMember::where('group_id', $group->id)
             ->where('user_id', $userId)
             ->update(['role' => $request->role]);
+
+        $target = User::find($userId);
+        $roleKey = $request->role === 'admin' ? 'chat.system_promoted_admin' : 'chat.system_demoted_member';
+        $this->emitGroupSystemMessage($group, __($roleKey, [
+            'actor' => Auth::user()->username,
+            'user'  => $target->username ?? 'user',
+        ]));
 
         if ($request->ajax()) {
             $member = GroupMember::where('group_id', $group->id)
@@ -281,6 +373,10 @@ class GroupController extends Controller
             'role' => 'member',
         ]);
 
+        $this->emitGroupSystemMessage($group->fresh('conversation'), __('chat.system_member_joined', [
+            'user' => Auth::user()->username,
+        ]));
+
         return redirect()->route('chat.show', $group->conversation->slug)->with('success', "Joined {$group->name} successfully.");
     }
 
@@ -289,9 +385,13 @@ class GroupController extends Controller
      */
     public function leave(Group $group)
     {
+        $leaverName = Auth::user()->username;
+
         GroupMember::where('group_id', $group->id)
             ->where('user_id', Auth::id())
             ->delete();
+
+        $this->emitGroupSystemMessage($group, __('chat.system_member_left', ['user' => $leaverName]));
 
         if (request()->ajax()) {
             return response()->json([
@@ -315,6 +415,10 @@ class GroupController extends Controller
 
         // Delete conversation and members will be deleted via cascade or manual if needed
         if ($group->conversation) {
+            app(\App\Services\SocketEmitService::class)->emitToConversation($group->conversation->id, 'chat:conversation:deleted', [
+                'conversation_id' => $group->conversation->id,
+                'deleted_by'      => Auth::id(),
+            ]);
             $group->conversation->delete();
         }
         

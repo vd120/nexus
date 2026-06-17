@@ -88,7 +88,7 @@ class LoginController extends Controller
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
-                return redirect()->route('login.view');
+                return redirect()->route('login.view')->with('suspended', true);
             }
 
             if (!$user->hasVerifiedEmail()) {
@@ -99,7 +99,10 @@ class LoginController extends Controller
                 }
                 return redirect()->route('verification.notice');
             }
-            
+
+            // Log AFTER regenerate so session_id in activity_log matches live session
+            $this->activityService->logActivity('login', $user->id);
+
             return redirect()->intended('/');
         }
 
@@ -147,6 +150,7 @@ class LoginController extends Controller
             if ($user) {
                 Auth::login($user, $challenge['remember']);
                 request()->session()->regenerate();
+                $this->activityService->logActivity('login', $user->id);
                 return response()->json(['status' => 'approved', 'redirect' => route('home')]);
             }
         }
@@ -196,6 +200,13 @@ class LoginController extends Controller
             return response()->json(['success' => false, 'message' => __('auth.login_session_expired')], 422);
         }
 
+        $limiterKey = 'login_challenge_email_send_' . $challenge['user_id'];
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($limiterKey, 3)) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($limiterKey);
+            return response()->json(['success' => false, 'message' => __('auth.throttle', ['seconds' => $seconds])], 429);
+        }
+        \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 600);
+
         // Generate a 6-digit code for this challenge
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
@@ -220,9 +231,18 @@ class LoginController extends Controller
             return response()->json(['success' => false, 'message' => __('auth.login_session_expired')], 422);
         }
 
+        $limiterKey = 'login_challenge_email_verify_' . $challenge['user_id'];
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($limiterKey, 5)) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($limiterKey);
+            return response()->json(['success' => false, 'message' => __('auth.throttle', ['seconds' => $seconds])], 429);
+        }
+
         if (!isset($challenge['email_code']) || $challenge['email_code'] !== $request->code) {
+            \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300);
             return response()->json(['success' => false, 'message' => __('auth.invalid_verification_code')], 422);
         }
+
+        \Illuminate\Support\Facades\RateLimiter::clear($limiterKey);
 
         // Mark as approved
         $challenge['status'] = 'approved';

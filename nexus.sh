@@ -55,6 +55,10 @@ echo "  > Started Tunnel"
 php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 > storage/logs/queue.log 2>&1 &
 echo "  > Started Queue Worker (Redis)"
 
+# 5b. Default-queue Worker
+php artisan queue:work redis --queue=default --sleep=3 --tries=3 --max-time=3600 > storage/logs/queue-default.log 2>&1 &
+echo "  > Started Queue Worker (Redis, default queue)"
+
 # 6. Warm-up
 php artisan nexus:warm --force
 echo "✔ System Online."

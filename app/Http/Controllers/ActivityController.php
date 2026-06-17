@@ -137,6 +137,10 @@ class ActivityController extends Controller
 
     /**
      * Terminate all other sessions (logout from all devices)
+     *
+     * Sessions live in Redis (CacheBasedSessionHandler via the default redis cache store).
+     * Key format: <redis-prefix><sessionId>  (e.g. nexus-database-nexus-cache-<id>)
+     * We must also write logout activity_log entries so getActiveSessions() stops listing them.
      */
     public function terminateAllSessions(Request $request)
     {
@@ -147,23 +151,36 @@ class ActivityController extends Controller
             return redirect()->back()->with('error', __('activity.session_not_found'));
         }
 
-        // 1. ROTATE REMEMBER TOKEN
-        // This invalidates all "Remember Me" cookies on other devices.
-        // Even if we delete the session, "Remember Me" would otherwise re-log them in.
+        // 1. ROTATE REMEMBER TOKEN — prevents re-login via "Remember Me" on terminated devices
         $user->forceFill([
             'remember_token' => \Illuminate\Support\Str::random(60),
         ])->save();
 
-        // 2. DELETE OTHER SESSIONS
-        $deletedCount = \DB::table('sessions')
-            ->where('user_id', $user->id)
-            ->where('id', '!=', $currentSessionId)
-            ->delete();
+        // 2. GET OTHER ACTIVE SESSIONS from activity_logs
+        $otherSessions = $this->activityService->getActiveSessions($user->id)
+            ->filter(fn($s) => !$s->is_current_session);
 
-        // 3. LOG ACTIVITY
+        $terminatedCount = 0;
+        foreach ($otherSessions as $session) {
+            // Delete from Redis — sessions stored as cache keys via CacheBasedSessionHandler
+            \Illuminate\Support\Facades\Cache::forget($session->id);
+
+            // Write logout entry so getActiveSessions() fingerprint logic hides this session
+            $this->activityService->logActivityForSession(
+                'logout',
+                $user->id,
+                $session->id,
+                $session->ip_address ?? '',
+                $session->user_agent ?? ''
+            );
+
+            $terminatedCount++;
+        }
+
+        // 3. LOG ACTION on current session
         $this->activityService->logActivity('all_sessions_terminated', $user->id);
-        
-        return redirect()->back()->with('success', __('activity.all_sessions_terminated', ['count' => $deletedCount]));
+
+        return redirect()->back()->with('success', __('activity.all_sessions_terminated', ['count' => $terminatedCount]));
     }
 
     /**
@@ -179,24 +196,36 @@ class ActivityController extends Controller
             return redirect()->back()->with('error', __('activity.cannot_terminate_current_session'));
         }
 
+        // Find the login activity_log for this session to get ip/ua for the logout entry
+        $loginLog = \App\Models\ActivityLog::where('user_id', $user->id)
+            ->where('session_id', $sessionId)
+            ->where('action', 'login')
+            ->orderBy('logged_at', 'desc')
+            ->first();
+
+        if (!$loginLog) {
+            return redirect()->back()->with('error', __('activity.session_not_found'));
+        }
+
         // 1. ROTATE REMEMBER TOKEN
-        // We must rotate the token to prevent the other device from re-logging in automatically via "Remember Me".
         $user->forceFill([
             'remember_token' => \Illuminate\Support\Str::random(60),
         ])->save();
 
-        // 2. TERMINATE BY SESSION ID
-        $deleted = \DB::table('sessions')
-            ->where('id', $sessionId)
-            ->where('user_id', $user->id)
-            ->delete();
+        // 2. DELETE FROM REDIS — sessions live in Redis cache, not the DB sessions table
+        \Illuminate\Support\Facades\Cache::forget($sessionId);
 
-        if ($deleted > 0) {
-            $this->activityService->logActivity('session_terminated', $user->id);
-            return redirect()->back()->with('success', __('activity.session_terminated'));
-        }
+        // 3. WRITE LOGOUT ACTIVITY so getActiveSessions() stops listing this session
+        $this->activityService->logActivityForSession(
+            'logout',
+            $user->id,
+            $sessionId,
+            $loginLog->ip_address ?? '',
+            $loginLog->user_agent ?? ''
+        );
 
-        return redirect()->back()->with('error', __('activity.session_not_found'));
+        $this->activityService->logActivity('session_terminated', $user->id);
+        return redirect()->back()->with('success', __('activity.session_terminated'));
     }
 
     /**

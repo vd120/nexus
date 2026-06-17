@@ -99,7 +99,7 @@ class ChatController extends Controller
         $afterId  = $request->query('after_id');
         $beforeId = $request->query('before_id');
         $query = Message::where('conversation_id', $conversation->id)
-            ->with('sender.profile')
+            ->with(['sender.profile', 'reactions.user'])
             ->where(function($q) {
                 $q->whereNull('visible_to')->orWhere('visible_to', auth()->id());
             })
@@ -115,12 +115,19 @@ class ChatController extends Controller
                 'created_at' => $message->created_at->toISOString(),
                 'type' => $message->type,
                 'media_path' => $message->media_path,
+                'link_preview' => $message->link_preview,
                 'duration' => $message->duration,
                 'waveform_peaks' => $message->waveform_peaks,
+                'sender_id' => $message->sender_id,
+                'conversation_id' => $message->conversation_id,
+                'delivered_at' => $message->delivered_at ? $message->delivered_at->toISOString() : null,
+                'read_at' => $message->read_at ? $message->read_at->toISOString() : null,
+                'reactions' => $message->getGroupedReactions(),
                 'sender' => [
                     'id' => $message->sender->id,
                     'username' => $message->sender->username,
                     'avatar_url' => $message->sender->avatar_url,
+                    'is_verified' => (bool) ($message->sender->is_verified ?? false),
                 ],
             ];
         });
@@ -328,57 +335,72 @@ class ChatController extends Controller
         // Immediate delivery confirmation for online recipients
         $recipientIds = $conversation->getRecipients(auth()->id());
         
+        // Preload recipients once to avoid N+1 inside the loops below
+        $recipientMap = \App\Models\User::whereIn('id', $recipientIds)->get()->keyBy('id');
+
         // Handle delivery status for 1-1 chats immediately if online
         if (!$conversation->is_group) {
             foreach ($recipientIds as $recipientId) {
-                $recipient = \App\Models\User::find($recipientId);
+                $recipient = $recipientMap->get($recipientId);
                 if ($recipient && $recipient->is_online && !$message->delivered_at) {
                     $message->update(['delivered_at' => now()]);
                 }
             }
         }
-        
+
         foreach ($recipientIds as $recipientId) {
             \App\Http\Controllers\NotificationController::createMessageNotification($recipientId, $currentUser, $message);
-            // Bust the unread messages cache for each recipient
             \Illuminate\Support\Facades\Cache::forget('unread_messages_' . $recipientId);
         }
 
         // Real-time broadcast
         $message->load('sender.profile');
         if ($message->sender) $message->sender->append('avatar_url');
-        
+
         $messagePayload = $this->formatMessagePayload($message);
         $socketService = app(\App\Services\SocketEmitService::class);
         $socketService->emitToConversation($conversation->id, 'chat:message', $messagePayload);
 
-        $participants = array_unique(array_merge($recipientIds, [auth()->id()]));
-        foreach ($participants as $participantId) {
-            $participant = \App\Models\User::find($participantId);
+        $participantIds = array_unique(array_merge($recipientIds, [auth()->id()]));
+
+        // Preload all participant models and unread counts in bulk to avoid N+1
+        $participantMap = \App\Models\User::whereIn('id', $participantIds)->get()->keyBy('id');
+        $unreadCounts   = [];
+        foreach ($participantIds as $pid) {
+            $unreadCounts[$pid] = $conversation->unreadCountFor($pid);
+        }
+
+        $senderUser = auth()->user();
+        foreach ($participantIds as $participantId) {
+            $participant    = $participantMap->get($participantId);
             $originalLocale = app()->getLocale();
             if ($participant && $participant->language) {
                 app()->setLocale($participant->language);
             }
 
+            // Build the preview from THIS participant's perspective so the group
+            // "You:" vs "Name:" prefix and the sent-checkmark flag are correct for
+            // each recipient (must match the server-rendered sidebar on reload).
             $previewData = $this->getConversationPreviewForUser($conversation, $participantId);
 
             $socketService->emitToUser($participantId, 'chat:conversation:updated', [
-                'conversation_id' => $conversation->id,
+                'conversation_id'   => $conversation->id,
                 'conversation_slug' => $conversation->slug,
-                'is_group' => $conversation->is_group,
-                'display_name' => $conversation->is_group ? $conversation->display_name : auth()->user()->username,
-                'avatar_url' => $conversation->is_group ? ($conversation->group?->avatar ? asset('storage/' . $conversation->group->avatar) : null) : auth()->user()->avatar_url,
-                'sender' => $conversation->is_group ? null : [
-                    'id' => auth()->id(),
-                    'username' => auth()->user()->username,
-                    'avatar_url' => auth()->user()->avatar_url,
-                    'is_verified' => (bool) auth()->user()->is_verified,
+                'is_group'          => $conversation->is_group,
+                'display_name'      => $conversation->is_group ? $conversation->display_name : $senderUser->username,
+                'avatar_url'        => $conversation->is_group ? ($conversation->group?->avatar ? asset('storage/' . $conversation->group->avatar) : null) : $senderUser->avatar_url,
+                'sender'            => $conversation->is_group ? null : [
+                    'id'          => $senderUser->id,
+                    'username'    => $senderUser->username,
+                    'avatar_url'  => $senderUser->avatar_url,
+                    'is_verified' => (bool) $senderUser->is_verified,
                 ],
-                'last_message' => $previewData['text'],
-                'last_message_id' => $previewData['id'] ?? null,
-                'show_checkmarks' => $previewData['show_checkmarks'],
+                'last_message'      => $previewData['text'],
+                'last_message_id'   => $previewData['id'] ?? null,
+                'show_checkmarks'   => $previewData['show_checkmarks'],
+                'checkmark_class'   => $previewData['checkmark_class'] ?? 'fa-check sent',
                 'last_message_time' => $message->created_at->toISOString(),
-                'unread_count' => $conversation->unreadCountFor($participantId),
+                'unread_count'      => $unreadCounts[$participantId] ?? 0,
             ]);
 
             app()->setLocale($originalLocale);
@@ -770,26 +792,29 @@ class ChatController extends Controller
             ->get();
 
         foreach ($messages as $message) {
+            $isAllDelivered = false;
             if (!$message->conversation->is_group) {
                 $message->update(['delivered_at' => $now]);
+                $isAllDelivered = true;
             } else {
                 MessageReceipt::updateOrCreate(
                     ['message_id' => $message->id, 'user_id' => $userId],
                     ['delivered_at' => $now]
                 );
+                $isAllDelivered = (bool) $message->updateDeliveryStatusIfAllDelivered();
             }
-            
+
             $deliveredTime = $message->conversation->is_group ? $now : $message->delivered_at;
-            
+
             $emitData = [
                 'message_id' => $message->id,
                 'user_id' => $userId,
                 'conversation_id' => $message->conversation_id,
-                'delivered_at' => $deliveredTime->toISOString()
+                'delivered_at' => $deliveredTime->toISOString(),
+                'is_all_delivered' => $isAllDelivered,
             ];
-            
+
             app(\App\Services\SocketEmitService::class)->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
-            app(\App\Services\SocketEmitService::class)->emitToUser($message->sender_id, 'chat:delivered', $emitData);
         }
 
         return response()->json(['success' => true, 'count' => $messages->count()]);
@@ -805,38 +830,8 @@ class ChatController extends Controller
         $userId = auth()->id();
         
         if (!$message->conversation->isMember($userId)) return response()->json(['success' => false], 403);
-        
-        $now = now();
-        
-        // Handle per-user receipt for group chats
-        $isAllDelivered = false;
-        if ($message->conversation->is_group) {
-            MessageReceipt::updateOrCreate(
-                ['message_id' => $message->id, 'user_id' => $userId],
-                ['delivered_at' => $now]
-            );
-            
-            // Only update global delivered_at if EVERYONE in the group has received it
-            $isAllDelivered = $message->updateDeliveryStatusIfAllDelivered();
-        } else {
-            // For 1-1 chats, update the message columns directly
-            if (!$message->delivered_at) {
-                $message->update(['delivered_at' => $now]);
-            }
-            $isAllDelivered = true;
-        }
-        
-        $emitData = [
-            'message_id' => $message->id,
-            'user_id' => $userId,
-            'conversation_id' => $message->conversation_id,
-            'delivered_at' => $now->toISOString(),
-            'is_all_delivered' => $isAllDelivered
-        ];
-        
-        // Emit delivered event
-        app(\App\Services\SocketEmitService::class)->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
-        app(\App\Services\SocketEmitService::class)->emitToUser($message->sender_id, 'chat:delivered', $emitData);
+
+        app(\App\Services\MessageDeliveryService::class)->confirm($message, $userId);
 
         return response()->json(['success' => true]);
     }
@@ -996,29 +991,35 @@ class ChatController extends Controller
             ->latest('updated_at')
             ->first();
 
+        // Match the server-rendered (reload) sidebar: only treat a reaction as the latest
+        // activity when the reactor is NOT the message's own author.
         $showReaction = false;
         if ($latestReaction && (!$latestMessage || $latestReaction->updated_at > $latestMessage->created_at)) {
-            $showReaction = true;
+            if ($latestReaction->message->sender_id !== $latestReaction->user_id) {
+                $showReaction = true;
+            }
         }
 
 
         if ($showReaction) {
             $reactor = $latestReaction->user;
-            $name = ($reactor->id === $userId) ? __('chat.you') : ($reactor->username ?? 'User');
-            
+            $isOwnReaction = $reactor->id === $userId;
+            $name = $isOwnReaction ? __('chat.you') : ($reactor->username ?? 'User');
+
             $content = strip_tags($latestReaction->message->content);
             if (str_starts_with($content, '{"__nexus_reply__":true')) {
                 $replyData = json_decode($content, true);
                 $content = $replyData['content'] ?? '';
             }
-            
+
             $content = \Illuminate\Support\Str::limit(strip_tags($content), 15);
             if (empty($content) && $latestReaction->message->type !== 'text') {
-                $content = '[' . ucfirst($latestReaction->message->type) . ']';
+                $content = '[' . __('chat.' . $latestReaction->message->type) . ']';
             }
 
             return [
-                'text' => ($name . ' ') . __('chat.reacted_on_message', [
+                // 1-1: omit name when the OTHER party reacted (matches reload); groups & own reactions keep it.
+                'text' => ($conversation->is_group || $isOwnReaction ? ($name . ' ') : '') . __('chat.reacted_on_message', [
                     'emoji' => $latestReaction->reaction_type,
                     'content' => $content
                 ]),
@@ -1049,15 +1050,20 @@ class ChatController extends Controller
             
             if (empty($content) && $latestMessage->type !== 'text') {
                 $content = match($latestMessage->type) {
-                    'image' => __('chat.sent_photo'),
-                    'video' => __('chat.sent_video'),
-                    'voice' => __('chat.sent_voice_message'),
-                    default => __('chat.sent_a_message'),
+                    'image'    => __('chat.sent_photo'),
+                    'video'    => __('chat.sent_video'),
+                    'voice'    => __('chat.sent_voice_message'),
+                    'audio'    => __('chat.sent_audio'),
+                    'document' => __('chat.sent_document'),
+                    'gif'      => __('chat.sent_gif'),
+                    'sticker'  => __('chat.sent_sticker'),
+                    default    => __('chat.sent_a_message'),
                 };
             }
             
-            $truncated = mb_substr($content, 0, 30);
-            if (mb_strlen($content) > 30) $truncated .= '...';
+            // Generous cap — CSS ellipsis is the real visual limiter, matching the reload view.
+            $truncated = mb_substr($content, 0, 100);
+            if (mb_strlen($content) > 100) $truncated .= '...';
             
             return [
                 'text' => ($conversation->is_group ? ($name . ': ') : '') . $icon . $truncated,

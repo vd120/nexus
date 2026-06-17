@@ -5,8 +5,8 @@
   "description": "Professional Social Networking Platform",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#0d0d0d",
-  "theme_color": "#0d0d0d",
+  "background_color": "#000000",
+  "theme_color": "#0a0a0b",
   "orientation": "portrait",
   "scope": "/",
   "lang": "en",
@@ -14,31 +14,25 @@
   "handle_links": "preferred",
   "icons": [
     {
-      "src": "/images/nexus-dark.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/images/icons/nexus-icon-192.png",
+      "src": "/images/icons/nexus-icon-192.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/icons/nexus-icon-192-maskable.png",
+      "src": "/images/icons/nexus-icon-192-maskable.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/images/icons/nexus-icon-512.png",
+      "src": "/images/icons/nexus-icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/icons/nexus-icon-512-maskable.png",
+      "src": "/images/icons/nexus-icon-512-maskable.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -73,21 +67,21 @@
       "short_name": "Post",
       "description": "Create a new post",
       "url": "/?action=new-post&source=shortcut",
-      "icons": [{ "src": "/images/icons/nexus-icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icons/nexus-icon-192.png?v=3", "sizes": "192x192" }]
     },
     {
       "name": "Messages",
       "short_name": "Chat",
       "description": "Open your messages",
       "url": "/chat?source=shortcut",
-      "icons": [{ "src": "/images/icons/nexus-icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icons/nexus-icon-192.png?v=3", "sizes": "192x192" }]
     },
     {
       "name": "Notifications",
       "short_name": "Alerts",
       "description": "View your notifications",
       "url": "/notifications?source=shortcut",
-      "icons": [{ "src": "/images/icons/nexus-icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icons/nexus-icon-192.png?v=3", "sizes": "192x192" }]
     }
   ],
   "share_target": {

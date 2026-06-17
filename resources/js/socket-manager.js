@@ -82,6 +82,19 @@ class SocketManager {
         this.socket.on('disconnect', () => {
             this.status = 'DISCONNECTED';
             this.updateConnectionStatus('pending');
+
+            // Clear any lingering "typing…" indicators — peers may have been typing
+            // when the connection dropped and would otherwise stay stuck.
+            if (this.typingStatus) this.typingStatus.clear();
+            const mainIndicator = document.getElementById('typingIndicator');
+            if (mainIndicator) mainIndicator.style.display = 'none';
+            document.querySelectorAll('.conversation-item.is-typing').forEach((el) => {
+                el.classList.remove('is-typing');
+                const ind = el.querySelector('.typing-indicator-sidebar');
+                if (ind) ind.style.setProperty('display', 'none', 'important');
+                const prev = el.querySelector('.preview-content-wrapper');
+                if (prev) prev.style.setProperty('display', 'block', 'important');
+            });
         });
 
         this.socket.on('connect_error', () => {
@@ -126,21 +139,23 @@ class SocketManager {
             const isOwn = msg.sender_id == this.config.userId;
             const isCurrentConv = String(window.activeConversationId) === String(msg.conversation_id);
 
-            if (!isOwn || isSystem) {
-                // Confirm delivery to server globally (on any page)
-                // Skip for global chat as it doesn't use delivery receipts
-                if (!isOwn && String(msg.conversation_id) !== 'global-chat') {
-                    this.confirmMessageDelivery(msg.id);
-                }
+            // Confirm delivery for messages from OTHER users (not own, not global chat).
+            if (!isOwn && String(msg.conversation_id) !== 'global-chat') {
+                this.confirmMessageDelivery(msg.id);
+            }
 
-                if (isCurrentConv && window.addMessage) {
-                    window.addMessage(msg);
-                    if (window.markMessagesAsRead) window.markMessagesAsRead();
-                    
-                    // Force hide main typing indicator when message arrives
-                    const mainIndicator = document.getElementById('typingIndicator');
-                    if (mainIndicator) mainIndicator.style.display = 'none';
-                }
+            // Render into the open chat window. Own messages render too (multi-device echo),
+            // EXCEPT the echo of a message this very device sent (already rendered optimistically).
+            const sentFromThisDevice = isOwn && window._locallySentIds && window._locallySentIds.has(String(msg.id));
+            const alreadyInDom = !!document.querySelector(`.message[data-message-id="${msg.id}"]`);
+
+            if (isCurrentConv && window.addMessage && !sentFromThisDevice && !alreadyInDom) {
+                window.addMessage(msg);
+                if (!isOwn && window.markMessagesAsRead) window.markMessagesAsRead();
+
+                // Force hide main typing indicator when message arrives
+                const mainIndicator = document.getElementById('typingIndicator');
+                if (mainIndicator) mainIndicator.style.display = 'none';
             }
         });
 
@@ -747,7 +762,15 @@ class SocketManager {
                                 checkIcon = document.createElement('i');
                                 wrapper.prepend(checkIcon);
                             }
-                            checkIcon.className = 'fas ' + (data.checkmark_class || 'fa-check sent');
+                            // No-downgrade: never replace a higher-rank icon with a lower one
+                            // (read > double-gray > single). Prevents flicker when a stale
+                            // single-check payload arrives after delivery/read.
+                            const rank = (c) => c.includes('read') ? 3 : c.includes('fa-check-double') ? 2 : 1;
+                            const nextCls = data.checkmark_class || 'fa-check sent';
+                            const curRank = checkIcon.className ? rank(checkIcon.className) : 0;
+                            if (curRank < rank(nextCls)) {
+                                checkIcon.className = 'fas ' + nextCls;
+                            }
                         } else {
                             if (checkIcon) checkIcon.remove();
                         }

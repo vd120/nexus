@@ -1,10 +1,1 @@
-<img src="/images/nexus-dark.svg"
-     alt="Nexus"
-     class="logo-icon logo-icon--dark"
-     width="36"
-     height="36">
-<img src="/images/nexus-light.svg"
-     alt="Nexus"
-     class="logo-icon logo-icon--light"
-     width="36"
-     height="36">
+<img src="/images/nexus_logo.svg" alt="Nexus" class="logo-icon">

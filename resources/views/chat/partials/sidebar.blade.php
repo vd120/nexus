@@ -823,33 +823,13 @@
         const currentMsgId = data.conversation_id ? String(data.conversation_id) : null;
         const isActiveChat = activeId && currentMsgId && activeId === currentMsgId;
 
+        // Unread COUNT is owned exclusively by the chat:conversation:updated handler
+        // (it carries the authoritative server count). Here we only CLEAR the pill for
+        // the active chat or own messages — never increment (prevents N+1 race).
         const isMuted = item.querySelector('.mute-indicator') !== null;
-        if (!isOwn && !isActiveChat && !isMuted) {
-            let pill = item.querySelector('.unread-pill');
-            if (!pill) {
-                const meta = item.querySelector('.conv-footer-meta');
-                if (meta) {
-                    pill = document.createElement('span');
-                    pill.className = 'unread-pill';
-                    const actions = meta.querySelector('.conv-item-actions');
-                    if (actions) {
-                        meta.insertBefore(pill, actions);
-                    } else {
-                        meta.appendChild(pill);
-                    }
-                }
-            }
-            if (pill) {
-                let count = parseInt(pill.textContent) || 0;
-                count++;
-                pill.textContent = count > 99 ? '99+' : count;
-            }
-        } else {
-            // Remove pill if it exists and it's active chat or own message
+        if (isOwn || isActiveChat) {
             const pill = item.querySelector('.unread-pill');
-            if (pill) {
-                pill.remove();
-            }
+            if (pill) pill.remove();
             item.classList.remove('unread');
         }
 
@@ -1081,8 +1061,8 @@
                             icon.className = 'fas fa-check sent';
                         }
                     }
-                } else if (isRead && !data) {
-                    // Fallback for 1-1 or old format
+                } else if (isRead && data && !data.read_messages) {
+                    // Defensive fallback: read event without per-message detail → treat as read by all
                     icon.className = 'fas fa-check-double read';
                 }
             }

@@ -2,6 +2,7 @@
 <html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 
     <title data-t="home.nexus" data-t-type="title">Privacy & Security — Nexus</title>
@@ -96,7 +97,7 @@
             pointer-events: none;
         }
         .nav-inner { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 12px 0 24px; height: 100%; }
-        .nav-logo img { height: 32px; width: auto; transition: 0.3s; }
+        .nav-logo img { height: 96px; width: auto; transition: 0.3s; }
 
         .nav-actions { display: flex; gap: 12px; align-items: center; }
 
@@ -341,7 +342,7 @@
 
         @media (max-width: 480px) {
             nav { top: 12px; height: 56px; width: calc(100% - 24px); }
-            .nav-logo img { height: 26px; }
+            .nav-logo img { height: 64px; }
             .back-home-btn span { display: none; }
             .hero { padding-top: 80px; min-height: 100dvh; }
             .hero h1 { font-size: 40px; }

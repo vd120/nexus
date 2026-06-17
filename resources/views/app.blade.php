@@ -2,6 +2,13 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
+    <link rel="icon" href="data:,">
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#0a0a0b">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Nexus">
+        <link rel="apple-touch-icon" href="/images/icons/nexus-icon-192.png">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
@@ -21,6 +28,6 @@
         </style>
     </head>
     <body class="font-sans antialiased">
-        @inertia
+@inertia
     </body>
 </html>

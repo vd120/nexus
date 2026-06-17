@@ -14,6 +14,8 @@ class Post extends Model
 
     public const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
 
+    public const POST_REACTION_EMOJIS = ['👍', '❤️', '🥰', '😂', '😮', '😢', '😡'];
+
     public const REACTION_IMAGES = [
         '👍' => '/images/reactions/like.svg',
         '❤️' => '/images/reactions/love.svg',
@@ -21,6 +23,7 @@ class Post extends Model
         '😮' => '/images/reactions/wow.svg',
         '😢' => '/images/reactions/sad.svg',
         '😡' => '/images/reactions/angry.svg',
+        '🥰' => '/images/reactions/care.svg',
     ];
 
 
@@ -34,6 +37,7 @@ class Post extends Model
             '😮' => __('messages.reaction_wow'),
             '😢' => __('messages.reaction_sad'),
             '😡' => __('messages.reaction_angry'),
+            '🥰' => __('messages.reaction_care'),
         ];
     }
 

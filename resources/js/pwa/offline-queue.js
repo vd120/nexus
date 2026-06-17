@@ -104,8 +104,9 @@ async function replayItem(item) {
                 method: 'DELETE', headers, body: JSON.stringify(item.data),
             });
         } else if (item.type === 'chat_message') {
-            response = await fetch(`/api/messages`, {
-                method: 'POST', headers, body: JSON.stringify(item.data),
+            const url = (item.data && item.data.store_url) || `/chat/${item.recordId}`;
+            response = await fetch(url, {
+                method: 'POST', headers, body: JSON.stringify({ content: item.data.content }),
             });
         } else if (item.type === 'follow_user') {
             response = await fetch(`/users/${item.recordId}/follow`, {

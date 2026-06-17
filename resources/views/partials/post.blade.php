@@ -347,7 +347,7 @@
                     <div class="reaction-picker" style="display: none;" data-post-slug="{{ $post->slug }}" role="menu" aria-label="{{ __('messages.react') }}">
                         <div class="reaction-picker-popup">
                             <div class="reaction-picker-options">
-                                @foreach(\App\Models\Post::REACTION_EMOJIS as $emoji)
+                                @foreach(\App\Models\Post::POST_REACTION_EMOJIS as $emoji)
                                     @php $imgPath = \App\Models\Post::REACTION_IMAGES[$emoji] ?? null; @endphp
                                     <button type="button" class="reaction-option"
                                             role="menuitem"

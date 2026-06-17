@@ -109,6 +109,7 @@ class SuspiciousLoginController extends Controller
         // No concurrent session (or offline), proceed to login
         Auth::login($user, $challenge['remember'] ?? true);
         $request->session()->regenerate();
+        $this->activityService->logActivity('login', $user->id);
 
         return redirect()->intended('/');
     }
@@ -120,6 +121,13 @@ class SuspiciousLoginController extends Controller
     {
         $challenge = Cache::get('suspicious_challenge_' . $uuid);
         if (!$challenge || $challenge['type'] !== 'manual') return response()->json(['success' => false]);
+
+        $limiterKey = 'suspicious_resend_' . $challenge['user_id'];
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($limiterKey, 3)) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($limiterKey);
+            return response()->json(['success' => false, 'message' => __('auth.throttle', ['seconds' => $seconds])], 429);
+        }
+        \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 600);
 
         $user = User::find($challenge['user_id']);
         $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);

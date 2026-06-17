@@ -317,52 +317,73 @@ class ActivityService
     }
 
     /**
-     * Get user's active sessions - FAST & ACCURATE
-     * Queries sessions table by user_id (stored in session payload)
+     * Get user's active sessions derived from activity_logs.
+     * SESSION_DRIVER=redis means the sessions DB table is stale — we use activity_logs instead.
+     * Strategy: most-recent login per (ip+ua) fingerprint, within 30 days, not followed
+     * by a logout from the same fingerprint.
      */
     public function getActiveSessions(int $userId)
     {
-        $request = request();
-        $currentSessionId = $request->session()->getId();
+        $currentSessionId = request()->session()->getId();
+        $currentIp        = $this->getIpAddress(request());
+        $currentUA        = request()->userAgent() ?? '';
 
-        // Get sessions directly by user_id from sessions table
-        // This is the source of truth for currently active browser sessions
-        $activeSessions = \DB::table('sessions')
-            ->where('user_id', $userId)
-            ->where('last_activity', '>', now()->subHours(24)->timestamp)
-            ->orderBy('last_activity', 'desc')
-            ->limit(10)
+        // All logins in last 30 days, newest first
+        $loginLogs = ActivityLog::where('user_id', $userId)
+            ->where('action', 'login')
+            ->where('logged_at', '>=', now()->subDays(30))
+            ->orderBy('logged_at', 'desc')
             ->get();
 
-        // Map and enrich sessions
-        return $activeSessions->map(function($session) use ($currentSessionId) {
-            // Parse User Agent for better display
-            $ua = $session->user_agent ?? '';
-            
-            // Mock a request object to use our existing parser methods
-            $mockRequest = new class($ua) extends Request {
-                private $ua;
-                public function __construct($ua) { $this->ua = $ua; }
-                public function userAgent() { return $this->ua; }
+        // All logouts in last 30 days — keyed by ip+ua fingerprint, value = latest logout time
+        $logoutTimes = ActivityLog::where('user_id', $userId)
+            ->where('action', 'logout')
+            ->where('logged_at', '>=', now()->subDays(30))
+            ->get()
+            ->mapWithKeys(fn($log) => [
+                md5(($log->ip_address ?? '') . '|' . ($log->user_agent ?? '')) => $log->logged_at
+            ]);
+
+        // Deduplicate by fingerprint — keep only the latest login per ip+ua
+        $seen = [];
+        $activeSessions = collect();
+
+        foreach ($loginLogs as $log) {
+            $fingerprint = md5(($log->ip_address ?? '') . '|' . ($log->user_agent ?? ''));
+
+            if (isset($seen[$fingerprint])) continue;
+            $seen[$fingerprint] = true;
+
+            // Skip if there's a logout AFTER this login for same fingerprint
+            $logoutAt = $logoutTimes->get($fingerprint);
+            if ($logoutAt && $logoutAt->gt($log->logged_at)) continue;
+
+            $mockRequest = new class($log->user_agent ?? '') extends \Illuminate\Http\Request {
+                private string $ua;
+                public function __construct(string $ua) { $this->ua = $ua; }
+                public function userAgent(): string { return $this->ua; }
             };
 
-            $session->device_type = $this->getDeviceType($mockRequest);
-            $session->browser = $this->getBrowser($mockRequest);
-            $session->os = $this->getOS($mockRequest);
-            
-            // For location, we might still want to check ActivityLog as sessions table doesn't store geo data
-            $loginLog = ActivityLog::where('session_id', $session->id)
-                ->where('action', 'login')
-                ->latest()
-                ->first();
+            // Primary: session_id match (works for logins after this fix)
+            // Fallback: ip+ua match (covers old logs with pre-regenerate session_id)
+            $isCurrent = ($log->session_id === $currentSessionId)
+                || ($log->ip_address === $currentIp && $log->user_agent === $currentUA);
 
-            $session->country = $loginLog->country ?? null;
-            $session->city = $loginLog->city ?? null;
-            $session->logged_at = $loginLog ? $loginLog->logged_at : \Carbon\Carbon::createFromTimestamp($session->last_activity);
-            $session->is_current_session = ($session->id === $currentSessionId);
+            $activeSessions->push((object) [
+                'id'                 => $log->session_id,
+                'ip_address'         => $log->ip_address,
+                'user_agent'         => $log->user_agent,
+                'device_type'        => $this->getDeviceType($mockRequest),
+                'browser'            => $this->getBrowser($mockRequest),
+                'os'                 => $this->getOS($mockRequest),
+                'country'            => $log->country,
+                'city'               => $log->city,
+                'logged_at'          => $log->logged_at,
+                'is_current_session' => $isCurrent,
+            ]);
+        }
 
-            return $session;
-        })->unique('id');
+        return $activeSessions->values();
     }
 
     /**
@@ -434,6 +455,41 @@ class ActivityService
         $isSameUA = $session->user_agent === $currentUA;
 
         return $isSameIp && $isRecent && $isSameUA;
+    }
+
+    /**
+     * Log activity with explicit session context (for logging on behalf of another session,
+     * e.g. recording a logout when terminating a remote session).
+     */
+    public function logActivityForSession(
+        string $action,
+        int    $userId,
+        string $sessionId,
+        string $ip,
+        string $userAgent
+    ): ActivityLog {
+        $mockRequest = \Illuminate\Http\Request::create('/', 'GET', [], [], [], ['HTTP_USER_AGENT' => $userAgent]);
+
+        $locationData = $this->getLocationFromCloudflare(request()); // best-effort from current request
+
+        return ActivityLog::create([
+            'user_id'     => $userId,
+            'session_id'  => $sessionId,
+            'action'      => $action,
+            'ip_address'  => $ip,
+            'user_agent'  => $userAgent,
+            'device_type' => $this->getDeviceType($mockRequest),
+            'browser'     => $this->getBrowser($mockRequest),
+            'os'          => $this->getOS($mockRequest),
+            'country'     => $locationData['country'] ?? null,
+            'city'        => $locationData['city'] ?? null,
+            'region'      => $locationData['region'] ?? null,
+            'isp'         => null,
+            'timezone'    => null,
+            'latitude'    => $locationData['latitude'] ?? null,
+            'longitude'   => $locationData['longitude'] ?? null,
+            'logged_at'   => now(),
+        ]);
     }
 
     /**

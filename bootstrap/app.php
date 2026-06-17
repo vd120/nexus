@@ -52,7 +52,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Except session cookies from encryption for handover compatibility
         $middleware->validateCsrfTokens(except: [
-            // No exceptions needed for standard web flow
+            '/call/*/reject',
+            '/chat/confirm-delivery',
         ]);
 
         $middleware->encryptCookies(except: [

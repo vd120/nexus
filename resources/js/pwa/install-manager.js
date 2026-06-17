@@ -1,14 +1,10 @@
-const VISIT_KEY            = 'nexus_pwa_visit_count';
-const INSTALLED_KEY        = 'nexus_pwa_installed';
-const IOS_DISMISS_KEY      = 'nexus_ios_banner_dismissed_at';
-const IOS_NOSAFARI_DISMISS = 'nexus_ios_nosafari_dismissed_at';
-const ENGAGE_MS            = 30_000;  // 30s engagement threshold
-const IOS_DISMISS_TTL      = 7 * 24 * 60 * 60 * 1000; // 7 days
+const VISIT_KEY        = 'nexus_pwa_visit_count';
+const INSTALLED_KEY    = 'nexus_pwa_installed';
+const SESSION_KEY      = 'nexus_install_banner_dismissed'; // sessionStorage — clears on new session
+const ENGAGE_MS        = 30_000;
 
 let deferredPrompt = null;
 
-// Measure the actual rendered height of the mobile bottom nav and lift the
-// banner above it. Uses setProperty('important') so it beats any inline style.
 function liftAboveNav(banner) {
     const nav = document.querySelector('.mobile-bottom-nav');
     if (!nav || window.getComputedStyle(nav).display === 'none') return;
@@ -16,7 +12,17 @@ function liftAboveNav(banner) {
     if (navH > 0) {
         banner.style.setProperty('bottom', navH + 'px', 'important');
         banner.style.setProperty('padding-bottom', '12px', 'important');
+        banner.style.setProperty('z-index', '10000', 'important');
     }
+}
+
+function isDismissedThisSession() {
+    return sessionStorage.getItem(SESSION_KEY) === '1';
+}
+
+function dismissForSession(banner) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    banner.setAttribute('hidden', '');
 }
 
 function isIOS() {
@@ -58,6 +64,7 @@ function showAndroidBanner(prompt) {
     if (installBtn) {
         installBtn.addEventListener('click', async () => {
             banner.setAttribute('hidden', '');
+            deferredPrompt = null;
             try {
                 prompt.prompt();
                 const { outcome } = await prompt.userChoice;
@@ -65,13 +72,13 @@ function showAndroidBanner(prompt) {
                     localStorage.setItem(INSTALLED_KEY, '1');
                 }
             } catch (e) { /* prompt already used */ }
-            deferredPrompt = null;
         }, { once: true });
     }
 
     if (dismissBtn) {
         dismissBtn.addEventListener('click', () => {
-            banner.setAttribute('hidden', '');
+            dismissForSession(banner);
+            deferredPrompt = null;
         }, { once: true });
     }
 }
@@ -85,16 +92,12 @@ function showIOSBanner() {
     const dismissBtn = document.getElementById('ios-install-dismiss');
     if (dismissBtn) {
         dismissBtn.addEventListener('click', () => {
-            banner.setAttribute('hidden', '');
-            localStorage.setItem(IOS_DISMISS_KEY, String(Date.now()));
+            dismissForSession(banner);
         }, { once: true });
     }
 }
 
 function showIOSNonSafariBanner() {
-    const dismissedAt = parseInt(localStorage.getItem(IOS_NOSAFARI_DISMISS) || '0', 10);
-    if (dismissedAt && (Date.now() - dismissedAt) < IOS_DISMISS_TTL) return;
-
     const banner = document.getElementById('ios-open-in-safari-banner');
     if (!banner) return;
     banner.removeAttribute('hidden');
@@ -103,20 +106,21 @@ function showIOSNonSafariBanner() {
     const dismissBtn = document.getElementById('ios-open-in-safari-dismiss');
     if (dismissBtn) {
         dismissBtn.addEventListener('click', () => {
-            banner.setAttribute('hidden', '');
-            localStorage.setItem(IOS_NOSAFARI_DISMISS, String(Date.now()));
+            dismissForSession(banner);
         }, { once: true });
     }
 }
 
 export function init() {
     if (isInStandaloneMode()) return;
+    if (isDismissedThisSession()) return;
 
     const visitCount = incrementVisitCount();
 
     // ── Android install prompt ──
     let engagementFired = false;
     let scrollFired = false;
+    let bannerShown = false;
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -125,7 +129,8 @@ export function init() {
         if (localStorage.getItem(INSTALLED_KEY)) return;
 
         const tryShow = () => {
-            if (visitCount >= 2 && deferredPrompt && (engagementFired || scrollFired)) {
+            if (!bannerShown && !isDismissedThisSession() && visitCount >= 2 && deferredPrompt && (engagementFired || scrollFired)) {
+                bannerShown = true;
                 showAndroidBanner(deferredPrompt);
             }
         };
@@ -149,16 +154,14 @@ export function init() {
     });
 
     // ── iOS guide ──
+    if (visitCount < 2) return;
+
     if (isIOSNonSafari()) {
         showIOSNonSafariBanner();
         return;
     }
 
     if (isIOSSafari()) {
-        const dismissedAt = parseInt(localStorage.getItem(IOS_DISMISS_KEY) || '0', 10);
-        const withinDismissTTL = dismissedAt && (Date.now() - dismissedAt) < IOS_DISMISS_TTL;
-        if (!withinDismissTTL && visitCount >= 2) {
-            showIOSBanner();
-        }
+        showIOSBanner();
     }
 }

@@ -3,6 +3,7 @@
 <head>
     @php $locale = request()->cookie('locale', app()->getLocale()); @endphp
     <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', __('errors.server_error_title'))</title>
     <style>

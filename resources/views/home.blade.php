@@ -3,6 +3,7 @@
 <head>
     <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.background=t==='dark'?'#000000':'#ffffff'})();</script>
     <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 
     <title data-t="home.nexus" data-t-type="title">Nexus — {{ __('home.your_social_platform') }}</title>
@@ -126,10 +127,6 @@
         .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; height: 100%; min-width: 40px; }
         .nav-logo img { height: 96px; width: auto; transition: 0.3s; display: block; }
         .nav-logo:hover img { transform: scale(1.05); }
-        
-        .logo-white, .logo-black { display: none !important; }
-        html[data-theme="dark"] .logo-white { display: block !important; }
-        html[data-theme="light"] .logo-black { display: block !important; }
         
         .nav-links { display: flex; gap: 32px; align-items: center; }
         .nav-links a { color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; opacity: 0.6; transition: 0.3s; }

@@ -99,6 +99,11 @@ function wireLogoutCleanup() {
 function wireForegroundPushToast() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'REFRESH_BADGE') {
+            if (window.loadNotifications) window.loadNotifications();
+            if (window.updateMobileBadge) window.updateMobileBadge();
+            return;
+        }
         if (!event.data || event.data.type !== 'PUSH_FOREGROUND') return;
         const payload = event.data.payload || {};
         if (window.showToast) {

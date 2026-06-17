@@ -23,7 +23,7 @@
                 <h2 style="margin:0;">{{ __('emails.security_alert_title') }}</h2>
             </div>
             <div class="content">
-                <p>{{ __('emails.security_alert_greeting', ['name' => $user->name]) }}</p>
+                <p>{{ __('emails.security_alert_greeting', ['name' => $userName]) }}</p>
                 <p>{{ __('emails.security_alert_body') }}</p>
 
                 <div class="info-box">

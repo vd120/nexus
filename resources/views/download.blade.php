@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 
     <title>{{ __('download.page_title') }} — Nexus</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="data:,">
+    <link rel="apple-touch-icon" href="/images/icons/nexus-icon-192.png">
+    <meta name="theme-color" content="#0a0a0b">
+
     <link rel="stylesheet" href="/fonts/all.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -80,12 +86,7 @@
         .nav-inner { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 12px 0 20px; height: 100%; gap: 8px; }
         .nav-logo { display: flex; align-items: center; text-decoration: none; flex-shrink: 0; }
 
-        /* Dark/light logo swap — app-layout.css is not loaded on this page */
-        .logo-icon { display: block; width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
-        .logo-icon--light { display: none; }
-        .logo-icon--dark  { display: block; }
-        [data-theme="light"] .logo-icon--dark  { display: none; }
-        [data-theme="light"] .logo-icon--light { display: block; }
+        .logo-icon { display: block; height: 96px; width: auto; flex-shrink: 0; }
 
         .nav-logo-label {
             font-size: 15px; font-weight: 700; letter-spacing: -0.02em;
@@ -151,7 +152,7 @@
             z-index: 10;
         }
         @media (prefers-reduced-motion: no-preference) {
-            .hero { animation: nx-reveal 0.8s cubic-bezier(0.16,1,0.3,1) 0.05s both; }
+            .hero { animation: nx-reveal 0.45s cubic-bezier(0.16,1,0.3,1) 0.02s both; }
         }
         .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
         .hero h1 {
@@ -222,7 +223,7 @@
         .whatis-note {
             margin-top: 28px;
             text-align: center;
-            font-size: 15px;
+            font-size: 14px;
             color: var(--text-dim);
             background: rgba(99,102,241,0.07);
             border: 1px solid rgba(99,102,241,0.18);
@@ -423,7 +424,7 @@
             margin-top: 80px;
         }
         .benefits-section h2 {
-            font-size: clamp(28px, 4vw, 42px);
+            font-size: clamp(24px, 4vw, 36px);
             font-weight: 800;
             letter-spacing: -0.03em;
             margin-bottom: 40px;
@@ -445,11 +446,11 @@
         .benefit-icon {
             width: 48px;
             height: 48px;
-            border-radius: 14px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 20px;
             margin-bottom: 16px;
         }
         .benefit-card:nth-child(1) .benefit-icon { background: rgba(0,113,227,0.12); color: #0071e3; }
@@ -466,10 +467,10 @@
             transform: translateY(80px);
         }
         .reveal.visible {
-            animation: nx-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: nx-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         @keyframes nx-reveal {
-            from { opacity: 0; transform: translateY(80px); }
+            from { opacity: 0; transform: translateY(32px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
@@ -503,7 +504,7 @@
 
         /* Tablet — QR stacks */
         @media (max-width: 860px) {
-            .hero { padding-top: 140px; min-height: 100dvh; padding-bottom: 60px; }
+            .hero { padding-top: 100px; min-height: 100dvh; padding-bottom: 40px; }
             .qr-layout { grid-template-columns: 1fr; text-align: center; gap: 32px; }
             .qr-box { margin: 0 auto; }
             .qr-text { display: flex; flex-direction: column; align-items: center; }
@@ -514,13 +515,14 @@
         @media (max-width: 640px) {
             body > nav { top: 10px; height: 54px; width: calc(100% - 20px); }
             .nav-inner { padding: 0 10px 0 16px; }
+            .logo-icon { height: 64px; }
             .nav-actions { gap: 8px; }
             .install-card { padding: 32px 20px; }
-            .install-card h2 { font-size: 22px; }
+            .install-card h2 { font-size: 20px; }
             .benefits-grid { grid-template-columns: 1fr; }
             .benefits-section { margin-top: 56px; }
             .whatis-grid { grid-template-columns: 1fr; }
-            .whatis-card { padding: 22px; }
+            .whatis-card { padding: 20px; }
             footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 0; }
             footer nav a { margin: 4px 10px; }
         }
@@ -528,17 +530,17 @@
         /* Medium mobile */
         @media (max-width: 480px) {
             .hero { padding-top: 80px; min-height: 100dvh; }
-            .hero h1 { font-size: 40px; }
-            .page-wrap { padding: 90px 16px 60px; }
-            .install-card { padding: 24px 16px; }
-            .install-card h2 { font-size: 20px; }
-            .install-card > p { font-size: 14px; margin-bottom: 24px; }
+            .hero h1 { font-size: 36px; }
+            .page-wrap { padding: 60px 16px 60px; }
+            .install-card { padding: 32px 20px; }
+            .install-card h2 { font-size: 19px; }
+            .install-card > p { font-size: 14px; margin-bottom: 28px; }
             .tab-btn { padding: 9px 13px; font-size: 13px; }
-            .platform-tabs { gap: 6px; margin-bottom: 28px; }
-            .step-item { gap: 14px; padding: 18px 0; }
+            .platform-tabs { gap: 6px; margin-bottom: 32px; }
+            .step-item { gap: 16px; padding: 18px 0; }
             .step-body h3 { font-size: 15px; }
             .benefit-card { padding: 20px; }
-            .benefits-section h2 { margin-bottom: 24px; }
+            .benefits-section h2 { margin-bottom: 28px; }
             .qr-box { width: 150px; height: 150px; }
         }
 
@@ -546,6 +548,7 @@
         @media (max-width: 380px) {
             body > nav { height: 50px; }
             .nav-inner { padding: 0 8px 0 14px; }
+            .logo-icon { height: 54px; }
             .tab-btn { padding: 8px 10px; font-size: 12px; gap: 4px; }
             .step-num, .step-icon { width: 34px; height: 34px; font-size: 14px; }
             .install-btn-primary { padding: 14px 22px; font-size: 15px; }
@@ -862,7 +865,6 @@
     window.addEventListener('appinstalled', function() {
         _installPrompt = null;
         _alreadyInstalled = true;
-        showToast(__dl.toastInstalled);
     });
 
     function triggerInstall() {
@@ -877,16 +879,9 @@
             });
             return;
         }
-        var p = detectPlatform();
-        if (p === 'ios') {
-            showToast(__dl.toastIos);
-        } else if (p === 'android') {
-            showToast(__dl.toastAndroid);
-            var note = document.getElementById('android-install-note');
-            if (note) note.style.display = 'block';
-        } else {
-            showToast(__dl.toastDesktop);
-        }
+        // No prompt available — instructions already visible on screen, no toast needed
+        var note = document.getElementById('android-install-note');
+        if (note) note.style.display = 'block';
     }
 
     // ── Platform detection & auto-tab ──

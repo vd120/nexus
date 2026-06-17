@@ -20,11 +20,7 @@
             if (window.self !== window.top) {
                 document.documentElement.classList.add('in-iframe');
             }
-            // PWA animated splash: activate only in standalone mode, once per session
-            if (!sessionStorage.getItem('_nx_splash') &&
-                (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone)) {
-                document.documentElement.classList.add('pwa-launch');
-            }
+
         })();
 
         window.runOnPageLoad = function(callback) {
@@ -46,18 +42,14 @@
     <style>
         /* Immediate Theme Background to prevent Flash */
         html[data-theme="dark"] { background: #0a0a0b; color: #f5f5f7; }
-        html[data-theme="light"] { background: #ffffff; color: #111111; }
+        html[data-theme="light"] { background: #ffffff; color: #0a0a0b; }
         body { background: inherit; color: inherit; }
     </style>
 
-    <meta name="theme-color" content="#111111">
+    <meta name="theme-color" content="#0a0a0b">
     <link rel="manifest" href="/manifest.json">
 
-    {{-- Favicon — theme-aware SVG with ICO fallback for legacy browsers --}}
-    <link rel="icon" type="image/svg+xml" href="/images/nexus-light.svg" media="(prefers-color-scheme: light)">
-    <link rel="icon" type="image/svg+xml" href="/images/nexus-dark.svg" media="(prefers-color-scheme: dark)">
-    <link rel="icon" type="image/svg+xml" href="/images/nexus-dark.svg">
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="data:,">
 
     {{-- iOS PWA --}}
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -77,41 +69,41 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/images/icons/nexus-icon-512.png">
     {{-- iOS Splash Screens (PWA additive — 13 unique sizes × 2 orientations) --}}
     {{-- iPhone SE 2nd/3rd gen --}}
-    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/iphone-se2-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/iphone-se2-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/iphone-se2-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:375px)and(device-height:667px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/iphone-se2-landscape.png?v=3">
     {{-- iPhone 14 / 15 / 15 Pro / 16 --}}
-    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:390px)and(device-height:844px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-landscape.png?v=3">
     {{-- iPhone 14 Plus / 15 Plus / 15 Pro Max / 16 Plus --}}
-    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-plus-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-plus-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-plus-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:428px)and(device-height:926px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-plus-landscape.png?v=3">
     {{-- iPhone 14 Pro / 15 / 15 Pro / 16 --}}
-    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:393px)and(device-height:852px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-landscape.png?v=3">
     {{-- iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus --}}
-    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-max-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-max-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-14-pro-max-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:430px)and(device-height:932px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-14-pro-max-landscape.png?v=3">
     {{-- iPhone 16 Pro --}}
-    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:402px)and(device-height:874px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-landscape.png?v=3">
     {{-- iPhone 16 Pro Max --}}
-    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-max-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-max-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:portrait)"  href="/images/splash/iphone-16-pro-max-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:440px)and(device-height:956px)and(-webkit-device-pixel-ratio:3)and(orientation:landscape)" href="/images/splash/iphone-16-pro-max-landscape.png?v=3">
     {{-- iPad 9th gen --}}
-    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-9-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-9-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-9-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:810px)and(device-height:1080px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-9-landscape.png?v=3">
     {{-- iPad Mini 6 --}}
-    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-mini6-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-mini6-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-mini6-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:744px)and(device-height:1133px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-mini6-landscape.png?v=3">
     {{-- iPad Air 5 --}}
-    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-air5-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-air5-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-air5-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:820px)and(device-height:1180px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-air5-landscape.png?v=3">
     {{-- iPad Pro 11" --}}
-    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro11-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro11-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro11-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:834px)and(device-height:1194px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro11-landscape.png?v=3">
     {{-- iPad Pro 12.9" --}}
-    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro129-portrait.png">
-    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro129-landscape.png">
+    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:portrait)"  href="/images/splash/ipad-pro129-portrait.png?v=3">
+    <link rel="apple-touch-startup-image" media="(device-width:1024px)and(device-height:1366px)and(-webkit-device-pixel-ratio:2)and(orientation:landscape)" href="/images/splash/ipad-pro129-landscape.png?v=3">
 
     
     <script>
@@ -182,7 +174,7 @@
         }
         [data-theme="light"], [data-theme="light"] body {
             background-color: #ffffff !important;
-            color: #111111 !important;
+            color: #0a0a0b !important;
         }
     </style>
 
@@ -237,34 +229,6 @@
         @keyframes nxSpin { to { transform: rotate(360deg); } }
     </style>
 
-    {{-- PWA Animated Splash — inline so it applies before any stylesheet --}}
-    <style>
-        #pwa-splash {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 99999;
-            background: #0a0a0b;
-            align-items: center;
-            justify-content: center;
-        }
-        html.pwa-launch #pwa-splash {
-            display: flex;
-            animation: pwa-splash-out 0.5s cubic-bezier(0.4, 0, 1, 1) 1.6s forwards;
-        }
-        html.pwa-launch #pwa-splash svg {
-            width: 160px;
-            height: 160px;
-            animation: pwa-logo-wipe 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
-        }
-        @keyframes pwa-logo-wipe {
-            from { clip-path: inset(110% 0 0 0); }
-            to   { clip-path: inset(0% 0 0 0); }
-        }
-        @keyframes pwa-splash-out {
-            to { opacity: 0; pointer-events: none; }
-        }
-    </style>
 
     {{-- Main Styles --}}
     @vite(['resources/css/app-layout.css', 'resources/css/mobile-header.css', 'resources/css/comments.css', 'resources/css/partial-posts.css', 'resources/css/modals.css', 'resources/css/life-chapters.css'])
@@ -370,13 +334,6 @@
     </style>
 </head>
 <body id="app-body">
-    {{-- PWA Animated Splash Screen --}}
-    <div id="pwa-splash" aria-hidden="true">
-        <svg viewBox="0 0 2048 2048" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path fill="#fefefe" d="M 1691.24 206.02 C 1696.46 205.148 1701.53 207.17 1706.8 208.634 C 1709.6 218.326 1709.53 228.043 1710.33 237.998 C 1713.48 277.105 1713.04 315.858 1713.03 355.049 C 1713.03 383.38 1713.7 411.894 1712.77 440.196 C 1712.15 459.294 1710.1 478.285 1709.7 497.413 C 1709.08 527.711 1710.21 558.241 1708.75 588.492 C 1707.61 612.411 1704.92 636.262 1703.04 660.121 C 1702.32 669.188 1702.33 678.3 1701.58 687.355 C 1696.77 745.555 1689.64 803.378 1682.21 861.273 C 1672.12 939.892 1658.45 1016.85 1639.61 1093.88 C 1634.64 1114.21 1630.22 1134.97 1624.19 1154.99 C 1618.65 1173.43 1612.15 1191.67 1606.03 1209.92 C 1576.56 1297.78 1539.64 1389.79 1467.77 1451.81 C 1457.21 1460.92 1447.03 1469.99 1434.62 1476.56 C 1385.03 1502.8 1347.17 1495.96 1300.45 1467.87 C 1196.04 1405.1 1110.21 1248.47 1048.96 1144.63 C 1029.71 1111.99 1011.03 1078.78 991.053 1046.61 C 979.464 1027.94 966.95 1009.8 954.913 991.419 C 919.814 937.809 881.391 882.96 832.23 841.235 C 812.007 824.071 790.434 808.313 764.762 800.495 C 737.352 792.147 703.554 793.523 678.098 807.299 C 635.196 830.516 604.648 881.263 583.357 923.497 C 523.132 1042.97 494.892 1175.06 470.867 1305.74 C 466.316 1330.5 460.787 1355.02 457.019 1379.94 C 450.651 1422.03 445.805 1464.86 441.592 1507.21 C 440.493 1518.26 440.796 1529.42 439.807 1540.5 C 438.004 1560.67 434.889 1580.74 433.873 1600.98 C 432.972 1618.96 433.546 1636.95 432.774 1654.91 C 432.2 1668.25 430.345 1681.7 428.743 1694.95 C 427.746 1703.19 427.325 1712.77 424.714 1720.65 C 422.758 1726.56 418.811 1729.11 413.473 1731.81 C 408.715 1732.27 402.777 1732.67 398.358 1730.56 C 395.141 1729.03 393.613 1726.54 392.426 1723.31 C 383.799 1699.9 386.786 1588.29 386.758 1558.88 C 386.724 1522.59 386.065 1486.07 387.125 1449.8 C 387.524 1436.17 389.699 1422.65 390.065 1409.03 C 390.807 1381.43 389.887 1353.74 391.073 1326.16 C 392.119 1301.85 395.378 1277.6 396.809 1253.35 C 397.551 1240.77 397.145 1228.12 398.186 1215.56 C 399.476 1200 401.757 1184.5 403.356 1168.97 C 404.502 1157.84 404.812 1146.63 406.133 1135.52 C 407.64 1122.86 410.059 1110.31 411.473 1097.64 C 414.022 1074.79 415.481 1051.99 418.519 1029.13 C 430.831 942.071 447.811 855.737 469.383 770.499 C 487.139 702.31 507.509 634.595 538.94 571.228 C 571.426 505.735 615.089 431.521 688.309 407.071 C 752.5 385.636 810.229 429.756 853.65 472.28 C 865.207 483.599 877.025 494.886 887.48 507.244 C 898.73 520.541 908.518 535.068 919.07 548.91 C 926.17 558.224 934.148 566.902 941.016 576.384 C 950.775 589.856 959.307 604.444 968.459 618.35 C 979.099 634.517 990.549 650.085 1000.84 666.499 C 1023.48 702.59 1044.25 739.825 1066.49 776.156 C 1108 843.952 1149.05 913.582 1198.92 975.688 C 1235.36 1021.09 1271.43 1057.59 1324.2 1083.68 C 1331.17 1087.13 1338.31 1090.13 1345.97 1091.63 C 1362.21 1094.83 1390.92 1094.93 1406.63 1089.51 C 1418.51 1085.41 1428.63 1078.8 1438.73 1071.46 C 1445.17 1066.78 1451.85 1062.09 1457.62 1056.6 C 1569.54 950.131 1628.47 644.894 1650.58 492.223 C 1651.92 482.921 1652.35 473.475 1653.51 464.14 L 1665.89 357.02 C 1668.09 336.765 1670.99 226.226 1677.35 214.474 C 1680.54 208.589 1685.24 207.539 1691.24 206.02 z"/>
-        </svg>
-    </div>
-
     {{-- Navigation loading indicator --}}
     <div id="nx-page-loader" aria-hidden="true">
         <div class="nx-loader-ring"></div>
@@ -1190,10 +1147,8 @@
                 const rect = btn.getBoundingClientRect();
                 const isRTL = document.documentElement.dir === 'rtl';
                 
-                // Position dropdown based on language direction
                 menu.style.top = (rect.bottom + 8) + 'px';
                 if (isRTL) {
-                    // Arabic: align to left
                     let left = rect.left;
                     const menuWidth = 280;
                     const padding = 16;
@@ -1205,7 +1160,6 @@
                     menu.style.left = left + 'px';
                     menu.style.right = 'auto';
                 } else {
-                    // English: align to right
                     let right = window.innerWidth - rect.right;
                     const menuWidth = 280;
                     const padding = 16;
@@ -1217,6 +1171,14 @@
                     menu.style.right = right + 'px';
                     menu.style.left = 'auto';
                 }
+                // Set max-height to available space below menu
+                // Account for fixed bottom nav on mobile (≤480px)
+                const menuTop = rect.bottom + 8;
+                const mobileNav = document.querySelector('.mobile-bottom-nav');
+                const mobileNavH = (mobileNav && getComputedStyle(mobileNav).display !== 'none')
+                    ? mobileNav.offsetHeight : 0;
+                const bottomGap = 16 + mobileNavH;
+                menu.style.maxHeight = (window.innerHeight - menuTop - bottomGap) + 'px';
                 menu.classList.add('show');
                 document.getElementById('dropdownOverlay').classList.add('active');
             }
@@ -1236,8 +1198,9 @@
                 const menuWidth = 380;
                 const padding = 16;
 
-                menu.style.top = (rect.bottom + 8) + 'px';
-                
+                const notifMenuTop = rect.bottom + 8;
+                menu.style.top = notifMenuTop + 'px';
+
                 if (isRTL) {
                     // Arabic: align to left of button, but check if it overflows left side of screen
                     let left = rect.left;
@@ -1245,7 +1208,7 @@
                         left = window.innerWidth - menuWidth - padding;
                     }
                     if (left < padding) left = padding;
-                    
+
                     menu.style.left = left + 'px';
                     menu.style.right = 'auto';
                 } else {
@@ -1259,7 +1222,13 @@
                     menu.style.right = right + 'px';
                     menu.style.left = 'auto';
                 }
-                
+
+                // Constrain height to available viewport space above mobile nav
+                const notifMobileNav = document.querySelector('.mobile-bottom-nav');
+                const notifNavH = (notifMobileNav && getComputedStyle(notifMobileNav).display !== 'none')
+                    ? notifMobileNav.offsetHeight : 0;
+                menu.style.maxHeight = (window.innerHeight - notifMenuTop - 16 - notifNavH) + 'px';
+
                 menu.classList.add('show');
                 document.getElementById('dropdownOverlay').classList.add('active');
                 // Show skeleton immediately — don't wait for the debounce delay
@@ -1274,6 +1243,10 @@
         function closeAllDropdowns() {
             document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
             document.getElementById('dropdownOverlay').classList.remove('active');
+            
+            // Clear inline max-height from user menu so it doesn't persist stale values
+            const userMenu = document.getElementById('userMenu');
+            if (userMenu) userMenu.style.maxHeight = '';
             
             // Close user language dropdown
             const userLangDropdown = document.getElementById('user-language-dropdown');
@@ -2088,16 +2061,5 @@
         });
     </script>
 
-    {{-- PWA splash cleanup: hide after animation completes, mark session so it won't repeat --}}
-    <script>
-    (function() {
-        if (!document.documentElement.classList.contains('pwa-launch')) return;
-        setTimeout(function() {
-            var s = document.getElementById('pwa-splash');
-            if (s) s.style.display = 'none';
-            sessionStorage.setItem('_nx_splash', '1');
-        }, 2100);
-    })();
-    </script>
 </body>
 </html>

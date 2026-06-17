@@ -26,6 +26,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at',
         'language',
         'password',
+        'google_id',
+        'avatar',
         'last_active',
         'inactive_reminder_sent_at',
         'is_online',
@@ -425,13 +427,40 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function hasOtherActiveSessions(): bool
     {
-        $currentSessionId = request()->session()->getId();
+        $currentFingerprint = md5((request()->ip() ?? '') . '|' . (request()->userAgent() ?? ''));
 
-        return \DB::table('sessions')
-            ->where('user_id', $this->id)
-            ->where('id', '!=', $currentSessionId)
-            ->where('last_activity', '>', now()->subMinutes(3)->timestamp)
-            ->exists();
+        $loginLogs = \App\Models\ActivityLog::where('user_id', $this->id)
+            ->where('action', 'login')
+            ->where('logged_at', '>=', now()->subDays(30))
+            ->get();
+
+        $logoutFingerprints = \App\Models\ActivityLog::where('user_id', $this->id)
+            ->where('action', 'logout')
+            ->where('logged_at', '>=', now()->subDays(30))
+            ->get()
+            ->map(fn($l) => md5(($l->ip_address ?? '') . '|' . ($l->user_agent ?? '')))
+            ->unique();
+
+        $seenFingerprints = [];
+
+        foreach ($loginLogs as $log) {
+            $fp = md5(($log->ip_address ?? '') . '|' . ($log->user_agent ?? ''));
+
+            if ($fp === $currentFingerprint) continue;
+            if (isset($seenFingerprints[$fp])) continue;
+            $seenFingerprints[$fp] = true;
+
+            $logoutAt = \App\Models\ActivityLog::where('user_id', $this->id)
+                ->where('action', 'logout')
+                ->where('logged_at', '>=', $log->logged_at)
+                ->where('ip_address', $log->ip_address)
+                ->where('user_agent', $log->user_agent)
+                ->exists();
+
+            if (!$logoutAt) return true;
+        }
+
+        return false;
     }
 
     /**
