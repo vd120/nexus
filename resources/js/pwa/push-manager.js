@@ -9,9 +9,22 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function getVapidKey() {
-    const res  = await fetch('/api/push/vapid-key');
-    const data = await res.json();
-    return data.public_key || null;
+    const VAPID_CACHE_KEY = 'nexus_vapid_pub';
+    try {
+        const cached = localStorage.getItem(VAPID_CACHE_KEY);
+        if (cached) return cached;
+        const res  = await fetch('/api/push/vapid-key', {
+            credentials: 'omit',
+            headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.public_key) {
+            localStorage.setItem(VAPID_CACHE_KEY, data.public_key);
+        }
+        return data.public_key || null;
+    } catch (e) {
+        return null;
+    }
 }
 
 async function subscribeToPush() {
@@ -55,7 +68,26 @@ async function ensureSubscribed() {
     try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        if (!sub) await subscribeToPush();
+        if (!sub) {
+            await subscribeToPush();
+            return;
+        }
+        // Once per hour: verify server still holds this subscription.
+        // If server deleted it (e.g. FCM 410 expiry), unsubscribe browser + re-subscribe fresh.
+        const SYNC_KEY  = 'nexus_push_synced_at';
+        const lastSync  = parseInt(localStorage.getItem(SYNC_KEY) || '0', 10);
+        const ONE_HOUR  = 60 * 60 * 1000;
+        if (Date.now() - lastSync > ONE_HOUR) {
+            localStorage.setItem(SYNC_KEY, String(Date.now()));
+            try {
+                const res  = await fetch('/api/push/status', { headers: { 'Accept': 'application/json' } });
+                const data = await res.json();
+                if (!data.subscribed) {
+                    await sub.unsubscribe();
+                    await subscribeToPush();
+                }
+            } catch (e) {}
+        }
     } catch (e) {}
 }
 
@@ -99,6 +131,11 @@ function wireLogoutCleanup() {
 function wireForegroundPushToast() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'PUSH_RESUBSCRIBE') {
+            // Browser rotated the push endpoint — re-subscribe with the new one
+            subscribeToPush();
+            return;
+        }
         if (event.data?.type === 'REFRESH_BADGE') {
             if (window.loadNotifications) window.loadNotifications();
             if (window.updateMobileBadge) window.updateMobileBadge();

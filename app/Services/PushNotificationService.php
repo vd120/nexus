@@ -26,13 +26,18 @@ class PushNotificationService
             Log::warning('Push notifications: BCMath or GMP extension required for VAPID key operations');
         }
 
-        $this->webPush = new WebPush([
-            'VAPID' => [
-                'subject' => $this->vapidSubject,
-                'publicKey' => $this->vapidPublicKey,
-                'privateKey' => $this->vapidPrivateKey,
+        $this->webPush = new WebPush(
+            [
+                'VAPID' => [
+                    'subject'    => $this->vapidSubject,
+                    'publicKey'  => $this->vapidPublicKey,
+                    'privateKey' => $this->vapidPrivateKey,
+                ],
             ],
-        ]);
+            [],
+            10,
+            ['connect_timeout' => 5]
+        );
     }
 
     /**
@@ -61,7 +66,10 @@ class PushNotificationService
                 $subscription->content_encoding
             );
 
-            $this->webPush->queueNotification($pushSubscription, $payload);
+            $this->webPush->queueNotification($pushSubscription, $payload, [
+                'urgency' => 'high',
+                'TTL'     => 86400,
+            ]);
             $sent = true;
         }
 
@@ -110,7 +118,10 @@ class PushNotificationService
                 $subscription->content_encoding
             );
 
-            $this->webPush->queueNotification($pushSubscription, $payload);
+            $this->webPush->queueNotification($pushSubscription, $payload, [
+                'urgency' => 'high',
+                'TTL'     => 86400,
+            ]);
             $sentCount++;
         }
 

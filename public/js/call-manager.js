@@ -649,6 +649,13 @@
             currentCallId       = data.callId;
             targetUserId        = data.callerId;
 
+            // If page was opened from a notification "Accept" tap, suppress the
+            // incoming modal — acceptCall() will fire from init() instead.
+            var acceptParam = new URLSearchParams(window.location.search).get('accept_call');
+            if (acceptParam && parseInt(acceptParam, 10) === data.callId) {
+                return;
+            }
+
             if (window.CallModal && typeof window.CallModal.showIncoming === 'function') {
                 window.CallModal.showIncoming(data);
             }
@@ -675,6 +682,11 @@
                 const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
                 await peerConnection.setLocalDescription(offer);
 
+                // Store offer so it can be resent if callee page loads after SW-accepted push
+                peerConnection._pendingOffer     = offer;
+                peerConnection._pendingOfferTo   = targetUserId;
+                peerConnection._pendingOfferCall = currentCallId;
+
                 socket.emit('call:offer', {
                     targetUserId : targetUserId,
                     callId       : currentCallId,
@@ -688,6 +700,17 @@
                 console.error('[CallManager] Error creating offer:', err);
                 endCall(socket);
             }
+        });
+
+        // Callee page loaded after SW already accepted — resend offer so WebRTC can complete
+        socket.on('call:callee-ready', (data) => {
+            if (!peerConnection || !peerConnection._pendingOffer) return;
+            if (data.callId && data.callId !== peerConnection._pendingOfferCall) return;
+            socket.emit('call:offer', {
+                targetUserId : peerConnection._pendingOfferTo,
+                callId       : peerConnection._pendingOfferCall,
+                sdp          : peerConnection._pendingOffer,
+            });
         });
 
         // ------------------------------------------------------------------
@@ -992,25 +1015,48 @@
             }
             attachSocketListeners(socket);
 
-            // Check if there's a call ringing for us that we missed due to refresh
+            // Check if there's a call ringing for us that we missed due to refresh,
+            // or one accepted by the SW before this page finished loading.
             fetch('/call/pending', {
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
-                if (data && data.pending) {
-                    // Replay call:incoming as if the socket event just arrived
-                    pendingIncomingCall = data;
-                    currentCallId       = data.callId;
-                    targetUserId        = data.callerId;
-                    if (window.CallModal && typeof window.CallModal.showIncoming === 'function') {
-                        window.CallModal.showIncoming({
-                            callId      : data.callId,
-                            callerName  : data.callerName,
-                            callerAvatar: data.callerAvatar,
-                        });
+                if (!data || !data.pending) return;
+
+                pendingIncomingCall = data;
+                currentCallId       = data.callId;
+                targetUserId        = data.callerId;
+                _callAudioNeeded    = true;
+
+                if (data.status === 'accepted') {
+                    // SW accepted the call before this page loaded.
+                    // Show active call UI and signal caller to resend WebRTC offer.
+                    if (window.CallModal && typeof window.CallModal.showActive === 'function') {
+                        window.CallModal.showActive();
                     }
-                    startRingtone();
+                    socket.emit('call:callee-ready', {
+                        targetUserId : data.callerId,
+                        callId       : data.callId,
+                    });
+                } else {
+                    // Check if page was opened via notification "Accept" tap.
+                    // The push notification URL includes ?accept_call={callId} so any SW
+                    // version (old or new) triggers this path — no modal shown, auto-accept.
+                    var acceptParam = new URLSearchParams(window.location.search).get('accept_call');
+                    if (acceptParam && parseInt(acceptParam, 10) === data.callId) {
+                        window.CallManager.acceptCall();
+                    } else {
+                        // Still ringing — replay incoming call modal
+                        if (window.CallModal && typeof window.CallModal.showIncoming === 'function') {
+                            window.CallModal.showIncoming({
+                                callId      : data.callId,
+                                callerName  : data.callerName,
+                                callerAvatar: data.callerAvatar,
+                            });
+                        }
+                        startRingtone();
+                    }
                 }
             })
             .catch(function () {});

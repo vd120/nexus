@@ -51,13 +51,13 @@ echo "  > Started Proxy (8080)"
 cloudflared tunnel --config /home/awad/.cloudflared/config.yaml run nxs-tunnel > tunnel.log 2>&1 &
 echo "  > Started Tunnel"
 
-# 5. Queue Worker
-php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 > storage/logs/queue.log 2>&1 &
-echo "  > Started Queue Worker (Redis)"
-
-# 5b. Default-queue Worker
-php artisan queue:work redis --queue=default --sleep=3 --tries=3 --max-time=3600 > storage/logs/queue-default.log 2>&1 &
-echo "  > Started Queue Worker (Redis, default queue)"
+# 5. Queue Worker (no --max-time — runs until script exits; auto-restarts via loop)
+while true; do
+    php artisan queue:work redis --queue=default --sleep=1 --tries=3 --backoff=3 --timeout=30 >> storage/logs/queue.log 2>&1
+    echo "[$(date)] queue:work exited, restarting..." >> storage/logs/queue.log
+    sleep 2
+done &
+echo "  > Started Queue Worker (Redis, default)"
 
 # 6. Warm-up
 php artisan nexus:warm --force

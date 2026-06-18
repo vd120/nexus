@@ -338,11 +338,14 @@ class ChatController extends Controller
         // Preload recipients once to avoid N+1 inside the loops below
         $recipientMap = \App\Models\User::whereIn('id', $recipientIds)->get()->keyBy('id');
 
-        // Handle delivery status for 1-1 chats immediately if online
+        // Handle delivery status for 1-1 chats immediately.
+        // Deliver if online OR if recipient has a push subscription (device is reachable —
+        // PWA is installed and can receive the push even with the app closed).
         if (!$conversation->is_group) {
             foreach ($recipientIds as $recipientId) {
                 $recipient = $recipientMap->get($recipientId);
-                if ($recipient && $recipient->is_online && !$message->delivered_at) {
+                if ($recipient && !$message->delivered_at &&
+                    ($recipient->is_online || $recipient->pushSubscriptions()->exists())) {
                     $message->update(['delivered_at' => now()]);
                 }
             }
@@ -352,6 +355,10 @@ class ChatController extends Controller
             \App\Http\Controllers\NotificationController::createMessageNotification($recipientId, $currentUser, $message);
             \Illuminate\Support\Facades\Cache::forget('unread_messages_' . $recipientId);
         }
+
+        // Sync in-memory model with any DB changes made by the sync push job
+        // (e.g. delivered_at set by MessageDeliveryService::confirm inside the job).
+        $message->refresh();
 
         // Real-time broadcast
         $message->load('sender.profile');
@@ -814,7 +821,9 @@ class ChatController extends Controller
                 'is_all_delivered' => $isAllDelivered,
             ];
 
-            app(\App\Services\SocketEmitService::class)->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
+            $socketService = app(\App\Services\SocketEmitService::class);
+            $socketService->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
+            $socketService->emitToUser($message->sender_id, 'chat:delivered', $emitData);
         }
 
         return response()->json(['success' => true, 'count' => $messages->count()]);

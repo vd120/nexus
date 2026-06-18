@@ -1617,7 +1617,7 @@ body.light-theme .btn-primary:hover {
     position: fixed;
     top: 70px;
     right: 20px;
-    z-index: 10000;
+    z-index: 10100;
     display: flex;
     flex-direction: column;
     gap: 8px;

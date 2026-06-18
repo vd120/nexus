@@ -1209,13 +1209,11 @@ function renderMediaPreviews() {
 
     const clearAllBtn = document.createElement('button');
     clearAllBtn.type = 'button';
+    clearAllBtn.id = 'clear-all-media-btn';
     clearAllBtn.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> ' + ((window.chatTranslations && window.chatTranslations.clear_all) || 'Clear All');
     clearAllBtn.onclick = clearAllMedia;
-    clearAllBtn.style.cssText = 'padding:8px 16px;background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.3);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;margin-bottom:12px;width:100%;';
-    const btnWrap = document.createElement('div');
-    btnWrap.style.cssText = 'width:100%;flex:0 0 100%;display:flex;';
-    btnWrap.appendChild(clearAllBtn);
-    previews.appendChild(btnWrap);
+    clearAllBtn.style.cssText = 'padding:8px 16px;background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.3);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s;margin-bottom:12px;width:100%;flex:0 0 100%;';
+    previews.appendChild(clearAllBtn);
 
     uploadedFiles.forEach((file, index) => {
         const reader = new FileReader();

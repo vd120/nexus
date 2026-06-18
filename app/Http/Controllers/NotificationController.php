@@ -299,16 +299,26 @@ class NotificationController extends Controller
         // 3. Send push notification (dispatched to queue — never blocks the HTTP response)
         try {
             $pushService = @app(\App\Services\PushNotificationService::class);
-            if ($pushService && $pushService->isConfigured() && $recipient && $recipient->pushSubscriptions()->exists()) {
-                $originalLocale = app()->getLocale();
-                if ($recipient->language) app()->setLocale($recipient->language);
+            $hasSubscriptions = $recipient && $recipient->pushSubscriptions()->exists();
+            $isMessage        = $notification->type === 'message' && !empty($notification->data['message_id']);
+            $pushReady        = $pushService && $pushService->isConfigured() && $hasSubscriptions;
 
-                [$pushTitle, $pushBody, $pushUrl] = (new class {
-                    use \App\Traits\SendsPushNotifications;
-                    public function resolve($n) { return $this->getNotificationData($n); }
-                })->resolve($notification);
+            // Dispatch for message type always (delivery confirmation runs regardless of push).
+            // Dispatch for other types only when push is fully configured with subscriptions.
+            if ($recipient && ($isMessage || $pushReady)) {
+                if ($pushReady) {
+                    $originalLocale = app()->getLocale();
+                    if ($recipient->language) app()->setLocale($recipient->language);
 
-                app()->setLocale($originalLocale);
+                    [$pushTitle, $pushBody, $pushUrl] = (new class {
+                        use \App\Traits\SendsPushNotifications;
+                        public function resolve($n) { return $this->getNotificationData($n); }
+                    })->resolve($notification);
+
+                    app()->setLocale($originalLocale);
+                } else {
+                    [$pushTitle, $pushBody, $pushUrl] = ['', '', ''];
+                }
 
                 \App\Jobs\SendPushNotificationJob::dispatch(
                     $recipient->id,
@@ -341,6 +351,11 @@ class NotificationController extends Controller
                 ->where('conversation_id', $conversationId)
                 ->exists();
             if ($isMuted) {
+                // Muted = suppress notification/push, but delivery must still be confirmed
+                \App\Jobs\SendPushNotificationJob::dispatch(
+                    $recipientId, '', '', '',
+                    ['type' => 'message', 'message_id' => $message->id]
+                );
                 return null;
             }
         }

@@ -508,10 +508,9 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
         left: 0;
         right: 0;
         bottom: 0;
-        height: calc(100dvh - 48px) !important;
         width: 100vw;
         z-index: 10 !important;
-        /* Low enough to let dropdowns appear on top */
+        overflow: hidden;
         background: var(--bg);
     }
 
@@ -914,6 +913,7 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
     padding: 20px 24px;
     background: var(--surface);
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .chat-input-area form {
@@ -1025,6 +1025,7 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
         padding: 10px 12px;
         background: var(--surface);
         padding-bottom: env(safe-area-inset-bottom, 10px);
+        flex-shrink: 0;
     }
 
     #messageInput {
@@ -1282,8 +1283,17 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
     max-width: 340px;
 }
 
+.media-grid-3 .media-item {
+    aspect-ratio: auto;
+}
+
 .media-grid-3 .media-item:first-child {
     grid-row: span 2;
+}
+
+.media-grid-3 .media-item:nth-child(2),
+.media-grid-3 .media-item:nth-child(3) {
+    aspect-ratio: 1;
 }
 
 .media-grid-4 {
@@ -1531,8 +1541,8 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
         position: fixed !important;
         top: calc(env(safe-area-inset-top, 0px) + 20px) !important;
         right: 20px !important;
-        width: 50px !important;
-        height: 50px !important;
+        width: 36px !important;
+        height: 36px !important;
         background: rgba(0, 0, 0, 0.7) !important;
         border: 2px solid #fff !important;
         border-radius: 50% !important;
@@ -1546,7 +1556,7 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
     }
 
     #galleryClose i {
-        font-size: 24px !important;
+        font-size: 16px !important;
         color: #fff !important;
     }
 
@@ -1634,13 +1644,24 @@ html[dir="rtl"] .msg-dropdown button.menu-item .fa-arrow-right {
 
 .gallery-nav-btn {
     position: absolute;
-    width: 54px;
-    height: 54px;
-    font-size: 24px;
+    top: auto;
+    bottom: 100px;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
 }
 
-.gallery-nav-btn.left { left: 40px; }
-.gallery-nav-btn.right { right: 40px; }
+.gallery-nav-btn.left { left: 16px; }
+.gallery-nav-btn.right { right: 16px; }
 
 .gallery-footer {
     position: relative;

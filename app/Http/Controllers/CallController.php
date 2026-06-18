@@ -59,9 +59,11 @@ class CallController extends Controller
             return response()->json(['error' => 'busy'], 409);
         }
 
-        // Check if callee is offline
+        // Check if callee is reachable — either online via socket or reachable via push
+        // (PWA installed = push can ring the device even when the app is closed)
         $callee = User::findOrFail($calleeId);
-        if (!$callee->isActuallyOnline()) {
+        $reachableViaPush = $callee->pushSubscriptions()->exists();
+        if (!$callee->isActuallyOnline() && !$reachableViaPush) {
             return response()->json(['error' => 'offline'], 422);
         }
 
@@ -108,7 +110,8 @@ class CallController extends Controller
         // This triggers the OS ring tone + screen wake on mobile.
         try {
             $callee = User::find($calleeId);
-            $conversationUrl = route('chat.show', $conversation->slug ?? $conversation->id);
+            $conversationUrl = route('chat.show', $conversation->slug ?? $conversation->id)
+                             . '?accept_call=' . $call->id;
             $this->pushNotificationService->sendToUser(
                 $callee,
                 __('messages.incoming_call'),
@@ -134,7 +137,7 @@ class CallController extends Controller
         // On the sync driver delay is ignored (job runs instantly), so we skip it
         // and let the caller's browser handle the 30-second no-answer timeout instead.
         if (config('queue.default') !== 'sync') {
-            CallTimeoutJob::dispatch($call->id)->delay(now()->addSeconds(30));
+            CallTimeoutJob::dispatch($call->id)->delay(now()->addSeconds(60));
         }
 
         $callee = User::find($calleeId);
@@ -151,13 +154,23 @@ class CallController extends Controller
 
     public function accept(Request $request, Call $call): JsonResponse
     {
+        \Log::info('[Call] accept called', [
+            'callId' => $call->id,
+            'authId' => Auth::id(),
+            'status' => $call->status,
+            'ua'     => $request->userAgent(),
+            'ip'     => $request->ip(),
+        ]);
+
         if ($call->callee_id !== Auth::id()) {
+            \Log::warning('[Call] accept 403 — callee_id mismatch', ['callee_id' => $call->callee_id, 'authId' => Auth::id()]);
             abort(403);
         }
 
         $call->refresh();
 
         if ($call->status !== 'initiated') {
+            \Log::warning('[Call] accept rejected — wrong status', ['status' => $call->status]);
             return response()->json(['error' => 'call_not_ringing'], 422);
         }
 
@@ -175,13 +188,23 @@ class CallController extends Controller
 
     public function reject(Request $request, Call $call): JsonResponse
     {
+        \Log::info('[Call] reject called', [
+            'callId' => $call->id,
+            'authId' => Auth::id(),
+            'status' => $call->status,
+            'ua'     => $request->userAgent(),
+            'ip'     => $request->ip(),
+        ]);
+
         if ($call->callee_id !== Auth::id()) {
+            \Log::warning('[Call] reject 403 — callee_id mismatch', ['callee_id' => $call->callee_id, 'authId' => Auth::id()]);
             abort(403);
         }
 
         $call->refresh();
 
         if ($call->status !== 'initiated') {
+            \Log::warning('[Call] reject rejected — wrong status', ['status' => $call->status]);
             return response()->json(['error' => 'call_not_ringing'], 422);
         }
 
@@ -259,10 +282,19 @@ class CallController extends Controller
      */
     public function pending(Request $request): JsonResponse
     {
+        // Return a call that is still ringing (initiated) OR one accepted by the SW
+        // before the page loaded (accepted within the last 2 minutes).
         $call = Call::where('callee_id', Auth::id())
-            ->where('status', 'initiated')
-            ->where('created_at', '>=', now()->subSeconds(30))
-            ->with('caller:id,name')
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('status', 'initiated')
+                       ->where('created_at', '>=', now()->subSeconds(60));
+                })->orWhere(function ($q2) {
+                    $q2->where('status', 'accepted')
+                       ->where('started_at', '>=', now()->subMinutes(2));
+                });
+            })
+            ->with('caller:id,name,avatar')
             ->latest()
             ->first();
 
@@ -279,6 +311,7 @@ class CallController extends Controller
             'callerName'     => $caller?->name,
             'callerAvatar'   => $caller?->avatar_url,
             'conversationId' => $call->conversation_id,
+            'status'         => $call->status,
         ]);
     }
 

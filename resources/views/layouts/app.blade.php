@@ -385,12 +385,6 @@
             </nav>
             @endauth
 
-            @auth
-            <a href="{{ route('search') }}" class="nav-action-btn {{ request()->routeIs('search') ? 'active' : '' }}" title="{{ __('users.search') }}" style="text-decoration:none;">
-                <i class="fas fa-search"></i>
-            </a>
-            @endauth
-
             <div class="user-actions">
                 @guest
                 <div class="guest-nav-actions" style="display: flex; align-items: center; gap: 12px;">
@@ -408,6 +402,9 @@
                 @endguest
 
                 @auth
+                <a href="{{ route('search') }}" class="nav-action-btn {{ request()->routeIs('search') ? 'active' : '' }}" title="{{ __('users.search') }}" style="text-decoration:none;">
+                    <i class="fas fa-search"></i>
+                </a>
                 <div style="position: relative;">
                     @php
                         $unreadCount = \Illuminate\Support\Facades\Cache::remember(

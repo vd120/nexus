@@ -200,7 +200,7 @@ return [
 
     // Posts
     'create_post' => 'اعمل منشور',
-    'whats_on_your_mind' => 'بتفكر في إيه؟',
+    'whats_on_your_mind' => 'إنت مين؟',
     'post_placeholder' => 'شارك أفكارك...',
     'add_photo' => 'ضيف صورة',
     'post_now' => 'انشر النهاردة',
@@ -561,7 +561,7 @@ return [
     'view_all_stories' => 'عرض الكل',
     'your_story' => 'قصتك',
     'create_story' => 'إنشاء',
-    'whats_on_your_mind' => 'بتفكر في ايه يسطا ؟',
+    'whats_on_your_mind' => 'إنت مين؟',
     'photo' => 'صورة',
     'media' => 'وسائط',
     'public' => 'عام',
@@ -961,4 +961,5 @@ return [
     'call_start_failed'     => 'تعذّر بدء المكالمة. يرجى المحاولة مرة أخرى.',
 
     'in_community'          => 'في',
+    'back_to_feed'          => 'الرجوع للرئيسية',
 ];

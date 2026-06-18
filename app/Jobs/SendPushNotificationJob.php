@@ -29,29 +29,39 @@ class SendPushNotificationJob implements ShouldQueue
     public function handle(): void
     {
         $user = User::find($this->userId);
-        if (!$user || !$user->pushSubscriptions()->exists()) {
-            return;
-        }
+        if (!$user) return;
+
+        // Confirm message delivery before push attempt — delivery receipt is independent
+        // of push success. The job being dispatched means the recipient has a registered
+        // device. SW callback to /chat/confirm-delivery is unreliable when session expires
+        // (app fully closed), so server-side is the primary delivery confirmation path.
+        $this->tryConfirmDelivery();
+
+        // Empty title = delivery-only dispatch (e.g. message type with no push subscription,
+        // or muted conversation). Delivery is confirmed above; skip push entirely.
+        if (empty($this->title) && empty($this->body)) return;
+
+        if (!$user->pushSubscriptions()->exists()) return;
 
         $pushService = app(PushNotificationService::class);
-        if (!$pushService->isConfigured()) {
+        if (!$pushService->isConfigured()) return;
+
+        $pushService->sendToUser($user, $this->title, $this->body, $this->url, $this->data);
+    }
+
+    private function tryConfirmDelivery(): void
+    {
+        if (($this->data['type'] ?? null) !== 'message' || empty($this->data['message_id'])) {
             return;
         }
 
-        $sent = $pushService->sendToUser($user, $this->title, $this->body, $this->url, $this->data);
+        $message = \App\Models\Message::find($this->data['message_id']);
+        if (!$message || $message->sender_id === $this->userId) return;
 
-        // App-closed delivery: when a MESSAGE push is accepted by the gateway, the
-        // message has reached this recipient's device. The service-worker callback to
-        // /chat/confirm-delivery is unreliable when the app is fully closed (esp. iOS),
-        // so confirm delivery here too. Idempotent with the SW path; only flips the
-        // sender's checkmark to delivered (never read).
-        if ($sent && ($this->data['type'] ?? null) === 'message' && !empty($this->data['message_id'])) {
-            $message = \App\Models\Message::find($this->data['message_id']);
-            if ($message && $message->sender_id !== $this->userId
-                && $message->conversation && $message->conversation->isMember($this->userId)) {
-                app(\App\Services\MessageDeliveryService::class)->confirm($message, $this->userId);
-            }
-        }
+        $conversation = $message->conversation;
+        if (!$conversation || !$conversation->isMember($this->userId)) return;
+
+        app(\App\Services\MessageDeliveryService::class)->confirm($message, $this->userId);
     }
 
     public function failed(\Throwable $e): void

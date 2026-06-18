@@ -267,6 +267,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Push Notification Routes
     Route::prefix('push')->group(function () {
         Route::post('/subscribe', [PushNotificationController::class, 'store']);
+        Route::get('/status', [PushNotificationController::class, 'status']);
         Route::get('/settings', [PushNotificationController::class, 'getSettings']);
         Route::patch('/settings', [PushNotificationController::class, 'updateSettings']);
         Route::delete('/unsubscribe', [PushNotificationController::class, 'destroy']);

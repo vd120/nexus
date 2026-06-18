@@ -737,21 +737,6 @@ class PostController extends Controller
                     $post
                 );
 
-                // Send push notification
-                try {
-                    $pushService = app(\App\Services\PushNotificationService::class);
-                    if ($pushService && $pushService->isConfigured()) {
-                        $pushService->sendToUser(
-                            $post->user,
-                            __('notifications.liked_your_post', ['user' => $user->username]),
-                            $user->username . ' liked your post',
-                            url('/posts/' . $post->slug),
-                            ['type' => 'likes', 'notification_id' => $notification->id]
-                        );
-                    }
-                } catch (\Exception $e) {
-                    \Log::debug('Push notification failed: ' . $e->getMessage());
-                }
             }
         }
 
@@ -932,34 +917,6 @@ class PostController extends Controller
                 $reaction // Pass the reaction model for anti-leak logic
             );
 
-            // Use potentially anonymized data from the notification for push
-            $displayName = $notification->data['reactor_username'] ?? 'Someone';
-
-            // Send push notification
-            try {
-                $pushService = app(\App\Services\PushNotificationService::class);
-                if ($pushService && $pushService->isConfigured()) {
-                    $originalLocale = app()->getLocale();
-                    if ($post->user->language) {
-                        app()->setLocale($post->user->language);
-                    }
-
-                    $pushService->sendToUser(
-                        $post->user,
-                        __('notifications.reacted_to_your_post', [
-                            'user' => $displayName,
-                            'reaction' => $validated['emoji']
-                        ]),
-                        $displayName . ' reacted to your post with ' . $validated['emoji'],
-                        url('/posts/' . $post->slug),
-                        ['type' => 'likes', 'notification_id' => $notification->id]
-                    );
-
-                    app()->setLocale($originalLocale);
-                }
-            } catch (\Exception $e) {
-                \Log::debug('Push notification failed: ' . $e->getMessage());
-            }
         }
 
         return response()->json([

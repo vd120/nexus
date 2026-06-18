@@ -212,6 +212,12 @@ io.on('connection', async (socket) => {
         }
     });
 
+    // VoIP: callee page loaded after SW-accepted a push notification — ask caller to resend offer
+    socket.on('call:callee-ready', ({ targetUserId, callId }) => {
+        if (!targetUserId) return;
+        io.to(`user:${targetUserId}`).emit('call:callee-ready', { fromUserId: userId, callId });
+    });
+
     // VoIP: relay WebRTC SDP offer to callee
     socket.on('call:offer', async ({ targetUserId, callId, sdp }) => {
         if (!targetUserId || !sdp) return;

@@ -601,7 +601,7 @@
         @else
             <div class="np-posts-feed" id="regularPostsFeed">
                 @foreach($posts as $post)
-                    @include('partials.post', ['post' => $post, 'isPinned' => false])
+                    @include('partials.post', ['post' => $post, 'isPinned' => $post->isPinned()])
                 @endforeach
             </div>
             <div style="padding: 0 20px;">{{ $posts->links() }}</div>

@@ -955,7 +955,7 @@ html[dir="rtl"] .ch-sidebar-left.collapsed .csl-toggle-icon { transform: rotate(
     padding: 60px 24px;
     color: var(--text-muted);
 }
-.comm-empty i { font-size: 32px; margin-bottom: 12px; opacity: .4; display: block; }
+.comm-empty i { font-size: 32px; margin-bottom: 12px; opacity: .4; display: flex; justify-content: center; width: 100%; direction: ltr; }
 .comm-empty h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
 .comm-empty p { font-size: 13px; }
 

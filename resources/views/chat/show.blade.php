@@ -1970,7 +1970,6 @@ body:has(.chat-page) .mobile-bottom-nav {
 .media-grid-3 .media-item {
     position: relative;
     width: 100%;
-    aspect-ratio: 1;
     overflow: hidden;
     border-radius: 8px;
 }
@@ -1991,6 +1990,7 @@ body:has(.chat-page) .mobile-bottom-nav {
 .media-grid-3 .media-item:nth-child(2),
 .media-grid-3 .media-item:nth-child(3) {
     grid-column: 2;
+    aspect-ratio: 1;
 }
 
 .media-grid-3 .media-item:nth-child(2) img,
@@ -3638,32 +3638,33 @@ body:has(.chat-page) .mobile-bottom-nav {
 
 .gallery-nav-btn {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 64px;
-    height: 64px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    top: auto;
+    bottom: 100px;
+    transform: none;
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 18px;
     z-index: 1000;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(5px);
 }
 
 .gallery-nav-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-50%) scale(1.1);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.35);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
-.gallery-nav-btn.left { left: 40px; }
-.gallery-nav-btn.right { right: 40px; }
+.gallery-nav-btn.left { left: 16px; }
+.gallery-nav-btn.right { right: 16px; }
 
 @media (max-width: 768px) {
     .nexus-gallery {
@@ -3674,8 +3675,8 @@ body:has(.chat-page) .mobile-bottom-nav {
         position: fixed !important;
         top: calc(env(safe-area-inset-top, 0px) + 20px) !important;
         right: 20px !important;
-        width: 50px !important;
-        height: 50px !important;
+        width: 36px !important;
+        height: 36px !important;
         background: rgba(0, 0, 0, 0.7) !important;
         border: 2px solid #fff !important;
         border-radius: 50% !important;
@@ -3689,7 +3690,7 @@ body:has(.chat-page) .mobile-bottom-nav {
     }
 
     #galleryClose i {
-        font-size: 24px !important;
+        font-size: 16px !important;
         color: #fff !important;
     }
 
@@ -4471,11 +4472,20 @@ body:has(.chat-page) .mobile-bottom-nav {
     }
 
     .media-grid-two .media-item,
-    .media-grid-3 .media-item,
     .media-grid-4 .media-item {
         width: 100%;
         aspect-ratio: 1;
         overflow: hidden;
+    }
+
+    .media-grid-3 .media-item {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .media-grid-3 .media-item:nth-child(2),
+    .media-grid-3 .media-item:nth-child(3) {
+        aspect-ratio: 1;
     }
 
     .media-grid-two .media-item img,
@@ -5070,7 +5080,12 @@ function processMessageQueue() {
                 }
             }
             if (window.updateExistingConversationItem) {
-                window.updateExistingConversationItem(data.message);
+                const _msg = Object.assign({}, data.message, {
+                    checkmark_class: data.message.read_at ? 'fa-check-double read'
+                                   : data.message.delivered_at ? 'fa-check-double sent'
+                                   : 'fa-check sent'
+                });
+                window.updateExistingConversationItem(_msg);
             }
             lastSentMessageId = data.message.id;
             window._locallySentIds.add(String(data.message.id));
@@ -5203,15 +5218,22 @@ function processMediaMessage(messageData) {
         if (data.success && data.message) {
             const message = data.message;
 
-            // Add the message with all media
-            addMessage(message);
-            if (window.updateExistingConversationItem) {
-                window.updateExistingConversationItem(message);
-            }
-
-            // Sync with RealTime state
+            // Sync with RealTime state BEFORE rendering
             lastSentMessageId = data.message.id;
             window._locallySentIds.add(String(data.message.id));
+
+            // Add the message with all media (skip if socket already rendered it)
+            if (!document.querySelector(`.message[data-message-id="${data.message.id}"]`)) {
+                addMessage(message);
+            }
+            if (window.updateExistingConversationItem) {
+                const _msg2 = Object.assign({}, message, {
+                    checkmark_class: message.read_at ? 'fa-check-double read'
+                                   : message.delivered_at ? 'fa-check-double sent'
+                                   : 'fa-check sent'
+                });
+                window.updateExistingConversationItem(_msg2);
+            }
             if (window.RealTime && window.RealTime.updateLastMessageId) {
                 window.RealTime.updateLastMessageId(data.message.id);
             }
@@ -5886,7 +5908,6 @@ const NexusGallery = {
         const galleryIdx = mediaMap.get(`${messageId}_${index}`);
         
         if (galleryIdx === undefined) {
-            // Fallback for dynamic elements that might not be in DOM yet
             this.currentIndex = 0;
         } else {
             this.currentIndex = galleryIdx;
@@ -5895,6 +5916,8 @@ const NexusGallery = {
         this.isOpen = true;
         this.viewer.setAttribute('aria-hidden', 'false');
         this.show();
+        const header = document.querySelector('.header');
+        if (header) header.style.display = 'none';
     },
 
     show() {
@@ -5928,6 +5951,8 @@ const NexusGallery = {
         this.vidEl.pause();
         this.vidEl.src = '';
         this.imgEl.src = '';
+        const header = document.querySelector('.header');
+        if (header) header.style.display = '';
     }
 };
 
@@ -6036,52 +6061,64 @@ function acceptGroupInvite(inviteLink) {
 window.toggleMsgMenu = function(event, id) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const dropdown = document.getElementById('msgDropdown-' + id);
     if (!dropdown) return;
 
-    // Close all other message dropdowns
+    const isOpening = !dropdown.classList.contains('show');
+
+    // Close all other message dropdowns and restore their overflow
     document.querySelectorAll('.msg-dropdown').forEach(d => {
-        if (d !== dropdown) d.classList.remove('show');
+        d.classList.remove('show');
+        const pc = d.closest('.message-content');
+        if (pc) pc.style.overflow = '';
     });
-    
-    dropdown.classList.toggle('show');
 
-    if (dropdown.classList.contains('show')) {
-        // Reset styles first
-        dropdown.style.left = '';
-        dropdown.style.right = '';
-        
-        const rect = dropdown.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        const inputArea = document.querySelector('.chat-input-area');
-        const inputHeight = inputArea ? inputArea.offsetHeight + 20 : 100;
-        const headerHeight = 80;
-        
-        // Vertical positioning
-        if (rect.bottom > viewportHeight - inputHeight) {
-            dropdown.classList.add('drop-up');
-        } else if (rect.top < headerHeight) {
-            dropdown.classList.remove('drop-up');
-        }
+    if (!isOpening) return;
 
-        // Horizontal overflow protection
-        const currentRect = dropdown.getBoundingClientRect();
-        if (currentRect.right > viewportWidth - 10) {
-            dropdown.style.right = '8px';
-            dropdown.style.left = 'auto';
-        } else if (currentRect.left < 10) {
-            dropdown.style.left = '8px';
-            dropdown.style.right = 'auto';
-        }
+    dropdown.classList.add('show');
+
+    // Let dropdown escape overflow:hidden on media messages
+    const contentEl = dropdown.closest('.message-content');
+    if (contentEl) contentEl.style.overflow = 'visible';
+
+    // Reset styles first
+    dropdown.style.left = '';
+    dropdown.style.right = '';
+
+    const rect = dropdown.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const inputArea = document.querySelector('.chat-input-area');
+    const inputHeight = inputArea ? inputArea.offsetHeight + 20 : 100;
+    const headerHeight = 80;
+
+    // Vertical positioning
+    if (rect.bottom > viewportHeight - inputHeight) {
+        dropdown.classList.add('drop-up');
+    } else if (rect.top < headerHeight) {
+        dropdown.classList.remove('drop-up');
+    }
+
+    // Horizontal overflow protection
+    const currentRect = dropdown.getBoundingClientRect();
+    if (currentRect.right > viewportWidth - 10) {
+        dropdown.style.right = '8px';
+        dropdown.style.left = 'auto';
+    } else if (currentRect.left < 10) {
+        dropdown.style.left = '8px';
+        dropdown.style.right = 'auto';
     }
 };
 
 // Close message dropdowns on outside click
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.msg-item-actions')) {
-        document.querySelectorAll('.msg-dropdown').forEach(d => d.classList.remove('show'));
+        document.querySelectorAll('.msg-dropdown').forEach(d => {
+            d.classList.remove('show');
+            const pc = d.closest('.message-content');
+            if (pc) pc.style.overflow = '';
+        });
     }
 });
 

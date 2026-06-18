@@ -2465,7 +2465,7 @@ html[dir="rtl"] .fsr-online-dot {
         border-width: 2px;
     }
 
-    #media-previews button {
+    #media-previews button:not(#clear-all-media-btn) {
         width: 28px !important;
         height: 28px !important;
         top: 6px !important;

@@ -1,4 +1,11 @@
 const CACHE_NAME = 'nexus-cache-' + (typeof __BUILD_HASH__ !== 'undefined' ? __BUILD_HASH__ : 'dev');
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw     = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
 const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
@@ -57,8 +64,8 @@ self.addEventListener('push', (event) => {
     silent:             payload.silent || false,
     data:               payload.data || {},
     actions: payload.data && payload.data.type === 'call' ? [
-      { action: 'accept',  title: '✅ Accept'  },
       { action: 'decline', title: '❌ Decline' },
+      { action: 'accept',  title: '✅ Accept'  },
     ] : [],
   };
 
@@ -106,9 +113,34 @@ self.addEventListener('notificationclick', (event) => {
         fetch('/call/' + data.callId + '/reject', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-          credentials: 'same-origin',
+          credentials: 'include',
         }).catch(() => {})
       );
+      return;
+    }
+
+    if (action === 'accept') {
+      // Accept immediately in SW — prevents the 30s CallTimeoutJob from firing
+      // before the page finishes loading. CSRF exempt on /call/*/accept.
+      event.waitUntil((async () => {
+        try {
+          await fetch('/call/' + data.callId + '/accept', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'include',
+          });
+        } catch (e) {}
+        // Open the conversation page so WebRTC negotiation can complete
+        const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of windowClients) {
+          if (client.url.includes(data.url) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(data.url || '/');
+        }
+      })());
       return;
     }
   }
@@ -203,6 +235,47 @@ self.addEventListener('fetch', (event) => {
       })
     );
   }
+});
+
+// ── Push subscription rotated by browser ───────────────────────────────────
+// Fires when the browser expires or rotates the push endpoint (e.g. after a
+// browser update). Re-subscribe DIRECTLY here — no open page required.
+// /api/push/subscribe is CSRF-exempt; session cookie sent via credentials:include.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      // Fetch public VAPID key (unauthenticated endpoint)
+      const res     = await fetch('/api/push/vapid-key');
+      const data    = await res.json();
+      const vapidKey = data.public_key;
+      if (!vapidKey) return;
+
+      // Get a fresh subscription from the browser push service
+      const sub = await self.registration.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      // Register the new endpoint with the server
+      const p256dh = sub.getKey('p256dh');
+      const auth   = sub.getKey('auth');
+      await fetch('/api/push/subscribe', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint:         sub.endpoint,
+          p256dh:           p256dh ? btoa(String.fromCharCode(...new Uint8Array(p256dh))) : null,
+          auth:             auth   ? btoa(String.fromCharCode(...new Uint8Array(auth)))   : null,
+          content_encoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0],
+        }),
+      });
+    } catch (e) {
+      // If direct re-subscribe fails, fall back to messaging any open page
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clients.forEach((client) => client.postMessage({ type: 'PUSH_RESUBSCRIBE' }));
+    }
+  })());
 });
 
 // ── Background Sync (Android only — not available on iOS) ───────────────────

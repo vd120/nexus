@@ -210,9 +210,15 @@
                         if (container && container.querySelectorAll('.post-card').length === 0) {
                             const emptyStateHtml = `
                                 <div class="empty-state">
-                                    <i class="fas fa-newspaper"></i>
+                                    <div class="empty-state-icon-wrap" aria-hidden="true">
+                                        <i class="fas fa-feather-pointed"></i>
+                                    </div>
                                     <h3>${t.no_posts_yet || 'No posts yet'}</h3>
                                     <p>${t.be_first_to_post || 'Be the first to share something!'}</p>
+                                    <button type="button" class="empty-state-cta" onclick="document.getElementById('composer-pill').click();">
+                                        <i class="fas fa-pen" aria-hidden="true"></i>
+                                        ${t.post || 'Post'}
+                                    </button>
                                 </div>
                             `;
                             container.innerHTML = emptyStateHtml;
@@ -227,20 +233,7 @@
             })
             .then(data => {
                 if (data && data.success && postCard) {
-                    const container = postCard.parentElement;
-                    postCard.remove();
-                    
-                    // Check if feed is empty
-                    if (container && container.querySelectorAll('.post-card').length === 0) {
-                        const emptyStateHtml = `
-                            <div class="empty-state">
-                                <i class="fas fa-newspaper"></i>
-                                <h3>${t.no_posts_yet || 'No posts yet'}</h3>
-                                <p>${t.be_first_to_post || 'Be the first to share something!'}</p>
-                            </div>
-                        `;
-                        container.innerHTML = emptyStateHtml;
-                    }
+                    // Already removed in the response handler above
                 }
             })
             .catch(error => {
@@ -1206,7 +1199,21 @@
                     // Check if feed is now empty
                     const container = document.getElementById('posts-container') || document.getElementById('posts-feed');
                     if (container && container.querySelectorAll('.post-card').length === 0) {
-                        // We could show an empty state here if we had one
+                        const t = typeof getTranslations === 'function' ? getTranslations() : {};
+                        const emptyStateHtml = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon-wrap" aria-hidden="true">
+                                    <i class="fas fa-feather-pointed"></i>
+                                </div>
+                                <h3>${t.no_posts_yet || 'No posts yet'}</h3>
+                                <p>${t.be_first_to_post || 'Be the first to share something!'}</p>
+                                <button type="button" class="empty-state-cta" onclick="document.getElementById('composer-pill').click();">
+                                    <i class="fas fa-pen" aria-hidden="true"></i>
+                                    ${t.post || 'Post'}
+                                </button>
+                            </div>
+                        `;
+                        container.innerHTML = emptyStateHtml;
                     }
                 }, 300);
             }

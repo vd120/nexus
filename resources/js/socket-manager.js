@@ -146,7 +146,14 @@ class SocketManager {
 
             // Render into the open chat window. Own messages render too (multi-device echo),
             // EXCEPT the echo of a message this very device sent (already rendered optimistically).
-            const sentFromThisDevice = isOwn && window._locallySentIds && window._locallySentIds.has(String(msg.id));
+            // hasPendingOptimistic: an opt_* element in DOM means this tab sent the message and is
+            // still awaiting the server response — the echo always beats the HTTP response, so
+            // _locallySentIds doesn't have the real id yet. This check is order-independent.
+            const hasPendingOptimistic = !!document.querySelector('.message[data-message-id^="opt_"]');
+            const sentFromThisDevice = isOwn && (
+                (window._locallySentIds && window._locallySentIds.has(String(msg.id))) ||
+                hasPendingOptimistic
+            );
             const alreadyInDom = !!document.querySelector(`.message[data-message-id="${msg.id}"]`);
 
             if (isCurrentConv && window.addMessage && !sentFromThisDevice && !alreadyInDom) {

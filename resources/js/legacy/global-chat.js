@@ -900,6 +900,8 @@
         viewer.classList.add('active');
         document.body.style.overflow = 'hidden';
         updateGalleryContent();
+        const header = document.querySelector('.header');
+        if (header) header.style.display = 'none';
     }
 
     function updateGalleryContent() {
@@ -936,6 +938,8 @@
         document.body.style.overflow = '';
         const video = document.getElementById('galleryVideo');
         video.pause();
+        const header = document.querySelector('.header');
+        if (header) header.style.display = '';
     };
 
     document.getElementById('galleryClose').onclick = window.closeMediaViewer;

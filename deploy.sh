@@ -9,5 +9,5 @@ php artisan config:clear
 php artisan view:clear
 php artisan cache:clear
 php artisan event:clear
-
+php artisan queue:restart
 php artisan octane:reload

@@ -21,15 +21,30 @@ class PushNotificationController extends Controller
     /**
      * Get VAPID public key.
      */
-    public function getVapidKey(): JsonResponse
+    public function getVapidKey()
     {
-        // Directly return config without initializing WebPush service
+        // Sec-Fetch-Dest: document = direct browser navigation → redirect to home
+        // All other cases (fetch, XHR, script, etc.) → serve JSON
+        if (request()->header('Sec-Fetch-Dest') === 'document') {
+            return redirect('/');
+        }
+
         $publicKey = config('services.vapid.public_key');
         $configured = !empty($publicKey);
 
         return response()->json([
             'public_key' => $publicKey,
             'configured' => $configured,
+        ]);
+    }
+
+    /**
+     * Check if the current user has an active push subscription.
+     */
+    public function status(): JsonResponse
+    {
+        return response()->json([
+            'subscribed' => auth()->user()->pushSubscriptions()->exists(),
         ]);
     }
 

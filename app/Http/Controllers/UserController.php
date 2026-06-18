@@ -62,15 +62,17 @@ class UserController extends Controller
 
         $pinnedCount = $pinnedPosts->count();
 
-        // Get non-pinned posts
-        $postsQuery = $user->posts()->notPinned();
+        // All posts — pinned first, then newest. Pinned posts stay visible in main tab.
+        $postsQuery = $user->posts();
         if (!$isOwner) {
             $postsQuery->where('is_anonymous', false);
         }
 
         $posts = $postsQuery
             ->with(['media', 'comments.replies.user', 'comments.likes', 'likes', 'reactions.user:id,name,username'])
-            ->latest()
+            ->orderByRaw('CASE WHEN pinned_at IS NOT NULL THEN 0 ELSE 1 END')
+            ->orderBy('pinned_at', 'asc')
+            ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         return view('users.show', compact(

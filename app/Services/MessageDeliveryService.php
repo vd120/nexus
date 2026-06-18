@@ -38,13 +38,18 @@ class MessageDeliveryService
             $isAllDelivered = true;
         }
 
-        $this->socket->emitToConversation($message->conversation_id, 'chat:delivered', [
+        $emitData = [
             'message_id'       => $message->id,
             'user_id'          => $userId,
             'conversation_id'  => $message->conversation_id,
             'delivered_at'     => $now->toISOString(),
             'is_all_delivered' => $isAllDelivered,
-        ]);
+        ];
+
+        // Emit to conversation room (sender has chat open) AND directly to sender's
+        // user room (handles brief socket reconnects where sender left the conv room).
+        $this->socket->emitToConversation($message->conversation_id, 'chat:delivered', $emitData);
+        $this->socket->emitToUser($message->sender_id, 'chat:delivered', $emitData);
 
         return $isAllDelivered;
     }

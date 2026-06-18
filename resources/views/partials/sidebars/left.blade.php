@@ -55,11 +55,11 @@
                 <i class="fas fa-heart-pulse"></i>
                 <span>{{ __('messages.pulse') }}</span>
             </a>
-            <a href="{{ route('users.memories', $user) }}"
-               class="fsl-link {{ request()->routeIs('users.memories') ? 'active' : '' }}"
-               data-label="{{ __('messages.my_memories') }}">
+            <a href="{{ route('memories.index') }}"
+               class="fsl-link {{ request()->routeIs('memories.index') ? 'active' : '' }}"
+               data-label="{{ __('messages.memories') }}">
                 <i class="fas fa-clock-rotate-left"></i>
-                <span>{{ __('messages.my_memories') }}</span>
+                <span>{{ __('messages.memories') }}</span>
             </a>
             <a href="{{ route('explore') }}"
                class="fsl-link {{ request()->routeIs('explore') ? 'active' : '' }}"

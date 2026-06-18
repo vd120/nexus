@@ -200,7 +200,7 @@ return [
 
     // Posts
     'create_post' => 'Create Post',
-    'whats_on_your_mind' => 'What\'s on your mind?',
+    'whats_on_your_mind' => 'Who are you?',
     'post_placeholder' => 'Share your thoughts...',
     'add_photo' => 'Add Photo',
     'post_now' => 'Post Now',
@@ -561,7 +561,7 @@ return [
     'view_all_stories' => 'View All',
     'your_story' => 'Your story',
     'create_story' => 'Create',
-    'whats_on_your_mind' => "What's on your mind?",
+    'whats_on_your_mind' => 'Who are you?',
     'photo' => 'Photo',
     'media' => 'Media',
     'public' => 'Public',
@@ -962,4 +962,5 @@ return [
     'call_start_failed'     => 'Could not start the call. Please try again.',
 
     'in_community'          => 'in',
+    'back_to_feed'          => 'Back to feed',
 ];

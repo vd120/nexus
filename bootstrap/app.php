@@ -53,7 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Except session cookies from encryption for handover compatibility
         $middleware->validateCsrfTokens(except: [
             '/call/*/reject',
+            '/call/*/accept',
             '/chat/confirm-delivery',
+            '/api/push/subscribe',
         ]);
 
         $middleware->encryptCookies(except: [

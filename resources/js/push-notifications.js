@@ -90,15 +90,25 @@ class PushNotificationManager {
      * Get VAPID public key from server
      */
     async getVapidKey() {
+        const VAPID_CACHE_KEY = 'nexus_vapid_pub';
         try {
-            const response = await fetch('/api/push/vapid-key');
-            const data = await response.json();
-            
-            if (data.configured && data.public_key) {
-                this.vapidPublicKey = data.public_key;
+            const cached = localStorage.getItem(VAPID_CACHE_KEY);
+            if (cached) {
+                this.vapidPublicKey = cached;
                 return true;
             }
-            
+            const response = await fetch('/api/push/vapid-key', {
+                credentials: 'omit',
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await response.json();
+
+            if (data.configured && data.public_key) {
+                this.vapidPublicKey = data.public_key;
+                localStorage.setItem(VAPID_CACHE_KEY, data.public_key);
+                return true;
+            }
+
             console.warn('[Push] Push notifications not configured on server');
             return false;
         } catch (error) {

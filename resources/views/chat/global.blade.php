@@ -78,9 +78,11 @@
     }
 
     @media (max-width: 768px) {
-        .chat-page, .global-chat-page {
+        .chat-page {
             height: calc(100vh - 48px);
             height: calc(100dvh - 48px);
+        }
+        .chat-page, .global-chat-page {
             overflow: hidden;
         }
 
@@ -472,13 +474,6 @@
 
 @push('scripts')
     <script>
-        // Lock body scroll for chat page to prevent dual scrolling
-        document.body.style.overflow = 'hidden';
-        // Clean up on leave
-        window.addEventListener('beforeunload', () => {
-            document.body.style.overflow = 'auto';
-        });
-
         // Set global variables for Socket Manager
         window.activeConversationId = 'global-chat';
         window.isGroupChat = true;
