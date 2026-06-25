@@ -177,6 +177,10 @@ $chatTitle = $isGroup
                             onclick="window.e2eManager?.handleRecover()">
                             {{ __('chat.e2e_recover') }}
                         </button>
+                        <button id="e2e-recover-reset-btn" class="e2e-btn e2e-btn-ghost"
+                            onclick="window.e2eManager?.handleResetKeysAndStartFresh()">
+                            {{ __('chat.e2e_forgot_passphrase_reset') }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -5122,10 +5126,15 @@ async function processMessageQueue() {
 
     const body = {};
     if (encryptedPromise) {
-        const encrypted = await encryptedPromise;
-        if (encrypted) {
-            body.content = JSON.stringify(encrypted);
-        } else {
+        try {
+            const encrypted = await encryptedPromise;
+            if (encrypted) {
+                body.content = JSON.stringify(encrypted);
+            } else {
+                body.content = messageData.content;
+            }
+        } catch (encErr) {
+            console.error("[E2E] Failed to encrypt message, falling back to plaintext:", encErr);
             body.content = messageData.content;
         }
     } else {
@@ -8728,7 +8737,7 @@ async function decryptSidebarPreviews() {
             el.style.background = 'none';
             el.style.opacity = '1';
         } catch (e) {
-            console.error('Failed to decrypt sidebar preview:', e);
+            console.warn('Failed to decrypt sidebar preview:', e);
             el.textContent = prefix + '🔒 ' + ('{{ __('chat.e2e_encrypted') }}' || 'Encrypted message');
             el.style.display = 'inline';
             el.style.background = 'none';
@@ -8739,31 +8748,49 @@ async function decryptSidebarPreviews() {
 
 async function initE2EShow() {
     const chatContainer = document.getElementById('chatMessages');
+    const input = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+
+    if (input) input.disabled = true;
+    if (sendButton) sendButton.disabled = true;
+
     try {
         const e2e = await getManager();
         if (!e2e) {
             console.warn('E2E encryption not supported or not loaded in this browser');
+            if (input) input.disabled = false;
+            if (sendButton) sendButton.disabled = false;
             return;
         }
 
         const hasKeys = await e2e.db.hasKeys();
         if (!hasKeys) {
-            // First-time user: no messages to decrypt yet, so blocking setup is fine
-            await e2e.ensureKeys();
-            await e2e.registerKeys();
+            // No local keys — check server backup first before generating new ones.
+            // Generating new keys then discovering a backup exists would make old
+            // messages unreadable (new private key can't decrypt old ciphertext).
             const hasBackup = await e2e.hasBackup();
-            if (!hasBackup) {
+            if (hasBackup) {
+                // User is on a new device and has a server backup — prompt recovery.
+                const recoveryBanner = document.getElementById('e2e-recovery-banner');
+                if (recoveryBanner) recoveryBanner.style.display = 'block';
+                // Note: Chat input remains disabled until they recover their keys
+            } else {
+                // Genuinely new user — safe to generate and register fresh keys.
+                await e2e.ensureKeys();
+                await e2e.registerKeys();
                 const banner = document.getElementById('e2e-key-setup-banner');
                 if (banner && !sessionStorage.getItem('e2e_banner_dismissed')) {
                     banner.style.display = 'block';
                 }
+                if (input) input.disabled = false;
+                if (sendButton) sendButton.disabled = false;
             }
         } else {
-            // Existing user: run key maintenance in background — don't block decrypt/reveal
+            // Existing user with local keys: run key maintenance in background.
             (async () => {
                 try {
                     const myUserId = {{ auth()->id() }};
-                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}`, {
+                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}?t=${Date.now()}`, {
                         headers: { 'Accept': 'application/json' }
                     });
                     if (checkResp.status === 404) {
@@ -8781,18 +8808,11 @@ async function initE2EShow() {
                         const identityRecord = await e2e.db.get('user-keys', 'identity');
                         identityRecord.backup_status = true;
                         await e2e.db.put('user-keys', identityRecord);
-                    } else {
-                        const recoveryBanner = document.getElementById('e2e-recovery-banner');
-                        if (recoveryBanner) recoveryBanner.style.display = 'none';
                     }
                 }
-
-                const hasBackup = await e2e.hasBackup();
-                if (hasBackup) {
-                    const recoveryBanner = document.getElementById('e2e-recovery-banner');
-                    if (recoveryBanner) recoveryBanner.style.display = 'none';
-                }
             })();
+            if (input) input.disabled = false;
+            if (sendButton) sendButton.disabled = false;
         }
 
         const wasNearBottom = chatContainer
@@ -8809,6 +8829,8 @@ async function initE2EShow() {
         }
     } catch (err) {
         console.error('E2E initialization error:', err);
+        if (input) input.disabled = false;
+        if (sendButton) sendButton.disabled = false;
     } finally {
         // Always reveal — even if init/decrypt fails, never leave chat blank
         if (chatContainer) chatContainer.style.opacity = '1';
@@ -8830,13 +8852,31 @@ document.addEventListener('turbo:load', initE2EShow);
 let lastKeyFingerprint = null;
 
 async function startKeyChangePolling(recipientId) {
-    // Cache the initial fingerprint immediately
+    // Cache the initial fingerprint immediately and check if it changed since last cache
     try {
-        const resp = await fetch(`/api/e2e/keys/${recipientId}`);
+        const resp = await fetch(`/api/e2e/keys/${recipientId}?t=${Date.now()}`);
         if (resp.ok) {
             const data = await resp.json();
-            if (data.success) {
-                lastKeyFingerprint = data.ecdh_public_key?.x + data.ecdh_public_key?.y;
+            if (data.success && window.e2eManager) {
+                const currentFingerprint = data.ecdh_public_key?.x + data.ecdh_public_key?.y;
+                
+                // Compare with cached key in IndexedDB
+                const cached = await window.e2eManager.db.getPeerKeys(recipientId);
+                if (cached) {
+                    const cachedPub = await window.CryptoCore.exportPublicKey(cached.ecdh_public_key);
+                    const cachedFingerprint = cachedPub?.x + cachedPub?.y;
+                    if (cachedFingerprint && currentFingerprint !== cachedFingerprint) {
+                        console.log('[E2E] Peer key changed since cache. Invalidating cache...');
+                        await window.e2eManager.invalidatePeerCache(recipientId);
+                        try {
+                            await window.e2eManager._getSharedSecret(recipientId);
+                        } catch (e) {
+                            console.error('Failed to pre-derive shared secret after key rotation:', e);
+                        }
+                        showKeyChangeAlert();
+                    }
+                }
+                lastKeyFingerprint = currentFingerprint;
             }
         }
     } catch (_) {}
@@ -8845,7 +8885,7 @@ async function startKeyChangePolling(recipientId) {
     setInterval(async () => {
         if (!recipientId) return;
         try {
-            const resp = await fetch(`/api/e2e/keys/${recipientId}`);
+            const resp = await fetch(`/api/e2e/keys/${recipientId}?t=${Date.now()}`);
             if (!resp.ok) return;
             const data = await resp.json();
             if (!data.success) return;
@@ -8943,6 +8983,51 @@ window.e2eManager.handleRecover = async function() {
     } catch (err) {
         console.error('Recovery failed:', err);
         alert('{{ __('chat.e2e_recovery_failed') }}');
+    }
+};
+
+window.e2eManager.handleResetKeysAndStartFresh = async function() {
+    const newPass = prompt("You are resetting your E2E keys. You will lose access to older messages. Enter a new backup passphrase to secure your new keys (minimum 8 characters):");
+    if (newPass === null) return;
+
+    const trimmedPass = newPass.trim();
+    if (trimmedPass.length < 8) {
+        alert('{{ __('chat.e2e_passphrase_min_length') }}');
+        return;
+    }
+
+    const btn = document.getElementById('e2e-recover-reset-btn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const manager = window.e2eManager;
+        const response = await fetch("/api/e2e/keys/reset", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
+            }
+        });
+        if (!response.ok) {
+            throw new Error('Failed to reset keys on server');
+        }
+
+        await manager.db.clear("user-keys");
+        await manager.db.clear("peer-keys");
+        await manager.db.clear("group-keys");
+
+        await manager.generateKeys();
+        await manager.registerKeys();
+        await manager.backupKeys(trimmedPass);
+
+        if (typeof showToast === 'function') {
+            showToast('Keys reset and new backup set successfully!', 'success');
+        }
+        location.reload();
+    } catch (err) {
+        console.error('Reset failed:', err);
+        alert('Failed to reset E2E keys. Please try again.');
+        if (btn) btn.disabled = false;
     }
 };
 </script>

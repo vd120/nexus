@@ -176,4 +176,35 @@ class E2EKeyTest extends TestCase
 
         Storage::disk('local')->assertExists("keys/users/{$this->user->id}/backup_private_key.json");
     }
+
+    public function test_user_can_reset_keys_and_backup(): void
+    {
+        $service = app(KeyStorageService::class);
+        $service->storePublicKeys($this->user->id, [
+            'ecdh_public_key' => [
+                'kty' => 'EC',
+                'crv' => 'P-256',
+                'x' => 'MKBCTGlcRqwY7aC7VtB4xKQxWqGqY3gzj0RfqFj6JzI',
+                'y' => '4Etl6SRW2YiLUrn5mGCm3G7Jz2i8jOfgGJX9YwZ7lQM',
+            ],
+            'ecdsa_public_key' => [
+                'kty' => 'EC',
+                'crv' => 'P-256',
+                'x' => 'hGo5K1S40Xx8G0kP0E1wN9yQWzF6vB2mR7dL4tY8cJk',
+                'y' => 'cJu2K69R3Dq8pAz5sW7xE4bN6mY0vC2fH9gL1tR5sX3w',
+            ],
+        ]);
+        $service->storeBackupKeys($this->user->id, 'ciphertext', 'salt', 'iv');
+
+        Storage::disk('local')->assertExists("keys/users/{$this->user->id}/public_keys.json");
+        Storage::disk('local')->assertExists("keys/users/{$this->user->id}/backup_private_key.json");
+
+        $this->actingAs($this->user)
+            ->postJson('/api/e2e/keys/reset')
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        Storage::disk('local')->assertMissing("keys/users/{$this->user->id}/public_keys.json");
+        Storage::disk('local')->assertMissing("keys/users/{$this->user->id}/backup_private_key.json");
+    }
 }

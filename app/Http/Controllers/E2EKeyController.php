@@ -120,6 +120,12 @@ class E2EKeyController extends Controller
         ]);
     }
 
+    public function checkBackupStatus(Request $request): JsonResponse
+    {
+        $exists = $this->keyStorage->getBackupKeys($request->user()->id) !== null;
+        return response()->json(['exists' => $exists]);
+    }
+
     public function getBackup(Request $request): JsonResponse
     {
         $rateLimit = $this->checkRecoveryRateLimit($request);
@@ -143,6 +149,24 @@ class E2EKeyController extends Controller
             'ciphertext' => $backup['ciphertext'],
             'salt' => $backup['salt'],
             'iv' => $backup['iv'],
+        ]);
+    }
+
+    public function resetKeys(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $deleted = $this->keyStorage->deleteUserKeys($user->id);
+
+        if (!$deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete E2E keys and backup',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'E2E keys and backup reset successfully',
         ]);
     }
 

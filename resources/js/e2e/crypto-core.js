@@ -151,7 +151,7 @@ export class CryptoCore {
 
     static async exportPublicKey(key) {
         if (!key) return null;
-        if (!(key instanceof CryptoKey)) {
+        if (typeof key === "object" && "kty" in key) {
             return {
                 kty: key.kty,
                 crv: key.crv,
@@ -179,6 +179,10 @@ export class CryptoCore {
     }
 
     static async exportPrivateKey(key) {
+        if (!key) return null;
+        if (typeof key === "object" && "kty" in key) {
+            return key;
+        }
         return window.crypto.subtle.exportKey("jwk", key);
     }
 

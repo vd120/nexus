@@ -169,6 +169,12 @@ function wireForegroundPushToast() {
             return;
         }
         if (!event.data || event.data.type !== "PUSH_FOREGROUND") return;
+        
+        // Skip duplicate toast if WebSocket is connected and already handles notifications
+        if (window.NexusSocket && window.NexusSocket.status === "CONNECTED") {
+            return;
+        }
+
         const payload = event.data.payload || {};
         if (window.showToast) {
             window.showToast(

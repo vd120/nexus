@@ -36,7 +36,8 @@ export class E2EDBManager {
             const tx = this.db.transaction(storeName, "readwrite");
             const store = tx.objectStore(storeName);
             const request = store.put(value);
-            request.onsuccess = () => resolve(request.result);
+            tx.oncomplete = () => resolve(request.result);
+            tx.onerror = () => reject(tx.error || request.error);
             request.onerror = () => reject(request.error);
         });
     }
@@ -69,7 +70,8 @@ export class E2EDBManager {
             const tx = this.db.transaction(storeName, "readwrite");
             const store = tx.objectStore(storeName);
             const request = store.delete(key);
-            request.onsuccess = () => resolve();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error || request.error);
             request.onerror = () => reject(request.error);
         });
     }
@@ -80,14 +82,24 @@ export class E2EDBManager {
             const tx = this.db.transaction(storeName, "readwrite");
             const store = tx.objectStore(storeName);
             const request = store.clear();
-            request.onsuccess = () => resolve();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error || request.error);
             request.onerror = () => reject(request.error);
         });
     }
 
     async hasKeys() {
-        const keys = await this.getAll("user-keys");
-        return keys.length >= 2;
+        const identity = await this.getIdentityKey();
+        const prekey = await this.getPrekey();
+        
+        const isIdentityExtractable = identity && identity.private_key && 
+            (identity.private_key.extractable !== false);
+            
+        const isPrekeyExtractable = prekey && prekey.private_key && 
+            (prekey.private_key.extractable !== false);
+            
+        return !!(identity && identity.private_key && isIdentityExtractable &&
+                  prekey && prekey.private_key && isPrekeyExtractable);
     }
 
     async getIdentityKey() {

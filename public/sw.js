@@ -94,7 +94,7 @@ async function decryptMessage(key, ciphertextB64, ivB64) {
 
 async function fetchPeerKeys(db, userId) {
   try {
-    const response = await fetch(`/api/e2e/keys/${userId}`, {
+    const response = await fetch(`/api/e2e/keys/${userId}?t=${Date.now()}`, {
       headers: { 'Accept': 'application/json' }
     });
     if (!response.ok) return null;
@@ -232,13 +232,40 @@ async function decryptPushPayload(data) {
     let peerKeys = await getStoreItem(db, 'peer-keys', senderId);
     let peerEcdhKey;
     
-    if (peerKeys && peerKeys.ecdh_public_key instanceof CryptoKey) {
-      peerEcdhKey = peerKeys.ecdh_public_key;
-    } else {
-      console.log('[SW E2E] Peer ECDH key not found in IndexedDB. Fetching peer keys...');
-      const freshKeys = await fetchPeerKeys(db, senderId);
-      if (freshKeys) {
-        peerEcdhKey = freshKeys.ecdh_public_key;
+    if (envelope.sender_ecdh_key && envelope.recipient_ecdh_key) {
+      try {
+        peerEcdhKey = await importPublicKey(
+          envelope.sender_ecdh_key,
+          { name: "ECDH", namedCurve: "P-256" },
+          []
+        );
+      } catch (err) {
+        console.warn('[SW E2E] Failed to import payload public key:', err);
+      }
+    }
+
+    if (!peerEcdhKey) {
+      let keyIdMatches = false;
+      if (peerKeys && peerKeys.ecdsa_public_key instanceof CryptoKey && envelope.key_id) {
+        try {
+          const exported = await self.crypto.subtle.exportKey("jwk", peerKeys.ecdsa_public_key);
+          const msgPub = JSON.parse(atob(envelope.key_id));
+          if (msgPub && msgPub.x === exported.x && msgPub.y === exported.y) {
+            keyIdMatches = true;
+          }
+        } catch (err) {
+          console.warn('[SW E2E] Failed to compare public keys:', err);
+        }
+      }
+
+      if (peerKeys && peerKeys.ecdh_public_key instanceof CryptoKey && (!envelope.key_id || keyIdMatches)) {
+        peerEcdhKey = peerKeys.ecdh_public_key;
+      } else {
+        console.log('[SW E2E] Peer key mismatch or not found in IndexedDB. Fetching peer keys...');
+        const freshKeys = await fetchPeerKeys(db, senderId);
+        if (freshKeys) {
+          peerEcdhKey = freshKeys.ecdh_public_key;
+        }
       }
     }
     
@@ -448,7 +475,7 @@ self.addEventListener('fetch', (event) => {
   let url;
   try { url = new URL(event.request.url); } catch (e) { return; }
 
-  // Skip SW for sensitive/dynamic routes
+  // Skip SW for sensitive/dynamic routes and build assets
   if (url.pathname.startsWith('/login') ||
       url.pathname.startsWith('/register') ||
       url.pathname.startsWith('/logout') ||
@@ -457,6 +484,7 @@ self.addEventListener('fetch', (event) => {
       url.pathname.startsWith('/chat') ||
       url.pathname.startsWith('/admin') ||
       url.pathname.startsWith('/socket.io/') ||
+      url.pathname.startsWith('/build/') ||
       url.pathname.match(/\.(mp4|webm|ogg|wav|mp3)$/i)) {
     return;
   }

@@ -747,7 +747,7 @@ async function decryptSidebarPreviews() {
             el.textContent = prefix + displayText;
             el.style.opacity = '1';
         } catch (e) {
-            console.error('Failed to decrypt sidebar preview:', e);
+            console.warn('Failed to decrypt sidebar preview:', e);
             el.textContent = prefix + '🔒 ' + ('{{ __('chat.e2e_encrypted') }}' || 'Encrypted message');
             el.style.opacity = '1';
         }
@@ -771,7 +771,7 @@ async function initE2E() {
             (async () => {
                 try {
                     const myUserId = {{ auth()->id() }};
-                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}`, {
+                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}?t=${Date.now()}`, {
                         headers: { 'Accept': 'application/json' }
                     });
                     if (checkResp.status === 404) {

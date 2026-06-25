@@ -501,7 +501,9 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::prefix('api/e2e')->name('api.e2e.')->group(function () {
         Route::post('/keys/register', [App\Http\Controllers\E2EKeyController::class, 'registerKeys'])->name('keys.register');
         Route::post('/keys/backup', [App\Http\Controllers\E2EKeyController::class, 'uploadBackup'])->name('keys.backup');
+        Route::get('/keys/backup/status', [App\Http\Controllers\E2EKeyController::class, 'checkBackupStatus'])->name('keys.backup.status');
         Route::get('/keys/backup', [App\Http\Controllers\E2EKeyController::class, 'getBackup'])->name('keys.backup.get');
+        Route::post('/keys/reset', [App\Http\Controllers\E2EKeyController::class, 'resetKeys'])->name('keys.reset');
         Route::get('/keys/{userId}', [App\Http\Controllers\E2EKeyController::class, 'getPublicKeys'])->name('keys.get');
         Route::post('/group-keys/update', [App\Http\Controllers\E2EKeyController::class, 'updateGroupKeys'])->name('group-keys.update');
         Route::get('/group-keys/{conversationId}', [App\Http\Controllers\E2EKeyController::class, 'getGroupKeys'])->name('group-keys.get');

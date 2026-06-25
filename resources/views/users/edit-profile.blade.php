@@ -288,7 +288,7 @@
         {{-- Security --}}
         <div class="edit-card">
             <h3><i class="fas fa-shield-alt"></i> {{ __('users.security_settings') }}</h3>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 20px;">
                 <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
                     {{ __('users.change_password_desc') }}
                 </p>
@@ -296,6 +296,7 @@
                     <i class="fas fa-key" style="color: var(--primary);"></i> {{ __('messages.change_password') }}
                 </a>
             </div>
+            @include('profile.security')
         </div>
 
 

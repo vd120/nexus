@@ -12,6 +12,8 @@ export class E2EManager {
         this._groupKeyCache = new Map(); // keyId → CryptoKey (imported AES-GCM)
         this._backupStatus = null; // null = unknown, true/false = cached
         this._prekey = null; // cached prekey — avoids DB read per message
+        this._activeFetches = new Map(); // userId → Promise
+        this._legacyKeyIds = new Set(); // keyId → boolean (known rotated/legacy keys)
 
         // Eagerly open DB and pre-warm caches while page is still rendering.
         // Module scripts run before DOMContentLoaded, so by the time the
@@ -60,6 +62,57 @@ export class E2EManager {
                 // Non-fatal — init() will retry
             }
         })();
+
+        if (typeof window !== "undefined") {
+            window.addEventListener("storage", async (event) => {
+                if (event.key === "e2e_keys_updated") {
+                    console.log("[E2E] Keys updated in another tab. Reloading keys and invalidating caches...");
+                    await this.reloadLocalKeys();
+                }
+            });
+        }
+    }
+
+    async reloadLocalKeys() {
+        this._prekey = null;
+        this._sharedSecretCache.clear();
+        this._peerKeyCache.clear();
+        this._groupKeyCache.clear();
+        this._backupStatus = null;
+        this._legacyKeyIds.clear();
+
+        this._prekey = await this.db.getPrekey();
+
+        if (
+            this._prekey &&
+            !window.isGroupChat &&
+            window.activeRecipientId
+        ) {
+            try {
+                await this._getSharedSecret(window.activeRecipientId);
+            } catch (_) {}
+        }
+
+        if (typeof window.decryptMessageElements === "function") {
+            try {
+                await window.decryptMessageElements();
+            } catch (_) {}
+        }
+        if (typeof window.decryptSidebarPreviews === "function") {
+            try {
+                await window.decryptSidebarPreviews();
+            } catch (_) {}
+        }
+
+        const hasKeys = await this.db.hasKeys();
+        if (hasKeys) {
+            const recoveryBanner = document.getElementById('e2e-recovery-banner');
+            if (recoveryBanner) recoveryBanner.style.display = 'none';
+            const input = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            if (input) input.disabled = false;
+            if (sendButton) sendButton.disabled = false;
+        }
     }
 
     async init() {
@@ -90,6 +143,10 @@ export class E2EManager {
         this._prekey = null;
         this._sharedSecretCache.clear();
         this._peerKeyCache.clear();
+
+        if (typeof window !== "undefined") {
+            localStorage.setItem('e2e_keys_updated', Date.now());
+        }
     }
 
     async registerKeys() {
@@ -135,39 +192,53 @@ export class E2EManager {
         // 2. IndexedDB cache (survives page refresh, valid 24h)
         const cached = await this.db.getPeerKeys(uid);
         if (cached && Date.now() - cached.fetched_at < 86400000) {
-            const isEcdsaKey = cached.ecdsa_public_key instanceof CryptoKey;
-            const isEcdhKey = cached.ecdh_public_key instanceof CryptoKey;
+            const isEcdsaKey = cached.ecdsa_public_key && (cached.ecdsa_public_key instanceof CryptoKey || (typeof cached.ecdsa_public_key === "object" && "type" in cached.ecdsa_public_key));
+            const isEcdhKey = cached.ecdh_public_key && (cached.ecdh_public_key instanceof CryptoKey || (typeof cached.ecdh_public_key === "object" && "type" in cached.ecdh_public_key));
             if (isEcdsaKey && isEcdhKey) {
+                if (!cached.fetched_at) cached.fetched_at = Date.now();
                 this._peerKeyCache.set(uid, cached);
                 return cached;
             }
         }
 
-        // 3. Network fetch
-        const response = await fetch(`/api/e2e/keys/${userId}`, {
-            headers: { Accept: "application/json" },
-        });
+        // 3. Deduplicated Network fetch
+        if (this._activeFetches.has(uid)) {
+            return this._activeFetches.get(uid);
+        }
 
-        if (!response.ok) throw new Error("Failed to fetch peer keys");
-        const data = await response.json();
+        const fetchPromise = (async () => {
+            try {
+                const response = await fetch(`/api/e2e/keys/${userId}?t=${Date.now()}`, {
+                    headers: { Accept: "application/json" },
+                });
 
-        const [ecdhKey, ecdsaKey] = await Promise.all([
-            CryptoCore.importPublicKey(
-                data.ecdh_public_key,
-                { name: "ECDH", namedCurve: "P-256" },
-                [],
-            ),
-            CryptoCore.importPublicKey(
-                data.ecdsa_public_key,
-                { name: "ECDSA", namedCurve: "P-256" },
-                ["verify"],
-            ),
-        ]);
+                if (!response.ok) throw new Error("Failed to fetch peer keys");
+                const data = await response.json();
 
-        const keys = { ecdh_public_key: ecdhKey, ecdsa_public_key: ecdsaKey };
-        this._peerKeyCache.set(uid, keys);
-        await this.db.storePeerKeys(uid, ecdhKey, ecdsaKey);
-        return keys;
+                const [ecdhKey, ecdsaKey] = await Promise.all([
+                    CryptoCore.importPublicKey(
+                        data.ecdh_public_key,
+                        { name: "ECDH", namedCurve: "P-256" },
+                        [],
+                    ),
+                    CryptoCore.importPublicKey(
+                        data.ecdsa_public_key,
+                        { name: "ECDSA", namedCurve: "P-256" },
+                        ["verify"],
+                    ),
+                ]);
+
+                const keys = { ecdh_public_key: ecdhKey, ecdsa_public_key: ecdsaKey, fetched_at: Date.now() };
+                this._peerKeyCache.set(uid, keys);
+                await this.db.storePeerKeys(uid, ecdhKey, ecdsaKey);
+                return keys;
+            } finally {
+                this._activeFetches.delete(uid);
+            }
+        })();
+
+        this._activeFetches.set(uid, fetchPromise);
+        return fetchPromise;
     }
 
     async invalidatePeerCache(userId) {
@@ -219,6 +290,19 @@ export class E2EManager {
         const pubKey = await CryptoCore.exportPublicKey(identity.public_key);
         const keyId = btoa(JSON.stringify(pubKey));
 
+        // Get sender and recipient ECDH keys to attach to the payload
+        let myEcdhPub = null;
+        let peerEcdhPub = null;
+        try {
+            const myPrekey = this._prekey || (await this.db.getPrekey());
+            myEcdhPub = await CryptoCore.exportPublicKey(myPrekey.public_key);
+            
+            const peer = await this.fetchPeerKeys(recipientId);
+            peerEcdhPub = await CryptoCore.exportPublicKey(peer.ecdh_public_key);
+        } catch (e) {
+            console.warn("[E2E] Failed to export ECDH keys for payload binding:", e);
+        }
+
         return {
             __nexus_encrypted__: true,
             version: 1,
@@ -228,6 +312,8 @@ export class E2EManager {
             iv,
             signature,
             key_id: keyId,
+            sender_ecdh_key: myEcdhPub,
+            recipient_ecdh_key: peerEcdhPub,
         };
     }
 
@@ -245,7 +331,42 @@ export class E2EManager {
             (String(senderId) === String(myId)
                 ? window.activeRecipientId || senderId
                 : senderId);
-        let sharedSecret = await this._getSharedSecret(resolvedPeerId);
+        
+        let peer = null;
+        let sharedSecret = null;
+
+        // If the payload contains the public ECDH keys, we can import them directly to derive the shared secret.
+        // This ensures historical messages remain decryptable even if user keys rotate.
+        if (encryptedPayload.sender_ecdh_key && encryptedPayload.recipient_ecdh_key) {
+            try {
+                const targetEcdhPubJwk = String(senderId) === String(myId)
+                    ? encryptedPayload.recipient_ecdh_key
+                    : encryptedPayload.sender_ecdh_key;
+
+                const peerEcdhKey = await CryptoCore.importPublicKey(
+                    targetEcdhPubJwk,
+                    { name: "ECDH", namedCurve: "P-256" },
+                    []
+                );
+
+                const prekey = this._prekey || (await this.db.getPrekey());
+                if (!prekey) throw new Error("No local prekey");
+                if (!this._prekey) this._prekey = prekey;
+
+                sharedSecret = await CryptoCore.deriveSharedSecret(
+                    prekey.private_key,
+                    peerEcdhKey
+                );
+            } catch (err) {
+                console.warn("[E2E] Failed to derive shared secret using payload public keys, falling back to standard lookup:", err);
+            }
+        }
+
+        // Standard fallback if we couldn't derive it from payload keys
+        if (!sharedSecret) {
+            peer = await this.fetchPeerKeys(resolvedPeerId);
+            sharedSecret = await this._getSharedSecret(resolvedPeerId);
+        }
 
         // Verify signature (sender identity check — soft fail on key rotation)
         let senderPubKey;
@@ -253,8 +374,52 @@ export class E2EManager {
             const identity = await this.db.getIdentityKey();
             senderPubKey = identity.public_key;
         } else {
-            const peer = await this.fetchPeerKeys(resolvedPeerId);
+            if (!peer) {
+                peer = await this.fetchPeerKeys(resolvedPeerId);
+            }
             senderPubKey = peer.ecdsa_public_key;
+
+            if (encryptedPayload.key_id) {
+                const cachedPub = await CryptoCore.exportPublicKey(senderPubKey);
+                let isMatch = false;
+                try {
+                    const msgPub = JSON.parse(atob(encryptedPayload.key_id));
+                    if (msgPub && msgPub.x === cachedPub.x && msgPub.y === cachedPub.y) {
+                        isMatch = true;
+                    }
+                } catch (e) {}
+
+                if (!isMatch) {
+                    if (!this._legacyKeyIds.has(encryptedPayload.key_id)) {
+                        console.log("[E2E] Message key_id mismatch. Invalidation triggered!");
+                        await this.invalidatePeerCache(resolvedPeerId);
+                        peer = await this.fetchPeerKeys(resolvedPeerId);
+                        senderPubKey = peer.ecdsa_public_key;
+                        
+                        // Only re-derive standard secret if we're not using payload-bound keys
+                        if (!encryptedPayload.sender_ecdh_key || !encryptedPayload.recipient_ecdh_key) {
+                            sharedSecret = await this._getSharedSecret(resolvedPeerId);
+                        }
+
+                        // Check if the fresh key we fetched is still different from the message's key
+                        const freshPub = await CryptoCore.exportPublicKey(senderPubKey);
+                        let isFreshMatch = false;
+                        try {
+                            const msgPub = JSON.parse(atob(encryptedPayload.key_id));
+                            if (msgPub && msgPub.x === freshPub.x && msgPub.y === freshPub.y) {
+                                isFreshMatch = true;
+                            }
+                        } catch (e) {}
+
+                        if (!isFreshMatch) {
+                            console.log(`[E2E] Key ID ${encryptedPayload.key_id} is legacy. Marking as legacy.`);
+                            this._legacyKeyIds.add(encryptedPayload.key_id);
+                        }
+                    } else {
+                        console.log(`[E2E] Skipping invalidation for known legacy Key ID: ${encryptedPayload.key_id}`);
+                    }
+                }
+            }
         }
 
         let isValid = await CryptoCore.verifySignature(
@@ -277,6 +442,11 @@ export class E2EManager {
             if (!isValid) decrypted._signatureWarning = true;
             return decrypted;
         } catch (err) {
+            if (encryptedPayload.key_id && this._legacyKeyIds.has(encryptedPayload.key_id)) {
+                // Known legacy key, do not invalidate or retry.
+                throw err;
+            }
+
             console.warn(
                 "[E2E] Decryption failed, potential key mismatch. Invalidating cache and retrying...",
                 err,
@@ -285,13 +455,23 @@ export class E2EManager {
             // Invalidate cache
             await this.invalidatePeerCache(resolvedPeerId);
 
-            // Fetch fresh keys & derive new secret
-            const peer = await this.fetchPeerKeys(resolvedPeerId);
-            sharedSecret = await this._getSharedSecret(resolvedPeerId);
+            // Fetch fresh keys & derive new secret (only if not using payload-bound keys)
+            let retrySharedSecret = sharedSecret;
+            if (!encryptedPayload.sender_ecdh_key || !encryptedPayload.recipient_ecdh_key) {
+                const freshPeer = await this.fetchPeerKeys(resolvedPeerId);
+                retrySharedSecret = await this._getSharedSecret(resolvedPeerId);
+                if (String(senderId) !== String(myId)) {
+                    senderPubKey = freshPeer.ecdsa_public_key;
+                }
+            } else {
+                const freshPeer = await this.fetchPeerKeys(resolvedPeerId);
+                if (String(senderId) !== String(myId)) {
+                    senderPubKey = freshPeer.ecdsa_public_key;
+                }
+            }
 
             // Re-verify signature with fresh public key
             if (String(senderId) !== String(myId)) {
-                senderPubKey = peer.ecdsa_public_key;
                 isValid = await CryptoCore.verifySignature(
                     senderPubKey,
                     encryptedPayload.ciphertext,
@@ -299,9 +479,25 @@ export class E2EManager {
                 );
             }
 
+            // Mark as legacy if it still doesn't match
+            if (encryptedPayload.key_id) {
+                const freshPub = await CryptoCore.exportPublicKey(senderPubKey);
+                let isFreshMatch = false;
+                try {
+                    const msgPub = JSON.parse(atob(encryptedPayload.key_id));
+                    if (msgPub && msgPub.x === freshPub.x && msgPub.y === freshPub.y) {
+                        isFreshMatch = true;
+                    }
+                } catch (e) {}
+
+                if (!isFreshMatch) {
+                    this._legacyKeyIds.add(encryptedPayload.key_id);
+                }
+            }
+
             // Retry decryption
             const decrypted = await CryptoCore.decryptMessage(
-                sharedSecret,
+                retrySharedSecret,
                 encryptedPayload.ciphertext,
                 encryptedPayload.iv,
             );
@@ -413,6 +609,10 @@ export class E2EManager {
         await this.db.put("user-keys", identityRecord);
         this._backupStatus = true;
 
+        if (typeof window !== "undefined") {
+            localStorage.setItem('e2e_keys_updated', Date.now());
+        }
+
         return true;
     }
 
@@ -429,12 +629,17 @@ export class E2EManager {
             }
         } catch (_) {}
 
-        // Fall back to network check
+        // Fall back to network check (status endpoint — no rate limit, no key data)
         try {
-            const response = await fetch("/api/e2e/keys/backup", {
+            const response = await fetch("/api/e2e/keys/backup/status", {
                 headers: { Accept: "application/json" },
             });
-            this._backupStatus = response.ok;
+            if (response.ok) {
+                const data = await response.json();
+                this._backupStatus = data.exists === true;
+            } else {
+                this._backupStatus = false;
+            }
             return this._backupStatus;
         } catch {
             return false;

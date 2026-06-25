@@ -1485,7 +1485,7 @@
                     }
                 }
             } catch (err) {
-                console.error("[E2E] Failed to decrypt dropdown notification item:", err);
+                console.warn("[E2E] Failed to decrypt dropdown notification item:", err);
             }
         }
 

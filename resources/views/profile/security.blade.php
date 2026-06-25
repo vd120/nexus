@@ -42,12 +42,41 @@
                     <i class="fas fa-sync-alt"></i> {{ __('Update Passphrase') }}
                 </button>
 
+                <button type="button" id="e2e-reset-passphrase-btn" class="btn btn-outline-warning"
+                    onclick="window.handleE2EPassphraseReset()">
+                    <i class="fas fa-exclamation-triangle"></i> {{ __('chat.e2e_forgot_passphrase_reset') }}
+                </button>
+
                 <div id="e2e-passphrase-result" class="e2e-result" style="display:none;"></div>
             </form>
         @else
             <p class="e2e-status e2e-status-not-backed-up">
-                <i class="fas fa-exclamation-triangle"></i> {{ __('You have not set a backup passphrase yet. Go to chat to set one up.') }}
+                <i class="fas fa-exclamation-triangle"></i> {{ __('chat.e2e_set_backup_description') }}
             </p>
+
+            <form id="e2e-setup-passphrase-form" onsubmit="return false;">
+                @csrf
+                <div class="field">
+                    <label for="e2e-setup-passphrase">{{ __('chat.e2e_passphrase_label') }}</label>
+                    <input type="password" id="e2e-setup-passphrase" class="e2e-input"
+                        placeholder="{{ __('chat.e2e_passphrase_placeholder') }}"
+                        autocomplete="new-password" />
+                </div>
+
+                <div class="field">
+                    <label for="e2e-setup-confirm-passphrase">{{ __('chat.e2e_confirm_passphrase_label') }}</label>
+                    <input type="password" id="e2e-setup-confirm-passphrase" class="e2e-input"
+                        placeholder="{{ __('Confirm your passphrase') }}"
+                        autocomplete="new-password" />
+                </div>
+
+                <button type="button" id="e2e-setup-passphrase-btn" class="btn btn-primary"
+                    onclick="window.handleE2EPassphraseSetup()">
+                    <i class="fas fa-shield-alt"></i> {{ __('chat.e2e_set_backup') }}
+                </button>
+
+                <div id="e2e-passphrase-result" class="e2e-result" style="display:none;"></div>
+            </form>
         @endif
     </div>
 </div>
@@ -118,6 +147,20 @@
     color: #ff3b30;
     border: 1px solid rgba(255, 59, 48, 0.3);
 }
+.btn-outline-warning {
+    background: transparent;
+    color: #e67e22;
+    border: 1px solid #e67e22;
+    transition: all 0.2s;
+}
+.btn-outline-warning:hover {
+    background: #e67e22;
+    color: #fff;
+}
+.btn-outline-warning:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 </style>
 @endpush
 
@@ -178,6 +221,7 @@ window.handleE2EPassphraseUpdate = async function() {
         newInput.value = '';
         confirmInput.value = '';
     } catch (err) {
+        console.error('[E2E Update Error]', err);
         resultEl.className = 'e2e-result error';
         resultEl.textContent = err.message.includes('No backup')
             ? '{{ __('No backup found. Please set up a passphrase from chat first.') }}'
@@ -186,6 +230,162 @@ window.handleE2EPassphraseUpdate = async function() {
     } finally {
         btn.disabled = false;
         btn.textContent = '{{ __('Update Passphrase') }}';
+    }
+};
+
+window.handleE2EPassphraseReset = async function() {
+    const newInput = document.getElementById('e2e-new-passphrase');
+    const confirmInput = document.getElementById('e2e-confirm-passphrase');
+    const resultEl = document.getElementById('e2e-passphrase-result');
+    const btn = document.getElementById('e2e-reset-passphrase-btn');
+
+    const newPass = newInput?.value?.trim();
+    const confirm = confirmInput?.value?.trim();
+
+    if (!newPass || !confirm) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_new_confirm_required') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    if (newPass.length < 8) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_passphrase_min_length') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    if (newPass !== confirm) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_passphrases_mismatch') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    if (!confirm('{{ __('chat.e2e_reset_confirm') }}')) {
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '{{ __('chat.e2e_resetting') }}';
+    resultEl.style.display = 'none';
+
+    try {
+        const manager = new window.E2EManager();
+        await manager.init();
+
+        const hasKeys = await manager.db.hasKeys();
+        if (!hasKeys) {
+            if (!confirm('You do not have E2E keys stored locally on this device. Resetting will generate new keys, and you will lose access to older messages. Do you want to proceed?')) {
+                btn.disabled = false;
+                btn.textContent = '{{ __('chat.e2e_forgot_passphrase_reset') }}';
+                return;
+            }
+
+            const response = await fetch("/api/e2e/keys/reset", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Failed to reset keys on server');
+            }
+
+            await manager.db.clear("user-keys");
+            await manager.db.clear("peer-keys");
+            await manager.db.clear("group-keys");
+
+            await manager.generateKeys();
+            await manager.registerKeys();
+            await manager.backupKeys(newPass);
+        } else {
+            await manager.backupKeys(newPass);
+        }
+
+        resultEl.className = 'e2e-result success';
+        resultEl.textContent = '{{ __('chat.e2e_reset_success') }}';
+        resultEl.style.display = 'block';
+        
+        const currentInput = document.getElementById('e2e-current-passphrase');
+        if (currentInput) currentInput.value = '';
+        newInput.value = '';
+        confirmInput.value = '';
+
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        console.error('[E2E Reset Error]', err);
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_reset_failed') }}';
+        resultEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '{{ __('chat.e2e_forgot_passphrase_reset') }}';
+    }
+};
+
+window.handleE2EPassphraseSetup = async function() {
+    const input = document.getElementById('e2e-setup-passphrase');
+    const confirmInput = document.getElementById('e2e-setup-confirm-passphrase');
+    const resultEl = document.getElementById('e2e-passphrase-result');
+    const btn = document.getElementById('e2e-setup-passphrase-btn');
+
+    const passphrase = input?.value?.trim();
+    const confirm = confirmInput?.value?.trim();
+
+    if (!passphrase || !confirm) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_new_confirm_required') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    if (passphrase.length < 8) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_passphrase_min_length') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    if (passphrase !== confirm) {
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_passphrases_mismatch') }}';
+        resultEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '{{ __('chat.e2e_resetting') }}';
+    resultEl.style.display = 'none';
+
+    try {
+        const manager = new window.E2EManager();
+        await manager.init();
+
+        // Ensure keys exist (generates them if not)
+        await manager.ensureKeys();
+        
+        // Register public keys on server
+        await manager.registerKeys();
+
+        // Backup keys using the passphrase
+        await manager.backupKeys(passphrase);
+
+        resultEl.className = 'e2e-result success';
+        resultEl.textContent = '{{ __('chat.e2e_backup_success') }}';
+        resultEl.style.display = 'block';
+        
+        // Reload page to reflect that backup now exists
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        console.error('[E2E Setup Error]', err);
+        resultEl.className = 'e2e-result error';
+        resultEl.textContent = '{{ __('chat.e2e_backup_failed') }}';
+        resultEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '{{ __('chat.e2e_set_backup') }}';
     }
 };
 </script>
