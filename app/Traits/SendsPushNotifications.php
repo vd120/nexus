@@ -38,11 +38,14 @@ trait SendsPushNotifications
             $title,
             $body,
             $url,
-            [
-                'type'            => $notification->type,
-                'notification_id' => $notification->id,
-                'message_id'      => $notification->data['message_id'] ?? null,
-            ]
+            array_merge(
+                $notification->data ?? [],
+                [
+                    'type'            => $notification->type,
+                    'notification_id' => $notification->id,
+                    'message_id'      => $notification->data['message_id'] ?? null,
+                ]
+            )
         );
     }
 
@@ -90,7 +93,7 @@ trait SendsPushNotifications
             ],
             'message' => [
                 __('notifications.sent_you_message', ['user' => $data['sender_username'] ?? 'Someone']),
-                $data['message_preview'] ?? '',
+                ($data['is_e2e_encrypted'] ?? false) ? '' : ($data['message_preview'] ?? ''),
                 $url,
             ],
             'call', 'incoming_call' => [
@@ -109,8 +112,10 @@ trait SendsPushNotifications
                 $url,
             ],
             'chat_reaction' => [
-                __('notifications.reacted_to_your_message', ['user' => $data['reactor_name'] ?? 'Someone', 'reaction' => $data['reaction_type'] ?? '❤️', 'content' => $data['message_content'] ?? 'message']),
-                $data['message_content'] ?? '',
+                ($data['is_e2e_encrypted'] ?? false)
+                    ? __('notifications.reacted_to_your_message_short', ['user' => $data['reactor_name'] ?? 'Someone', 'reaction' => $data['reaction_type'] ?? '❤️'])
+                    : __('notifications.reacted_to_your_message', ['user' => $data['reactor_name'] ?? 'Someone', 'reaction' => $data['reaction_type'] ?? '❤️', 'content' => $data['message_content'] ?? 'message']),
+                '',
                 $url,
             ],
             'group_post_pending' => [

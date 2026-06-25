@@ -456,7 +456,6 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::delete('/global-chat/message/{message}', [GlobalChatController::class, 'destroy'])->name('global-chat.message.destroy');
 
     Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
-    Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
     Route::get('/api/search-users', [App\Http\Controllers\UserController::class, 'apiSearch'])->name('api.search-users');
     Route::get('/api/search', [App\Http\Controllers\UserController::class, 'search'])->name('api.search');
     Route::get('/api/user/{user}/username', [App\Http\Controllers\UserController::class, 'getUsername'])->name('api.user.username');
@@ -495,7 +494,19 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     // 5. Generic Conversation Catch-all (Must be last)
     Route::get('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'show'])->name('chat.show');
     Route::post('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'store'])->name('chat.store');
+    Route::post('/chat/{conversation}/upload-encrypted-media', [App\Http\Controllers\ChatController::class, 'uploadEncryptedMedia'])->name('chat.upload-encrypted-media');
     Route::delete('/chat/{conversation}', [App\Http\Controllers\ChatController::class, 'deleteConversation'])->name('chat.delete-conversation');
+
+    // E2E Encryption Routes
+    Route::prefix('api/e2e')->name('api.e2e.')->group(function () {
+        Route::post('/keys/register', [App\Http\Controllers\E2EKeyController::class, 'registerKeys'])->name('keys.register');
+        Route::post('/keys/backup', [App\Http\Controllers\E2EKeyController::class, 'uploadBackup'])->name('keys.backup');
+        Route::get('/keys/backup', [App\Http\Controllers\E2EKeyController::class, 'getBackup'])->name('keys.backup.get');
+        Route::get('/keys/{userId}', [App\Http\Controllers\E2EKeyController::class, 'getPublicKeys'])->name('keys.get');
+        Route::post('/group-keys/update', [App\Http\Controllers\E2EKeyController::class, 'updateGroupKeys'])->name('group-keys.update');
+        Route::get('/group-keys/{conversationId}', [App\Http\Controllers\E2EKeyController::class, 'getGroupKeys'])->name('group-keys.get');
+        Route::post('/reports', [App\Http\Controllers\E2EKeyController::class, 'reportMessage'])->name('reports');
+    });
 
     // Social Groups (Communities) - Modern Facebook Style
     Route::prefix('communities')->name('communities.')->group(function () {
@@ -623,3 +634,8 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     });
 });
 require __DIR__.'/mini-chat.php';
+
+Route::middleware(['auth:sanctum,web', 'suspended', 'verified', 'password.set'])->group(function () {
+    Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
+});
+

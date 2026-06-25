@@ -140,7 +140,14 @@
         const isAr = document.documentElement.lang === 'ar';
         const tick = () => {
             const diff = endsAt - Date.now();
-            if (diff <= 0) { countdownEl.textContent = '—'; return; }
+            if (diff <= 0) { 
+                countdownEl.textContent = '—'; 
+                if (!sessionStorage.getItem('reloaded_for_pulse_' + hero.dataset.pulseEnds)) {
+                    sessionStorage.setItem('reloaded_for_pulse_' + hero.dataset.pulseEnds, '1');
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+                return; 
+            }
             const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000);
             countdownEl.textContent = isAr ? `${h}س ${m}د` : `${h}h ${m}m`;
         };

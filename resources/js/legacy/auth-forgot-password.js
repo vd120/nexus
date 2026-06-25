@@ -1,7 +1,5 @@
 /* Auth Forgot Password Functions */
 
-(function() {
-    'use strict';
-
-
+(function () {
+    "use strict";
 })();

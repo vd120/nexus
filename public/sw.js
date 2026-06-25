@@ -6,6 +6,254 @@ function urlBase64ToUint8Array(base64String) {
     const raw     = atob(base64);
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
+
+// ── E2E helper functions inside Service Worker ─────────────────────────────
+function openE2EDatabase() {
+  return new Promise((resolve) => {
+    const request = self.indexedDB.open("nexus-e2e", 1);
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+function getStoreItem(db, storeName, key) {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const request = store.get(key);
+      request.onsuccess = (event) => resolve(event.target.result || null);
+      request.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+function putStoreItem(db, storeName, value) {
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const request = store.put(value);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+async function importPublicKey(jwk, algorithm, usage) {
+  return self.crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    algorithm,
+    true,
+    usage
+  );
+}
+
+async function deriveSharedSecret(privateKey, publicKey) {
+  const bits = await self.crypto.subtle.deriveBits(
+    { name: "ECDH", public: publicKey },
+    privateKey,
+    256
+  );
+  const hash = await self.crypto.subtle.digest("SHA-256", bits);
+  return self.crypto.subtle.importKey(
+    "raw",
+    hash,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function importSymmetricKey(keyB64) {
+  const raw = Uint8Array.from(atob(keyB64), (c) => c.charCodeAt(0));
+  return self.crypto.subtle.importKey(
+    "raw",
+    raw,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function decryptMessage(key, ciphertextB64, ivB64) {
+  const ciphertext = Uint8Array.from(atob(ciphertextB64), (c) => c.charCodeAt(0));
+  const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
+  const plaintext = await self.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+async function fetchPeerKeys(db, userId) {
+  try {
+    const response = await fetch(`/api/e2e/keys/${userId}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    
+    const [ecdhKey, ecdsaKey] = await Promise.all([
+      importPublicKey(
+        data.ecdh_public_key,
+        { name: "ECDH", namedCurve: "P-256" },
+        []
+      ),
+      importPublicKey(
+        data.ecdsa_public_key,
+        { name: "ECDSA", namedCurve: "P-256" },
+        ["verify"]
+      )
+    ]);
+    
+    const keys = { ecdh_public_key: ecdhKey, ecdsa_public_key: ecdsaKey };
+    
+    await putStoreItem(db, 'peer-keys', {
+      user_id: String(userId),
+      ecdh_public_key: ecdhKey,
+      ecdsa_public_key: ecdsaKey,
+      fetched_at: Date.now()
+    });
+    
+    return keys;
+  } catch (err) {
+    console.error('[SW E2E] Failed to fetch peer keys:', err);
+    return null;
+  }
+}
+
+async function fetchAndCacheGroupKeys(db, conversationId, senderId, myPrekeyPrivateKey) {
+  try {
+    const response = await fetch(`/api/e2e/group-keys/${conversationId}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    const encryptedKeys = data.encrypted_keys || [];
+    
+    const decryptedKeys = [];
+    for (const ek of encryptedKeys) {
+      if (!ek.sender_id) continue;
+      
+      const sId = String(ek.sender_id);
+      let peerKeys = await getStoreItem(db, 'peer-keys', sId);
+      let peerEcdhKey;
+      if (peerKeys && peerKeys.ecdh_public_key instanceof CryptoKey) {
+        peerEcdhKey = peerKeys.ecdh_public_key;
+      } else {
+        const freshKeys = await fetchPeerKeys(db, sId);
+        if (freshKeys) peerEcdhKey = freshKeys.ecdh_public_key;
+      }
+      
+      if (!peerEcdhKey) continue;
+      
+      const sharedSecret = await deriveSharedSecret(myPrekeyPrivateKey, peerEcdhKey);
+      const decryptedPayload = await decryptMessage(sharedSecret, ek.encrypted_key, ek.iv);
+      if (decryptedPayload && decryptedPayload.key) {
+        decryptedKeys.push({
+          key_id: ek.key_id,
+          raw_key: decryptedPayload.key,
+          active: true,
+          rotated_at: ek.created_at
+        });
+      }
+    }
+    
+    if (decryptedKeys.length > 0) {
+      await putStoreItem(db, 'group-keys', {
+        conversation_id: String(conversationId),
+        keys: decryptedKeys
+      });
+    }
+    return decryptedKeys;
+  } catch (err) {
+    console.error('[SW E2E] Failed to fetch and cache group keys:', err);
+    return [];
+  }
+}
+
+async function decryptPushPayload(data) {
+  let envelope;
+  try {
+    envelope = JSON.parse(data.encrypted_content);
+  } catch (e) {
+    console.error('[SW E2E] Failed to parse encrypted content envelope:', e);
+    return null;
+  }
+  
+  if (!envelope || !envelope.ciphertext || !envelope.iv) {
+    return null;
+  }
+  
+  const db = await openE2EDatabase();
+  if (!db) {
+    console.warn('[SW E2E] E2E IndexedDB not available');
+    return null;
+  }
+  
+  const prekey = await getStoreItem(db, 'user-keys', 'prekey');
+  if (!prekey || !prekey.private_key) {
+    console.warn('[SW E2E] No local prekey private key found in IndexedDB');
+    return null;
+  }
+  
+  let decryptedText = null;
+  
+  if (data.is_group) {
+    const conversationId = String(data.conversation_id || '');
+    let groupKeysRecord = await getStoreItem(db, 'group-keys', conversationId);
+    let keys = groupKeysRecord ? (groupKeysRecord.keys || []) : [];
+    
+    let keyRecord = keys.find(k => k.key_id === envelope.key_id);
+    if (!keyRecord) {
+      console.log('[SW E2E] Group key not found in IndexedDB cache. Fetching group keys...');
+      const fetchedKeys = await fetchAndCacheGroupKeys(db, conversationId, data.sender_id, prekey.private_key);
+      keyRecord = fetchedKeys.find(k => k.key_id === envelope.key_id);
+    }
+    
+    if (keyRecord && keyRecord.raw_key) {
+      const importedKey = await importSymmetricKey(keyRecord.raw_key);
+      const decrypted = await decryptMessage(importedKey, envelope.ciphertext, envelope.iv);
+      decryptedText = decrypted.text;
+    } else {
+      console.warn('[SW E2E] Group key not found even after refetching');
+    }
+  } else {
+    const senderId = String(data.sender_id);
+    let peerKeys = await getStoreItem(db, 'peer-keys', senderId);
+    let peerEcdhKey;
+    
+    if (peerKeys && peerKeys.ecdh_public_key instanceof CryptoKey) {
+      peerEcdhKey = peerKeys.ecdh_public_key;
+    } else {
+      console.log('[SW E2E] Peer ECDH key not found in IndexedDB. Fetching peer keys...');
+      const freshKeys = await fetchPeerKeys(db, senderId);
+      if (freshKeys) {
+        peerEcdhKey = freshKeys.ecdh_public_key;
+      }
+    }
+    
+    if (peerEcdhKey) {
+      const sharedSecret = await deriveSharedSecret(prekey.private_key, peerEcdhKey);
+      const decrypted = await decryptMessage(sharedSecret, envelope.ciphertext, envelope.iv);
+      decryptedText = decrypted.text;
+    } else {
+      console.warn('[SW E2E] Peer ECDH key not found even after refetching');
+    }
+  }
+  
+  return decryptedText;
+}
+
 const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
@@ -73,12 +321,39 @@ self.addEventListener('push', (event) => {
   // If so, relay to the main thread as an in-app toast instead of a system notification.
   if (!payload.data || payload.data.type !== 'call') {
     event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then((clients) => {
+      self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then(async (clients) => {
         const focusedClient = clients.find((c) => c.focused);
         if (focusedClient) {
+          if (payload.data && payload.data.is_e2e_encrypted) {
+            try {
+              const decryptedText = await decryptPushPayload(payload.data);
+              if (decryptedText) {
+                payload.body = decryptedText;
+                payload.data.decrypted_body = decryptedText;
+              }
+            } catch (err) {
+              console.error('[SW E2E] Foreground decryption failed:', err);
+            }
+          }
           focusedClient.postMessage({ type: 'PUSH_FOREGROUND', payload });
           return;
         }
+
+        // Decrypt E2E encrypted message if not in foreground
+        if (payload.data && payload.data.is_e2e_encrypted) {
+          try {
+            const decryptedText = await decryptPushPayload(payload.data);
+            if (decryptedText) {
+              options.body = decryptedText;
+            } else {
+              options.body = '🔒 Encrypted message';
+            }
+          } catch (err) {
+            console.error('[SW E2E] Background decryption failed:', err);
+            options.body = '🔒 Encrypted message';
+          }
+        }
+
         const showPromise = self.registration.showNotification(title, options);
         if (payload.data && payload.data.message_id) {
           return showPromise.then(() =>

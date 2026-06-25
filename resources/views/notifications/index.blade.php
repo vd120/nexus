@@ -66,7 +66,10 @@
             @endphp
             <div class="notification-item"
                  onclick="if(window.handleNotifClick) window.handleNotifClick({{ $n->id }}, '{{ $n->link ?? '' }}')"
-                 style="display:flex;align-items:flex-start;gap:15px;padding:15px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.2s;{{ !$n->read_at ? 'background:rgba(99,102,241,0.05);border-left:3px solid var(--primary);' : '' }}">
+                 style="display:flex;align-items:flex-start;gap:15px;padding:15px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.2s;{{ !$n->read_at ? 'background:rgba(99,102,241,0.05);border-left:3px solid var(--primary);' : '' }}"
+                 data-id="{{ $n->id }}"
+                 data-type="{{ $n->type }}"
+                 data-notif-data='@json($n->data)'>
                 <div style="width:40px;height:40px;border-radius:50%;background:{{ $tc['bg'] }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                     <i class="fas fa-{{ $icon }}" style="color:{{ $tc['color'] }};"></i>
                 </div>
@@ -108,6 +111,86 @@ document.getElementById('notifications-list').addEventListener('click', function
     }
 });
 
+// Decrypt notifications on page load
+document.addEventListener("DOMContentLoaded", async function() {
+    const items = document.querySelectorAll('.notification-item[data-type="message"]');
+    for (const item of items) {
+        let notifData = item.getAttribute('data-notif-data');
+        if (notifData) {
+            try {
+                notifData = JSON.parse(notifData);
+                if (notifData && notifData.is_e2e_encrypted && notifData.encrypted_content) {
+                    decryptPageNotification(item, notifData);
+                }
+            } catch(e) {
+                console.error("Failed to parse notif data", e);
+            }
+        }
+    }
+});
+
+async function decryptPageNotification(item, data) {
+    try {
+        const e2e = await getE2EManager();
+        if (!e2e) return;
+        
+        let rawContent = data.encrypted_content;
+        if (rawContent.includes("&quot;")) {
+            const t = document.createElement("textarea");
+            t.innerHTML = rawContent;
+            rawContent = t.value;
+        }
+        
+        let parsed = JSON.parse(rawContent);
+        let decryptTarget = parsed;
+        if (parsed.__nexus_reply__ && typeof parsed.content === "string") {
+            try {
+                const inner = JSON.parse(parsed.content);
+                if (inner.__nexus_encrypted__) decryptTarget = inner;
+            } catch (e) {}
+        }
+        
+        if (!decryptTarget.__nexus_encrypted__) return;
+        
+        const decryptPromise = (data.is_group === true || String(data.is_group) === "true")
+            ? e2e.decryptGroupMessage({
+                  ...decryptTarget,
+                  conversation_id: data.conversation_id,
+              })
+            : e2e.decryptMessage(
+                  decryptTarget,
+                  data.sender_id,
+              );
+              
+        const timeout = new Promise((_, rej) =>
+            setTimeout(() => rej(new Error("timeout")), 2000)
+        );
+        
+        const result = await Promise.race([decryptPromise, timeout]);
+        const text = result?.text || "";
+        if (text) {
+            const pEl = item.querySelector('p');
+            if (pEl) {
+                const sender = data.sender_username || "";
+                const prefix = sender ? `${sender}: ` : "";
+                const cleanText = window.sanitizeMessage ? window.sanitizeMessage(text) : text;
+                const truncatedText = cleanText.length > 120 ? cleanText.substring(0, 120) + '...' : cleanText;
+                
+                // Check if this is a group message
+                const isGroup = data.is_group || false;
+                const groupName = data.group_name || null;
+                if (isGroup && groupName) {
+                    pEl.textContent = `${groupName} - ${prefix}${truncatedText}`;
+                } else {
+                    pEl.textContent = `${prefix}${truncatedText}`;
+                }
+            }
+        }
+    } catch (err) {
+        console.error("[E2E] Failed to decrypt page notification:", err);
+    }
+}
+
 // Real-time: prepend new notification when received via socket
 window.addEventListener('notification:page:new', function(e) {
     const n = e.detail;
@@ -140,6 +223,9 @@ window.addEventListener('notification:page:new', function(e) {
     const div = document.createElement('div');
     div.className = 'notification-item';
     div.setAttribute('onclick', `if(window.handleNotifClick) window.handleNotifClick(${n.id}, '${n.link || ''}')`);
+    div.setAttribute('data-id', n.id);
+    div.setAttribute('data-type', n.type);
+    div.setAttribute('data-notif-data', JSON.stringify(n.data));
     div.style.cssText = `display:flex;align-items:flex-start;gap:15px;padding:15px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background 0.2s;background:rgba(99,102,241,0.05);border-left:3px solid var(--primary);`;
     div.innerHTML = `
         <div style="width:40px;height:40px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -150,6 +236,14 @@ window.addEventListener('notification:page:new', function(e) {
             <p style="color:var(--text-muted);font-size:12px;">{{ __('messages.just_now') }}</p>
         </div>`;
     list.prepend(div);
+
+    let notifData = n.data;
+    if (typeof notifData === 'string') {
+        try { notifData = JSON.parse(notifData); } catch(e) { notifData = {}; }
+    }
+    if (n.type === 'message' && notifData?.is_e2e_encrypted && notifData?.encrypted_content) {
+        decryptPageNotification(div, notifData);
+    }
 });
 </script>
 @endsection

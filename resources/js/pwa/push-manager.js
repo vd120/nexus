@@ -1,21 +1,23 @@
-const PUSH_PROMPTED_KEY = 'nexus_push_prompted';
-const PUSH_SESSION_KEY  = 'nexus_push_session_count';
+const PUSH_PROMPTED_KEY = "nexus_push_prompted";
+const PUSH_SESSION_KEY = "nexus_push_session_count";
 
 function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const raw     = atob(base64);
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+    const raw = atob(base64);
     return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
 }
 
 async function getVapidKey() {
-    const VAPID_CACHE_KEY = 'nexus_vapid_pub';
+    const VAPID_CACHE_KEY = "nexus_vapid_pub";
     try {
         const cached = localStorage.getItem(VAPID_CACHE_KEY);
         if (cached) return cached;
-        const res  = await fetch('/api/push/vapid-key', {
-            credentials: 'omit',
-            headers: { 'Accept': 'application/json' }
+        const res = await fetch("/api/push/vapid-key", {
+            credentials: "omit",
+            headers: { Accept: "application/json" },
         });
         const data = await res.json();
         if (data.public_key) {
@@ -28,33 +30,41 @@ async function getVapidKey() {
 }
 
 async function subscribeToPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
-        const vapidKey   = await getVapidKey();
+        const vapidKey = await getVapidKey();
         if (!vapidKey) return;
 
-        const reg        = await navigator.serviceWorker.ready;
-        const sub        = await reg.pushManager.subscribe({
-            userVisibleOnly:      true,
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
 
-        const key  = sub.getKey('p256dh');
-        const auth = sub.getKey('auth');
+        const key = sub.getKey("p256dh");
+        const auth = sub.getKey("auth");
 
-        await fetch('/api/push/subscribe', {
-            method:  'POST',
+        await fetch("/api/push/subscribe", {
+            method: "POST",
             headers: {
-                'Content-Type':     'application/json',
-                'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]')?.content || '',
-                'Accept':           'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN":
+                    document.querySelector('meta[name="csrf-token"]')
+                        ?.content || "",
+                Accept: "application/json",
+                "X-Requested-With": "XMLHttpRequest",
             },
             body: JSON.stringify({
-                endpoint:         sub.endpoint,
-                p256dh:           key   ? btoa(String.fromCharCode(...new Uint8Array(key)))   : null,
-                auth:             auth  ? btoa(String.fromCharCode(...new Uint8Array(auth)))  : null,
-                content_encoding: (PushManager.supportedContentEncodings || ['aesgcm'])[0],
+                endpoint: sub.endpoint,
+                p256dh: key
+                    ? btoa(String.fromCharCode(...new Uint8Array(key)))
+                    : null,
+                auth: auth
+                    ? btoa(String.fromCharCode(...new Uint8Array(auth)))
+                    : null,
+                content_encoding: (PushManager.supportedContentEncodings || [
+                    "aesgcm",
+                ])[0],
             }),
         });
     } catch (e) {
@@ -63,8 +73,8 @@ async function subscribeToPush() {
 }
 
 async function ensureSubscribed() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if (Notification.permission !== 'granted') return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (Notification.permission !== "granted") return;
     try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
@@ -74,13 +84,15 @@ async function ensureSubscribed() {
         }
         // Once per hour: verify server still holds this subscription.
         // If server deleted it (e.g. FCM 410 expiry), unsubscribe browser + re-subscribe fresh.
-        const SYNC_KEY  = 'nexus_push_synced_at';
-        const lastSync  = parseInt(localStorage.getItem(SYNC_KEY) || '0', 10);
-        const ONE_HOUR  = 60 * 60 * 1000;
+        const SYNC_KEY = "nexus_push_synced_at";
+        const lastSync = parseInt(localStorage.getItem(SYNC_KEY) || "0", 10);
+        const ONE_HOUR = 60 * 60 * 1000;
         if (Date.now() - lastSync > ONE_HOUR) {
             localStorage.setItem(SYNC_KEY, String(Date.now()));
             try {
-                const res  = await fetch('/api/push/status', { headers: { 'Accept': 'application/json' } });
+                const res = await fetch("/api/push/status", {
+                    headers: { Accept: "application/json" },
+                });
                 const data = await res.json();
                 if (!data.subscribed) {
                     await sub.unsubscribe();
@@ -92,70 +104,85 @@ async function ensureSubscribed() {
 }
 
 function showPushPrompt() {
-    Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-            subscribeToPush();
-        }
-        localStorage.setItem(PUSH_PROMPTED_KEY, '1');
-    }).catch(() => {});
+    Notification.requestPermission()
+        .then((permission) => {
+            if (permission === "granted") {
+                subscribeToPush();
+            }
+            localStorage.setItem(PUSH_PROMPTED_KEY, "1");
+        })
+        .catch(() => {});
 }
 
 function wireLogoutCleanup() {
-    const logoutForms = document.querySelectorAll('form[action*="logout"], #logout-form');
+    const logoutForms = document.querySelectorAll(
+        'form[action*="logout"], #logout-form',
+    );
     logoutForms.forEach((form) => {
-        form.addEventListener('submit', async (e) => {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            try {
-                const reg = await navigator.serviceWorker.ready;
-                const sub = await reg.pushManager.getSubscription();
-                if (!sub) return;
-                const endpoint = sub.endpoint;
-                // Delete from server before session is invalidated
-                await fetch('/api/push/unsubscribe', {
-                    method:   'DELETE',
-                    headers:  {
-                        'Content-Type':     'application/json',
-                        'X-CSRF-TOKEN':     document.querySelector('meta[name="csrf-token"]')?.content || '',
-                        'Accept':           'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body:     JSON.stringify({ endpoint }),
-                    keepalive: true,
-                });
-                await sub.unsubscribe();
-            } catch (e) {}
-        }, { capture: true });
+        form.addEventListener(
+            "submit",
+            async (e) => {
+                if (
+                    !("serviceWorker" in navigator) ||
+                    !("PushManager" in window)
+                )
+                    return;
+                try {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    if (!sub) return;
+                    const endpoint = sub.endpoint;
+                    // Delete from server before session is invalidated
+                    await fetch("/api/push/unsubscribe", {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN":
+                                document.querySelector(
+                                    'meta[name="csrf-token"]',
+                                )?.content || "",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        body: JSON.stringify({ endpoint }),
+                        keepalive: true,
+                    });
+                    await sub.unsubscribe();
+                } catch (e) {}
+            },
+            { capture: true },
+        );
     });
 }
 
 function wireForegroundPushToast() {
-    if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data?.type === 'PUSH_RESUBSCRIBE') {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data?.type === "PUSH_RESUBSCRIBE") {
             // Browser rotated the push endpoint — re-subscribe with the new one
             subscribeToPush();
             return;
         }
-        if (event.data?.type === 'REFRESH_BADGE') {
+        if (event.data?.type === "REFRESH_BADGE") {
             if (window.loadNotifications) window.loadNotifications();
             if (window.updateMobileBadge) window.updateMobileBadge();
             return;
         }
-        if (!event.data || event.data.type !== 'PUSH_FOREGROUND') return;
+        if (!event.data || event.data.type !== "PUSH_FOREGROUND") return;
         const payload = event.data.payload || {};
         if (window.showToast) {
             window.showToast(
-                payload.body || payload.title || 'New notification',
-                'info',
+                payload.body || payload.title || "New notification",
+                "info",
                 payload.icon || null,
-                payload.data?.url || null
+                payload.data?.url || null,
             );
         }
     });
 }
 
 export function init() {
-    if (!('Notification' in window)) return;
+    if (!("Notification" in window)) return;
 
     wireLogoutCleanup();
     wireForegroundPushToast();
@@ -164,14 +191,22 @@ export function init() {
     ensureSubscribed();
 
     // Contextual prompt: show on feed page, 2nd+ session, only if not already prompted
-    const sessionCount = parseInt(sessionStorage.getItem(PUSH_SESSION_KEY) || '0', 10) + 1;
+    const sessionCount =
+        parseInt(sessionStorage.getItem(PUSH_SESSION_KEY) || "0", 10) + 1;
     sessionStorage.setItem(PUSH_SESSION_KEY, String(sessionCount));
 
     const alreadyPrompted = localStorage.getItem(PUSH_PROMPTED_KEY);
-    const isOnFeed = window.location.pathname === '/' || window.location.pathname === '/home';
-    const permissionDefault = Notification.permission === 'default';
+    const isOnFeed =
+        window.location.pathname === "/" ||
+        window.location.pathname === "/home";
+    const permissionDefault = Notification.permission === "default";
 
-    if (!alreadyPrompted && isOnFeed && sessionCount >= 2 && permissionDefault) {
+    if (
+        !alreadyPrompted &&
+        isOnFeed &&
+        sessionCount >= 2 &&
+        permissionDefault
+    ) {
         setTimeout(showPushPrompt, 5000);
     }
 }

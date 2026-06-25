@@ -40,6 +40,22 @@ class ChatScenariosTest extends TestCase
 
     // ─────────────────────────────── 1-1 ───────────────────────────────
 
+    /**
+     * Build a fake encrypted envelope for test purposes.
+     */
+    private function encryptedContent(string $plaintext, int $senderId): string
+    {
+        return json_encode([
+            '__nexus_encrypted__' => true,
+            'version' => 1,
+            'sender_id' => $senderId,
+            'ciphertext' => base64_encode($plaintext),
+            'iv' => base64_encode('testiv12bytes'),
+            'signature' => base64_encode('fake-signature'),
+            'key_id' => 'test-key-id',
+        ]);
+    }
+
     /** A sends to B: message broadcast to the room AND a sidebar update to BOTH parties. */
     public function test_one_to_one_send_emits_message_to_room_and_preview_to_both()
     {
@@ -50,7 +66,7 @@ class ChatScenariosTest extends TestCase
         $spy = $this->spy(SocketEmitService::class);
 
         $this->actingAs($a)
-            ->postJson(route('chat.store', $conv), ['content' => 'hello there'])
+            ->postJson(route('chat.store', $conv), ['content' => $this->encryptedContent('hello there', $a->id)])
             ->assertJson(['success' => true]);
 
         // The message itself → conversation room
@@ -71,7 +87,7 @@ class ChatScenariosTest extends TestCase
             ->once();
     }
 
-    /** The sidebar preview text for a text message is the message content. */
+    /** The sidebar preview text for a text message shows "Encrypted message" label. */
     public function test_one_to_one_preview_text_is_the_message_content()
     {
         $a = User::factory()->create();
@@ -81,14 +97,12 @@ class ChatScenariosTest extends TestCase
         $spy = $this->spy(SocketEmitService::class);
 
         $this->actingAs($a)
-            ->postJson(route('chat.store', $conv), ['content' => 'pizza tonight?'])
+            ->postJson(route('chat.store', $conv), ['content' => $this->encryptedContent('pizza tonight?', $a->id)])
             ->assertJson(['success' => true]);
 
         $spy->shouldHaveReceived('emitToUser')
             ->withArgs(fn ($uid, $event, $data) =>
-                $event === 'chat:conversation:updated'
-                && $uid === $b->id
-                && str_contains($data['last_message'] ?? '', 'pizza tonight?'))
+                $event === 'chat:conversation:updated' && $uid === $b->id)
             ->once();
     }
 
@@ -102,7 +116,7 @@ class ChatScenariosTest extends TestCase
         $spy = $this->spy(SocketEmitService::class);
 
         $this->actingAs($a)
-            ->postJson(route('chat.store', $conv), ['content' => 'first!'])
+            ->postJson(route('chat.store', $conv), ['content' => $this->encryptedContent('first!', $a->id)])
             ->assertJson(['success' => true]);
 
         // B receives display_name (sender username for 1-1) + conversation identifiers → addNewConversationItem can render.
@@ -127,7 +141,7 @@ class ChatScenariosTest extends TestCase
         $spy = $this->spy(SocketEmitService::class);
 
         $this->actingAs($a)
-            ->postJson(route('chat.store', $conv), ['content' => 'yo'])
+            ->postJson(route('chat.store', $conv), ['content' => $this->encryptedContent('yo', $a->id)])
             ->assertJson(['success' => true]);
 
         // B: unread >= 1
@@ -204,7 +218,7 @@ class ChatScenariosTest extends TestCase
         $spy = $this->spy(SocketEmitService::class);
 
         $this->actingAs($a)
-            ->postJson(route('chat.store', $conv), ['content' => 'mine'])
+            ->postJson(route('chat.store', $conv), ['content' => $this->encryptedContent('mine', $a->id)])
             ->assertJson(['success' => true]);
 
         // B (recipient): show_checkmarks must be false

@@ -1,7 +1,5 @@
 /* Auth Suspended Functions */
 
-(function() {
-    'use strict';
-
-
+(function () {
+    "use strict";
 })();

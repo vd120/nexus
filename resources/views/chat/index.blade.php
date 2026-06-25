@@ -670,4 +670,132 @@
 <script>
     window.activeConversationId = null;
 </script>
+
+@push('scripts')
+{{-- E2E Encryption Initialization --}}
+@vite(['resources/js/e2e/crypto-core.js', 'resources/js/e2e/media-crypto.js', 'resources/js/e2e/e2e-manager.js'])
+<script type="module">
+async function getManager() {
+    if (window.getE2EManager) {
+        return await window.getE2EManager();
+    }
+    return new Promise(resolve => {
+        const interval = setInterval(() => {
+            if (window.getE2EManager) {
+                clearInterval(interval);
+                window.getE2EManager().then(resolve);
+            }
+        }, 50);
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(window.e2eManager || null);
+        }, 3000);
+    });
+}
+
+async function decryptSidebarPreviews() {
+    const previews = [...document.querySelectorAll('.preview-text[data-encrypted-preview]')];
+    const e2e = await getManager();
+    if (!e2e) {
+        // Fallback reveal
+        previews.forEach(el => el.style.opacity = '1');
+        return;
+    }
+
+    await Promise.all(previews.map(async (el) => {
+        let rawContent = el.dataset.encryptedPreview;
+        const senderId = parseInt(el.dataset.latestMessageSenderId || '0');
+        const prefix = el.dataset.previewPrefix || '';
+        if (!rawContent) return;
+
+        if (rawContent.includes('&quot;')) {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = rawContent;
+            rawContent = txt.value;
+        }
+
+        try {
+            const parsed = JSON.parse(rawContent);
+            let decryptTarget = parsed;
+            if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                try {
+                    const inner = JSON.parse(parsed.content);
+                    if (inner.__nexus_encrypted__) decryptTarget = inner;
+                } catch (e) {}
+            }
+
+            if (!decryptTarget.__nexus_encrypted__) {
+                el.style.opacity = '1';
+                return;
+            }
+
+            const conversationItem = el.closest('.conversation-item');
+            const isGroup = conversationItem?.getAttribute('data-is-group') === 'true';
+            const conversationId = conversationItem?.getAttribute('data-conversation-id') || '';
+
+            let decrypted;
+            if (isGroup) {
+                decryptTarget.conversation_id = conversationId;
+                decrypted = await e2e.decryptGroupMessage(decryptTarget);
+            } else {
+                const otherUserId = parseInt(conversationItem?.getAttribute('data-user-id') || '0');
+                decrypted = await e2e.decryptMessage(decryptTarget, senderId, otherUserId);
+            }
+
+            const plaintext = decrypted.text || '';
+            const displayText = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+            el.textContent = prefix + displayText;
+            el.style.opacity = '1';
+        } catch (e) {
+            console.error('Failed to decrypt sidebar preview:', e);
+            el.textContent = prefix + '🔒 ' + ('{{ __('chat.e2e_encrypted') }}' || 'Encrypted message');
+            el.style.opacity = '1';
+        }
+    }));
+}
+
+async function initE2E() {
+    try {
+        const e2e = await getManager();
+        if (!e2e) {
+            console.warn('E2E encryption not supported or not loaded in this browser');
+            return;
+        }
+
+        const hasKeys = await e2e.db.hasKeys();
+        if (!hasKeys) {
+            await e2e.ensureKeys();
+            await e2e.registerKeys();
+        } else {
+            // Key maintenance runs in background — don't block preview decrypt
+            (async () => {
+                try {
+                    const myUserId = {{ auth()->id() }};
+                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (checkResp.status === 404) {
+                        console.log('Server public keys missing. Re-registering existing keys.');
+                        await e2e.registerKeys();
+                    }
+                } catch (e) {
+                    console.error('Failed to verify/re-register keys on server:', e);
+                }
+            })();
+        }
+
+        await decryptSidebarPreviews();
+    } catch (err) {
+        console.error('E2E initialization error:', err);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initE2E);
+} else {
+    initE2E();
+}
+document.addEventListener('turbo:load', initE2E);
+</script>
+@endpush
 @endsection

@@ -12,6 +12,20 @@ class Poll extends Model
         'expires_at' => 'datetime',
     ];
 
+    protected $appends = ['user_voted_option_id', 'total_votes'];
+
+    public function getUserVotedOptionIdAttribute()
+    {
+        $userId = auth('sanctum')->id() ?? auth('web')->id();
+        if (!$userId) return null;
+        return $this->votes->where('user_id', $userId)->first()?->option_id;
+    }
+
+    public function getTotalVotesAttribute()
+    {
+        return $this->options->sum('votes_count');
+    }
+
     public function post()
     {
         return $this->belongsTo(Post::class);

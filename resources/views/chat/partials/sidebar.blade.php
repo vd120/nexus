@@ -73,14 +73,19 @@
                     $isOwnReaction = $reactor->id === auth()->id();
                     $name = $isOwnReaction ? __('chat.you') : ($reactor->username ?? 'User');
                     
-                    $content = strip_tags($latestReaction->message->content);
-                    if (str_starts_with($content, '{"__nexus_reply__":true')) {
-                        $replyData = json_decode($content, true);
-                        $content = $replyData['content'] ?? '';
-                    }
-                    $content = Str::limit(strip_tags($content), 15);
-                    if (empty($content) && $latestReaction->message->type !== 'text') {
-                        $content = '[' . __('chat.' . $latestReaction->message->type) . ']';
+                    $_reactionMsgContent = $latestReaction->message->content;
+                    if (str_contains($_reactionMsgContent, '"__nexus_encrypted__":true')) {
+                        $content = '🔒 ' . __('chat.e2e_encrypted');
+                    } else {
+                        $content = strip_tags($_reactionMsgContent);
+                        if (str_starts_with($content, '{"__nexus_reply__":true')) {
+                            $replyData = json_decode($content, true);
+                            $content = $replyData['content'] ?? '';
+                        }
+                        $content = Str::limit(strip_tags($content), 15);
+                        if (empty($content) && $latestReaction->message->type !== 'text') {
+                            $content = '[' . __('chat.' . $latestReaction->message->type) . ']';
+                        }
                     }
 
                     $messagePreview = ($isGroup || $isOwnReaction ? ($name . ' ') : '') . __('chat.reacted_on_message', [
@@ -211,11 +216,31 @@
                                         <i class="fas {{ $sidebarShowRead ? 'fa-check-double read' : ($latestMessage->delivered_at ? 'fa-check-double sent' : 'fa-check sent') }}"></i>
                                     @endif
                                     @if($latestMessage)
-                                        <span class="preview-text" dir="auto">
-                                            @if(in_array($latestMessage->type, ['text', 'story_reply']))
-                                                {{ $messagePreview }}
+                                        @php
+                                            $isEncrypted = $latestMessage && $latestMessage->content && str_contains($latestMessage->content, '"__nexus_encrypted__":true');
+                                            $previewPrefix = '';
+                                            if ($isEncrypted) {
+                                                $previewPrefix = $isGroup 
+                                                    ? ($isOwn ? __('chat.you') . ': ' : ($latestMessage->sender->username ?? 'User') . ': ') 
+                                                    : '';
+                                                $messagePreview = '🔒 ' . __('chat.e2e_encrypted');
+                                            }
+                                        @endphp
+                                        <span class="preview-text" dir="auto"
+                                              @if($isEncrypted)
+                                                   style="opacity:0"
+                                                   data-encrypted-preview="{{ $latestMessage->content }}"
+                                                   data-preview-prefix="{{ $previewPrefix }}"
+                                                   data-latest-message-sender-id="{{ $latestMessage->sender_id }}"
+                                              @endif>
+                                            @if(!$isEncrypted)
+                                                @if(in_array($latestMessage->type, ['text', 'story_reply']))
+                                                    {{ $messagePreview }}
+                                                @else
+                                                    {{ $messageIcon }}{{ $messagePreview }}
+                                                @endif
                                             @else
-                                                {{ $messageIcon }}{{ $messagePreview }}
+                                                {{ $previewPrefix }}🔒 {{ __('chat.e2e_encrypted') }}
                                             @endif
                                         </span>
                                     @else
@@ -723,6 +748,7 @@
         replied_to_you: '{{ __('chat.replied_to_you') }}',
     });
 
+
     // Update sidebar conversation item in real-time
     window.updateExistingConversationItem = function(data) {
         const sidebar = document.getElementById('sidebarConvList');
@@ -751,7 +777,12 @@
         const previewEl = item.querySelector('.conv-preview');
         
         if (previewEl) {
-            let text = data.last_message || '';
+            // Use last_message if set; fall back to content (already decrypted by socket-manager)
+            let text = data.last_message || data.content || '';
+            const isE2E = data.is_e2e_encrypted || (typeof text === 'string' && text.includes('"__nexus_encrypted__":true'));
+            if (isE2E && !text) {
+                text = '🔒 Encrypted message';
+            }
             let iconHtml = '';
 
             // Handle checkmarks based on backend flag or fall back to isOwn
@@ -763,20 +794,63 @@
 
             const isGroup = !item.getAttribute('data-user-id');
 
-            // Fallback for rebuilding text if last_message is missing (backwards compatibility)
+            // Fallback for rebuilding text if still no text
             if (!text) {
                 text = getMediaPreviewText(data, isOwn, isGroup);
             }
+
+            const displayContent = text;
 
             // Update entire preview HTML
             previewEl.innerHTML = `
                 <span class="preview-content-wrapper">
                     ${iconHtml}
-                    <span class="preview-text">${escapeHtml(text)}</span>
+                    <span class="preview-text">${escapeHtml(displayContent)}</span>
                 </span>
                 <span class="typing-indicator-sidebar" style="display: none;">${window.chatTranslations.typing || 'typing...'}</span>
             `;
-            
+
+            // Async E2E decrypt for sidebar preview
+            if (isE2E && data.encrypted_content) {
+                const convItem = item;
+                const senderId = data.sender_id;
+                const prefix = data.preview_prefix || '';
+                ;(async () => {
+                    try {
+                        const e2e = await window.getE2EManager();
+                        if (!e2e || !e2e.initialized) return;
+
+                        let rawContent = data.encrypted_content;
+                        if (rawContent.includes('&quot;')) {
+                            const t = document.createElement('textarea');
+                            t.innerHTML = rawContent;
+                            rawContent = t.value;
+                        }
+                        const parsed = JSON.parse(rawContent);
+                        let decryptTarget = parsed;
+                        if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                            try {
+                                const inner = JSON.parse(parsed.content);
+                                if (inner.__nexus_encrypted__) decryptTarget = inner;
+                            } catch (e) {}
+                        }
+                        if (!decryptTarget.__nexus_encrypted__) return;
+                        let decrypted;
+                        const isGroup = convItem?.getAttribute('data-is-group') === 'true';
+                        if (isGroup) {
+                            decryptTarget.conversation_id = data.conversation_id;
+                            decrypted = await e2e.decryptGroupMessage(decryptTarget);
+                        } else {
+                            decrypted = await e2e.decryptMessage(decryptTarget, senderId);
+                        }
+                        const plaintext = decrypted.text || '';
+                        const display = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+                        const previewEl_ = convItem.querySelector('.preview-text');
+                        if (previewEl_) previewEl_.textContent = prefix + display;
+                    } catch (_) {}
+                })();
+            }
+
             // Handle unread styling (only if NOT muted)
             const isMuted = item.querySelector('.mute-indicator') !== null;
             if (!isOwn && String(window.activeConversationId) !== String(data.conversation_id) && !isMuted) {
@@ -870,7 +944,8 @@
 
         const isOwn = data.sender_id == window.currentUserId;
         let previewText = data.last_message || data.content || '';
-        
+        const isE2E = data.is_e2e_encrypted || (typeof previewText === 'string' && previewText.includes('"__nexus_encrypted__":true'));
+
         // Handle reply JSON using global sanitizer
         previewText = window.sanitizeMessage(previewText);
         const otherUserId = isOwn ? (data.recipient_id || '') : (data.sender_id || (data.sender ? data.sender.id : ''));
@@ -937,7 +1012,47 @@
         `;
 
         sidebar.prepend(item);
-        
+
+        // Async-decrypt E2E preview after insertion
+        if (isE2E) {
+            const rawForDecrypt = data.encrypted_content || data.last_message || data.content || '';
+            const prefix = data.preview_prefix || '';
+            const senderId = data.sender_id;
+            ;(async () => {
+                try {
+                    const e2e = await window.getE2EManager();
+                    if (!e2e || !e2e.initialized) return;
+
+                    let rawContent = rawForDecrypt;
+                    if (rawContent.includes('&quot;')) {
+                        const t = document.createElement('textarea');
+                        t.innerHTML = rawContent;
+                        rawContent = t.value;
+                    }
+                    const parsed = JSON.parse(rawContent);
+                    let decryptTarget = parsed;
+                    if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                        try {
+                            const inner = JSON.parse(parsed.content);
+                            if (inner.__nexus_encrypted__) decryptTarget = inner;
+                        } catch (e) {}
+                    }
+                    if (!decryptTarget.__nexus_encrypted__) return;
+                    let decrypted;
+                    if (isGroup) {
+                        decryptTarget.conversation_id = convId;
+                        decrypted = await e2e.decryptGroupMessage(decryptTarget);
+                    } else {
+                        decrypted = await e2e.decryptMessage(decryptTarget, senderId, parseInt(otherUserId) || 0);
+                    }
+                    const plaintext = decrypted.text || '';
+                    const display = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+                    const previewEl = item.querySelector('.preview-text');
+                    if (previewEl) previewEl.textContent = prefix + display;
+                } catch (_) {}
+            })();
+        }
+
         // If NexusSocket is available, join this new room
         if (window.NexusSocket && window.NexusSocket.joinConversation) {
             window.NexusSocket.joinConversation(convId);

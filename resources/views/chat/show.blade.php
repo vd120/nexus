@@ -14,11 +14,22 @@ $chatTitle = $isGroup
     window.activeConversationId = {{ $conversation->id }};
     window.activeConversationSlug = '{{ $conversation->slug }}';
     window.isGroupChat = {{ $isGroup ? 'true' : 'false' }};
+    window.activeRecipientId = {{ !$isGroup && $conversation->other_user ? $conversation->other_user->id : 'null' }};
+    window.groupMemberIds = @json($isGroup && $conversation->group ? $conversation->group->members->pluck('user_id') : []);
 </script>
 
 <style>
 /* Hide layout mobile nav on chat page */
 .mobile-nav, .mobile-bottom-nav { display: none !important; }
+
+/* Hide messages container until E2E decrypt completes — no flash of encrypted text or blank bubbles */
+#chatMessages {
+    opacity: 0;
+}
+/* Also hide individual encrypted spans (for AJAX-loaded messages added after initial load) */
+.message-text-inner[data-encrypted-content] {
+    opacity: 0;
+}
 
 /* Failed-to-send optimistic message */
 .message-failed .message-bubble { outline: 1px solid rgba(224,36,94,0.35); }
@@ -101,9 +112,9 @@ $chatTitle = $isGroup
     $otherReceiptsOn = $conversation->other_user?->profile?->show_read_receipts ?? true;
     $showReadReceipts = !$conversation->is_group && $myReceiptsOn && $otherReceiptsOn;
 @endphp
-<span class="status {{ $isUserOnline ? 'online' : 'offline' }}" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}">
+<span class="status {{ $isUserOnline ? 'online' : 'offline' }}" id="chat-user-status" data-user-id="{{ $conversation->other_user->id ?? '' }}" style="font-size: 10px !important;">
     <span class="status-dot"></span>
-    <span class="status-text">
+    <span class="status-text" style="font-size: 10px !important;">
         @if($isUserOnline)
             {{ __('chat.online') }}
         @elseif($conversation->other_user && $conversation->other_user->last_active)
@@ -123,6 +134,10 @@ $chatTitle = $isGroup
                         </div>
                     @endif
                 </div>
+                <div class="chat-e2e-badge" id="chat-e2e-badge" title="{{ __('chat.e2e_encrypted_title') }}" style="display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:12px;color:var(--primary);cursor:pointer;" onclick="window.showSafetyNumber ? window.showSafetyNumber() : null;">
+                    <i class="fas fa-lock"></i>
+                    <span>{{ __('chat.e2e_encrypted') }}</span>
+                </div>
                 <div class="chat-actions">
                     @if(!$conversation->is_group)
                     <button
@@ -140,6 +155,31 @@ $chatTitle = $isGroup
                     @endif
                 </div>
             </header>
+
+            @include('chat.partials.key-setup')
+            @include('chat.partials.safety-number')
+
+            {{-- E2E Recovery Banner --}}
+            <div id="e2e-recovery-banner" class="e2e-banner" style="display:none;">
+                <div class="e2e-banner-content">
+                    <div class="e2e-banner-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="e2e-banner-text">
+                        <strong>{{ __('chat.e2e_recovery_title') }}</strong>
+                        <p>{{ __('chat.e2e_recovery_prompt') }}</p>
+                    </div>
+                    <div class="e2e-banner-actions">
+                        <input type="password" id="e2e-recovery-passphrase-input" class="e2e-passphrase-input"
+                            placeholder="{{ __('chat.e2e_recovery_passphrase_placeholder') }}"
+                            autocomplete="off" />
+                        <button id="e2e-recover-btn" class="e2e-btn e2e-btn-primary"
+                            onclick="window.e2eManager?.handleRecover()">
+                            {{ __('chat.e2e_recover') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div class="chat-main-content">
                 <div class="chat-messages" id="chatMessages">
@@ -239,7 +279,7 @@ $chatTitle = $isGroup
                             </div>
                         </div>
                     @else
-                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} {{ $message->trashed() ? 'deleted' : '' }}" data-message-id="{{ $message->id }}" data-sender-name="{{ $message->is_mine ? __('chat.you') : ($message->sender->username ?? 'User') }}">
+                        <div class="message {{ $message->is_mine ? 'own' : 'other' }} {{ $message->trashed() ? 'deleted' : '' }}" data-message-id="{{ $message->id }}" data-sender-id="{{ $message->sender_id }}" data-sender-name="{{ $message->is_mine ? __('chat.you') : ($message->sender->username ?? 'User') }}">
                             @php
                                 // Handle multiple media files (stored as JSON)
                                 $mediaItems = null;
@@ -370,7 +410,33 @@ $chatTitle = $isGroup
                                             <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)">1x</button>
                                         </div>
                                         @endif
-                                        @if($message->content && $message->content !== '' && $message->type !== 'group_invite' && $message->content !== 'system_cleared')
+                                        @php
+                                            $isEncrypted = false;
+                                            $innerEncryptedContent = $message->content;
+                                            $isReplyWrappedEncrypted = false;
+                                            if ($message->content && str_contains($message->content, '"__nexus_encrypted__":true')) {
+                                                $isEncrypted = true;
+                                                if (str_starts_with($message->content, '{"__nexus_reply__":true')) {
+                                                    $decodedReply = json_decode($message->content, true);
+                                                    if ($decodedReply && isset($decodedReply['content']) && str_contains($decodedReply['content'], '"__nexus_encrypted__":true')) {
+                                                        $isReplyWrappedEncrypted = true;
+                                                        $innerEncryptedContent = $decodedReply['content'];
+                                                        if (isset($decodedReply['reply_to']['content']) && str_contains($decodedReply['reply_to']['content'], '"__nexus_encrypted__":true')) {
+                                                            $decodedReply['reply_to']['content'] = '🔒 ' . __('chat.e2e_encrypted');
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        @if($isEncrypted)
+                                            @if($isReplyWrappedEncrypted)
+                                                <div class="replied-message-box" onclick="scrollToMessage(event, '{{ $decodedReply['reply_to']['id'] }}')">
+                                                    <span class="replied-user">{{ $decodedReply['reply_to']['username'] ?? $decodedReply['reply_to']['sender_name'] ?? $decodedReply['reply_to']['user'] ?? 'User' }}</span>
+                                                    <span class="replied-content">{{ $decodedReply['reply_to']['content'] ?? '' }}</span>
+                                                </div>
+                                            @endif
+                                             <span class="message-text-inner" data-encrypted-content="{{ $innerEncryptedContent }}" data-sender-id="{{ $message->sender_id }}" style="cursor: default;">🔒 {{ __('chat.e2e_encrypted') }}</span>
+                                        @elseif($message->content && $message->content !== '' && $message->type !== 'group_invite' && $message->content !== 'system_cleared')
                                             @php
                                                 $isReply = str_starts_with($message->content, '{"__nexus_reply__":true');
                                                 $replyData = $isReply ? json_decode($message->content, true) : null;
@@ -4948,18 +5014,51 @@ function scrollToMessage(event, messageId) {
 // same user will NOT have the ID here, so they DO render the echo.
 window._locallySentIds = window._locallySentIds || new Set();
 
-function processMessageQueue() {
+async function processMessageQueue() {
     if (isSendingMessage || messageSendQueue.length === 0) return;
 
     // PWA offline: enqueue text messages for sync when back online
     if (!navigator.onLine && window._pwaEnqueue) {
         const messageData = messageSendQueue.shift();
         if (!messageData.isMedia && messageData.content) {
+            // Build the inner plaintext payload (text + reply + link_preview)
+            const plainPayload = { text: messageData.content };
+            if (replyingTo) {
+                plainPayload.reply_to = {
+                    id: replyingTo.id,
+                    sender: replyingTo.user,
+                    content: replyingTo.content,
+                    type: 'text',
+                };
+                cancelReply();
+            }
+            if (messageData.link_preview) {
+                plainPayload.link_preview = messageData.link_preview;
+            }
+
+            let contentToSend = messageData.content;
+            if (window.e2eManager && window.E2EManager && window.E2EManager.isBrowserSupported()) {
+                try {
+                    let encrypted = null;
+                    if (window.isGroupChat) {
+                        encrypted = await window.e2eManager.encryptGroupMessage(window.activeConversationId, plainPayload);
+                    } else if (window.activeRecipientId) {
+                        encrypted = await window.e2eManager.encryptMessage(window.activeConversationId, window.activeRecipientId, plainPayload);
+                    }
+                    if (encrypted) {
+                        contentToSend = JSON.stringify(encrypted);
+                    }
+                } catch (e) {
+                    console.error("[E2E] Failed to encrypt offline message:", e);
+                }
+            }
+
             window._pwaEnqueue('chat_message', String(window.activeConversationId || ''), {
-                content: messageData.content,
+                content: contentToSend,
                 conversation_id: window.activeConversationId,
                 store_url: '{{ route('chat.store', $conversation) }}',
             });
+
             const container = document.querySelector('.messages-container, .chat-messages');
             if (container) {
                 const el = document.createElement('div');
@@ -4991,38 +5090,55 @@ function processMessageQueue() {
 
     // Capture reply state before cancelReply() clears it
     const capturedReply = replyingTo ? { ...replyingTo } : null;
-
-    const body = { content: messageData.content };
     if (replyingTo) {
-        body.reply_to_id = replyingTo.id;
         cancelReply();
     }
+
+    // Build the inner plaintext payload (text + reply + link_preview)
+    const plainPayload = { text: messageData.content };
+    if (capturedReply) {
+        plainPayload.reply_to = {
+            id: capturedReply.id,
+            sender: capturedReply.user,
+            content: capturedReply.content,
+            type: 'text',
+        };
+    }
     if (messageData.link_preview) {
-        body.link_preview = messageData.link_preview;
+        plainPayload.link_preview = messageData.link_preview;
     }
 
-    // Optimistic UI: render the message instantly, reconcile with real ID after server responds
-    const tempId = 'opt_' + Date.now();
-    let optimisticContent = messageData.content;
-    if (capturedReply) {
-        optimisticContent = JSON.stringify({
-            __nexus_reply__: true,
-            reply_to: {
-                id: capturedReply.id,
-                username: capturedReply.user,
-                sender_name: capturedReply.user,
-                user: capturedReply.user,
-                content: capturedReply.content,
-                type: 'text'
-            },
-            content: messageData.content
-        });
+    // Encrypt the payload for E2E
+    const encryptedPromise = (async () => {
+        if (window.e2eManager && window.E2EManager && window.E2EManager.isBrowserSupported()) {
+            if (window.isGroupChat) {
+                return window.e2eManager.encryptGroupMessage(window.activeConversationId, plainPayload);
+            } else if (window.activeRecipientId) {
+                return window.e2eManager.encryptMessage(window.activeConversationId, window.activeRecipientId, plainPayload);
+            }
+        }
+        return null;
+    })();
+
+    const body = {};
+    if (encryptedPromise) {
+        const encrypted = await encryptedPromise;
+        if (encrypted) {
+            body.content = JSON.stringify(encrypted);
+        } else {
+            body.content = messageData.content;
+        }
+    } else {
+        body.content = messageData.content;
     }
+
+    // Optimistic UI: render the plaintext immediately for the sender
+    const tempId = 'opt_' + Date.now();
     window.addMessage({
         id: tempId,
         sender_id: {{ auth()->id() }},
         type: 'text',
-        content: optimisticContent,
+        content: messageData.content,
         created_at: new Date().toISOString(),
         delivered_at: null,
         read_at: null,
@@ -5081,6 +5197,7 @@ function processMessageQueue() {
             }
             if (window.updateExistingConversationItem) {
                 const _msg = Object.assign({}, data.message, {
+                    content: messageData.content,
                     checkmark_class: data.message.read_at ? 'fa-check-double read'
                                    : data.message.delivered_at ? 'fa-check-double sent'
                                    : 'fa-check sent'
@@ -5189,41 +5306,108 @@ function sendMediaMessage(content, mediaFile) {
 }
 
 // Process media message from queue
-function processMediaMessage(messageData) {
-    const formData = new FormData();
-    if (messageData.content) {
-        formData.append('content', messageData.content);
-    }
-    
-    if (replyingTo) {
-        formData.append('reply_to_id', replyingTo.id);
-        cancelReply();
-    }
+async function processMediaMessage(messageData) {
+    messageData.input.disabled = true;
+    messageData.sendButton.disabled = true;
 
-    // Append ALL selected files
-    selectedFiles.forEach((file) => {
-        formData.append('media[]', file);
-    });
+    try {
+        const uploadedDescriptors = [];
+        
+        for (const file of selectedFiles) {
+            const mediaKey = await window.CryptoCore.generateGroupKey();
+            const encrypted = await window.MediaCrypto.encryptFile(file, mediaKey);
+            const rawMediaKey = await window.CryptoCore.exportSymmetricKey(mediaKey);
 
-    fetch(`{{ route('chat.store', $conversation) }}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json'
-        },
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
+            const uploadedChunks = [];
+            for (const chunk of encrypted.chunks) {
+                const chunkFormData = new FormData();
+                chunkFormData.append('file_id', chunk.file_id);
+                chunkFormData.append('index', chunk.index);
+                chunkFormData.append('chunk', chunk.ciphertext);
+                chunkFormData.append('original_size', chunk.original_size);
+
+                const uploadResponse = await fetch(`/chat/{{ $conversation->id }}/upload-encrypted-media`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    },
+                    body: chunkFormData
+                });
+                const uploadResult = await uploadResponse.json();
+                if (!uploadResult.success) {
+                    throw new Error('Chunk upload failed');
+                }
+                uploadedChunks.push({ index: chunk.index, path: uploadResult.path });
+            }
+
+            const localUrl = URL.createObjectURL(file);
+
+            uploadedDescriptors.push({
+                file_id: encrypted.file_id,
+                name: encrypted.name,
+                type: encrypted.type,
+                size: encrypted.size,
+                total_chunks: encrypted.total_chunks,
+                media_key: rawMediaKey,
+                chunks: uploadedChunks,
+                url: localUrl
+            });
+        }
+
+        const plainPayload = {
+            text: messageData.content || '',
+            media_descriptors: uploadedDescriptors
+        };
+
+        const capturedReply = replyingTo ? { ...replyingTo } : null;
+        if (capturedReply) {
+            plainPayload.reply_to = {
+                id: capturedReply.id,
+                sender: capturedReply.user,
+                content: capturedReply.content,
+                type: 'text'
+            };
+            cancelReply();
+        }
+
+        let encryptedEnvelope;
+        if (window.isGroupChat) {
+            encryptedEnvelope = await window.e2eManager.encryptGroupMessage(window.activeConversationId, plainPayload);
+        } else {
+            encryptedEnvelope = await window.e2eManager.encryptMessage(window.activeConversationId, window.activeRecipientId, plainPayload);
+        }
+
+        const msgType = selectedFiles.length > 0 ? getMessageType(selectedFiles[0]) : 'image';
+
+        // Clear files array and preview
+        selectedFiles = [];
+        const preview = document.getElementById('mediaPreview');
+        if (preview) preview.style.display = 'none';
+
+        const response = await fetch(`{{ route('chat.store', $conversation) }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                content: JSON.stringify(encryptedEnvelope),
+                type: msgType
+            })
+        });
+
+        const data = await response.json();
         if (data.success && data.message) {
             const message = data.message;
+            message.media_descriptors = uploadedDescriptors;
+            message.content = plainPayload.text;
 
-            // Sync with RealTime state BEFORE rendering
-            lastSentMessageId = data.message.id;
-            window._locallySentIds.add(String(data.message.id));
+            lastSentMessageId = message.id;
+            window._locallySentIds.add(String(message.id));
 
-            // Add the message with all media (skip if socket already rendered it)
-            if (!document.querySelector(`.message[data-message-id="${data.message.id}"]`)) {
+            if (!document.querySelector(`.message[data-message-id="${message.id}"]`)) {
                 addMessage(message);
             }
             if (window.updateExistingConversationItem) {
@@ -5248,21 +5432,25 @@ function processMediaMessage(messageData) {
             if (window.showToast) window.showToast(data.error || window.chatTranslations.failed_to_send_media, 'error');
             messageData.reject(new Error(data.error || 'Failed to send media'));
         }
-    })
-    .catch(err => {
+    } catch (err) {
         console.error('Error sending media:', err);
         if (window.showToast) window.showToast(window.chatTranslations.error_sending_media, 'error');
         messageData.reject(err);
-    })
-    .finally(() => {
+    } finally {
         isSendingMessage = false;
         messageData.input.disabled = false;
         messageData.sendButton.disabled = false;
-        // Process next message in queue if any
         if (messageSendQueue.length > 0) {
             setTimeout(processMessageQueue, 50);
         }
-    });
+    }
+}
+
+function getMessageType(file) {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('audio/')) return 'audio';
+    return 'document';
 }
 
 // Keep track of the last message date for dividers
@@ -5407,8 +5595,15 @@ window.addMessage = function(msg, opts) {
         }
     }
 
-    // Handle multiple media files (JSON)
-    if (msg.media_path && msg.media_path.startsWith('[')) {
+    // Handle E2E encrypted media descriptors
+    if (msg.media_descriptors && msg.media_descriptors.length > 0) {
+        msg.media_descriptors.forEach(desc => {
+            const blobUrl = desc.url || (desc.blob ? URL.createObjectURL(desc.blob) : '');
+            if (blobUrl && window.renderDecryptedMediaHTML) {
+                contentHtml += window.renderDecryptedMediaHTML(desc, blobUrl, msg.id);
+            }
+        });
+    } else if (msg.media_path && msg.media_path.startsWith('[')) {
         try {
             const mediaItems = JSON.parse(msg.media_path);
             if (Array.isArray(mediaItems) && mediaItems.length > 0) {
@@ -5525,17 +5720,24 @@ window.addMessage = function(msg, opts) {
         if (isReply) {
             try {
                 const replyData = JSON.parse(msg.content);
+                const replyText = (typeof replyData.content === 'string' && replyData.content.includes('"__nexus_encrypted__":true')) ? '' : replyData.content;
+                const repliedContent = (typeof replyData.reply_to?.content === 'string' && replyData.reply_to.content.includes('"__nexus_encrypted__":true')) ? '🔒 Encrypted message' : (replyData.reply_to.content || '');
                 contentHtml += `
                     <div class="replied-message-box" onclick="scrollToMessage(event, '${replyData.reply_to.id}')">
                         <span class="replied-user">${escapeHtml(replyData.reply_to.username || replyData.reply_to.sender_name || replyData.reply_to.user || 'User')}</span>
-                        <span class="replied-content">${escapeHtml(replyData.reply_to.content || '')}</span>
+                        <span class="replied-content">${escapeHtml(repliedContent)}</span>
                     </div>
-                    <span class="text" dir="auto">${linkifyText(replyData.content)}</span>
+                    <span class="text" dir="auto">${linkifyText(replyText)}</span>
                 `;
             } catch (e) {
                 console.error('Error parsing reply JSON:', e);
                 contentHtml += `<span class="text">${escapeHtml(msg.content)}</span>`;
             }
+        } else if (msg._encrypted) {
+            contentHtml += `<span class="text message-text-inner" style="opacity:0.7;cursor:default">🔒 {{ __('chat.e2e_encrypted') }}</span>`;
+        } else if (msg._signatureWarning) {
+            contentHtml += `<span style="font-size:11px;opacity:0.6;display:block;margin-bottom:2px;">⚠️ {{ __('chat.unverified_sender', ['default' => 'Unverified sender key']) }}</span>`;
+            contentHtml += `<span class="text" dir="auto">${linkifyText(msg.content)}</span>`;
         } else {
             const isStoryReply = msg.content && msg.content.startsWith('📸 Reply to your story:');
             if (isStoryReply) {
@@ -6871,13 +7073,50 @@ document.addEventListener('DOMContentLoaded', () => {
             const older = (json && json.messages) || [];
             if (older.length === 0) { window._noMoreOlder = true; return; }
 
+            // Decrypt E2E messages in parallel before rendering
+            const e2e = await window.getE2EManager();
+            await Promise.all(older.map(async (m) => {
+                if (typeof m.content !== 'string') return;
+                try {
+                    const parsed = JSON.parse(m.content);
+                    let decryptTarget = parsed;
+                    let isReplyWrapped = false;
+                    if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                        try {
+                            const inner = JSON.parse(parsed.content);
+                            if (inner.__nexus_encrypted__) {
+                                decryptTarget = inner;
+                                isReplyWrapped = true;
+                            }
+                        } catch (e) {}
+                    }
+                    if (!decryptTarget.__nexus_encrypted__) return;
+                    if (!e2e || !e2e.initialized) { m._encrypted = true; m.content = ''; return; }
+                    let decrypted;
+                    if (window.isGroupChat) {
+                        decryptTarget.conversation_id = window.activeConversationId;
+                        decrypted = await e2e.decryptGroupMessage(decryptTarget);
+                    } else {
+                        decrypted = await e2e.decryptMessage(decryptTarget, m.sender_id);
+                    }
+                    if (isReplyWrapped) {
+                        m.content = JSON.stringify({ ...parsed, content: decrypted.text || '' });
+                    } else {
+                        m.content = decrypted.text || '';
+                    }
+                    if (decrypted._signatureWarning) m._signatureWarning = true;
+                } catch (_) {
+                    m._encrypted = true;
+                    m.content = '';
+                }
+            }));
+
             // Preserve scroll position across the prepend.
             const prevHeight = c.scrollHeight;
-            const anchor = c.firstElementChild; // stable boundary for the whole batch
+            const anchor = c.firstElementChild;
             older.forEach((m) => window.addMessage(m, { prepend: true, beforeNode: anchor }));
             c.scrollTop = c.scrollHeight - prevHeight;
 
-            // Oldest id is now the first of this batch (chronological asc).
             window._oldestMessageId = String(older[0].id);
             if (older.length < 50) window._noMoreOlder = true;
         } catch (e) {
@@ -7469,32 +7708,100 @@ async function sendVoiceMessage() {
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-    const formData = new FormData();
-    const filename = 'voice-message-' + Date.now() + '.webm';
-    formData.append('voice_message', voiceRecordingState.audioBlob, filename);
-    formData.append('duration', elapsed > 0 ? elapsed : 1);
-    formData.append('waveform_peaks', JSON.stringify(generateWaveformPeaks()));
-    
-    // Add reply support
-    if (replyingTo && replyingTo.id) {
-        formData.append('reply_to_id', replyingTo.id);
-    }
-
     try {
+        const file = voiceRecordingState.audioBlob;
+        const mediaKey = await window.CryptoCore.generateGroupKey();
+        const encrypted = await window.MediaCrypto.encryptFile(file, mediaKey);
+        const rawMediaKey = await window.CryptoCore.exportSymmetricKey(mediaKey);
+
+        const uploadedChunks = [];
+        for (const chunk of encrypted.chunks) {
+            const chunkFormData = new FormData();
+            chunkFormData.append('file_id', chunk.file_id);
+            chunkFormData.append('index', chunk.index);
+            chunkFormData.append('chunk', chunk.ciphertext);
+            chunkFormData.append('original_size', chunk.original_size);
+
+            const uploadResponse = await fetch(`/chat/{{ $conversation->id }}/upload-encrypted-media`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
+                },
+                body: chunkFormData
+            });
+            const uploadResult = await uploadResponse.json();
+            if (!uploadResult.success) {
+                throw new Error('Voice chunk upload failed');
+            }
+            uploadedChunks.push({ index: chunk.index, path: uploadResult.path });
+        }
+
+        const localUrl = URL.createObjectURL(file);
+
+        const voiceMediaDescriptor = {
+            file_id: encrypted.file_id,
+            name: 'voice-message.webm',
+            type: 'audio/webm',
+            size: encrypted.size,
+            total_chunks: encrypted.total_chunks,
+            media_key: rawMediaKey,
+            chunks: uploadedChunks,
+            url: localUrl,
+            duration: elapsed > 0 ? elapsed : 1,
+            isVoice: true
+        };
+
+        const plainPayload = {
+            text: '',
+            media_descriptors: [voiceMediaDescriptor],
+            duration: elapsed > 0 ? elapsed : 1,
+            waveform_peaks: generateWaveformPeaks()
+        };
+
+        // Add reply support
+        if (replyingTo && replyingTo.id) {
+            plainPayload.reply_to = {
+                id: replyingTo.id,
+                sender: replyingTo.user,
+                content: replyingTo.content,
+                type: 'text'
+            };
+            cancelReply();
+        }
+
+        // Encrypt message content
+        let encryptedEnvelope;
+        if (window.isGroupChat) {
+            encryptedEnvelope = await window.e2eManager.encryptGroupMessage(window.activeConversationId, plainPayload);
+        } else {
+            encryptedEnvelope = await window.e2eManager.encryptMessage(window.activeConversationId, window.activeRecipientId, plainPayload);
+        }
+
+        // POST final envelope to chat.store
         const response = await fetch(`{{ route('chat.store', $conversation) }}`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                 'Accept': 'application/json'
             },
-            body: formData
+            body: JSON.stringify({
+                content: JSON.stringify(encryptedEnvelope),
+                type: 'voice',
+                duration: elapsed > 0 ? elapsed : 1,
+                waveform_peaks: JSON.stringify(plainPayload.waveform_peaks)
+            })
         });
 
         const data = await response.json();
 
         if (data.success) {
             if (data.message) {
-                appendVoiceMessage(data.message);
+                const message = data.message;
+                message.media_descriptors = [voiceMediaDescriptor];
+                message.content = '';
+                appendVoiceMessage(message);
             }
             cancelVoiceRecording();
         } else {
@@ -7505,6 +7812,7 @@ async function sendVoiceMessage() {
             sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
         }
     } catch (error) {
+        console.error('Error sending encrypted voice message:', error);
         alert('Network error. Please check your connection and try again.');
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
@@ -7571,7 +7879,9 @@ function appendVoiceMessage(message) {
     hours = hours ? hours : 12;
     const time = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
     const senderName = isOwn ? (window.chatTranslations.you || 'You') : (message.sender?.username || 'User');
-    const audioUrl = '/storage/' + message.media_path;
+    const audioUrl = (message.media_descriptors && message.media_descriptors[0])
+        ? message.media_descriptors[0].url
+        : ('/storage/' + message.media_path);
 
     const duration = message.duration || 0;
     const totalMin = Math.floor(duration / 60);
@@ -8175,5 +8485,465 @@ function initiateCall(calleeId, conversationId, calleeName, calleeAvatar, callee
     })
     .catch(err => console.error('Call initiation failed', err));
 }
+</script>
+
+{{-- E2E Encryption Initialization --}}
+@vite(['resources/js/e2e/crypto-core.js', 'resources/js/e2e/media-crypto.js', 'resources/js/e2e/e2e-manager.js'])
+<script type="module">
+async function getManager() {
+    if (window.getE2EManager) {
+        return await window.getE2EManager();
+    }
+    return new Promise(resolve => {
+        const interval = setInterval(() => {
+            if (window.getE2EManager) {
+                clearInterval(interval);
+                window.getE2EManager().then(resolve);
+            }
+        }, 50);
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(window.e2eManager || null);
+        }, 3000);
+    });
+}
+window.renderDecryptedMediaHTML = renderDecryptedMediaHTML;
+
+async function decryptAndAssembleMedia(descriptor) {
+    const mediaKeyObj = await window.CryptoCore.importSymmetricKey(descriptor.media_key);
+    const decryptedChunks = [];
+    for (const chunk of descriptor.chunks) {
+        const resp = await fetch('/storage/' + chunk.path);
+        if (!resp.ok) throw new Error('Failed to download chunk ' + chunk.index);
+        const buffer = await resp.arrayBuffer();
+        const ciphertext = new Uint8Array(buffer);
+        const iv = Uint8Array.from(atob(chunk.iv || ''), c => c.charCodeAt(0));
+        const decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            mediaKeyObj,
+            ciphertext
+        );
+        decryptedChunks.push(new Uint8Array(decrypted));
+    }
+    const totalLength = decryptedChunks.reduce((acc, c) => acc + c.length, 0);
+    const assembled = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const c of decryptedChunks) {
+        assembled.set(c, offset);
+        offset += c.length;
+    }
+    return new Blob([assembled], { type: descriptor.type });
+}
+
+function renderDecryptedMediaHTML(descriptor, blobUrl, msgId) {
+    const type = descriptor.type || '';
+    if (type.startsWith('image/')) {
+        return `<div class="message-media"><img src="${blobUrl}" alt="${escapeHtml(descriptor.name)}" onclick="openMediaViewerFromAlbum(this, ${msgId}, 0)"></div>`;
+    } else if (type.startsWith('video/')) {
+        return `<div class="message-media" onclick="openMediaViewerFromAlbum(this, ${msgId}, 0)">
+            <video src="${blobUrl}"></video>
+            <div class="media-overlay">
+                <i class="fas fa-play"></i>
+            </div>
+        </div>`;
+    } else if (descriptor.isVoice || type.includes('audio/ogg') || type.includes('audio/webm') || type.includes('audio/weba') || type.includes('audio/wav')) {
+        const duration = descriptor.duration || 0;
+        const totalMin = Math.floor(duration / 60);
+        const totalSec = String(duration % 60).padStart(2, '0');
+        return `<div class="voice-message" data-audio-url="${blobUrl}" data-duration="${duration}">
+            <button class="voice-play-btn" onclick="toggleVoiceMessage(this)"><i class="fas fa-play"></i></button>
+            <div class="voice-info">
+                <div class="voice-progress-container" onclick="seekVoice(event, this)">
+                    <div class="voice-progress-bar"></div>
+                </div>
+                <div class="voice-meta">
+                    <span class="voice-label">${window.chatTranslations.voice_message || 'Voice Message'}</span>
+                    <span class="voice-duration">0:00 / ${totalMin}:${totalSec}</span>
+                </div>
+            </div>
+            <button class="voice-speed-btn" onclick="toggleVoiceSpeed(this)">1x</button>
+        </div>`;
+    } else if (type.startsWith('audio/')) {
+        return `<div class="message-media"><audio controls preload="metadata" src="${blobUrl}"></audio></div>`;
+    } else {
+        return `<div class="message-document"><a href="${blobUrl}" download="${escapeHtml(descriptor.name)}" rel="noopener"><i class="fas fa-file"></i><span class="doc-name">${escapeHtml(descriptor.name)}</span></a></div>`;
+    }
+}
+
+async function decryptMessageElements() {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+
+    const messageEls = [...container.querySelectorAll('.message[data-message-id]')];
+    const e2e = await getManager();
+    if (!e2e) return;
+
+    // Decrypt all messages in parallel — shared secret is cached after first derivation
+    await Promise.all(messageEls.map(async (el) => {
+        const textEl = el.querySelector('.message-text-inner');
+        if (!textEl) return;
+        let rawContent = textEl.dataset.encryptedContent;
+        if (!rawContent) return;
+
+        if (rawContent.includes('&quot;')) {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = rawContent;
+            rawContent = txt.value;
+        }
+
+        try {
+            const parsed = JSON.parse(rawContent);
+            let decryptTarget = parsed;
+            if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                try {
+                    const inner = JSON.parse(parsed.content);
+                    if (inner.__nexus_encrypted__) decryptTarget = inner;
+                } catch (e) {}
+            }
+            if (!decryptTarget.__nexus_encrypted__) return;
+
+            let decrypted;
+            if (window.isGroupChat) {
+                decryptTarget.conversation_id = window.activeConversationId;
+                decrypted = await e2e.decryptGroupMessage(decryptTarget);
+            } else {
+                decrypted = await e2e.decryptMessage(decryptTarget, parseInt(el.dataset.senderId || '0'));
+            }
+
+            if (decrypted._signatureWarning) {
+                const warnEl = document.createElement('span');
+                warnEl.title = '{{ __('chat.signature_warning', ['default' => 'Sender key may have changed']) }}';
+                warnEl.style.cssText = 'font-size:11px;opacity:0.6;display:block;margin-bottom:2px;';
+                warnEl.textContent = '⚠️ {{ __('chat.unverified_sender', ['default' => 'Unverified sender key']) }}';
+                textEl.closest('.message-bubble')?.prepend(warnEl);
+            }
+
+            if (decrypted.media_descriptors?.length > 0) {
+                const placeholderId = `loading_media_${el.dataset.messageId}`;
+                if (!el.querySelector(`#${placeholderId}`)) {
+                    textEl.insertAdjacentHTML('beforebegin',
+                        `<div id="${placeholderId}" class="message-media-loading" style="padding:10px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted,#888);">
+                            <i class="fas fa-spinner fa-spin"></i> <span>Securing media attachment...</span>
+                        </div>`
+                    );
+                }
+
+                (async () => {
+                    try {
+                        let mediaHtml = '';
+                        for (const desc of decrypted.media_descriptors) {
+                            const blob = await decryptAndAssembleMedia(desc);
+                            const blobUrl = URL.createObjectURL(blob);
+                            mediaHtml += renderDecryptedMediaHTML(desc, blobUrl, el.dataset.messageId);
+                        }
+                        const placeholder = el.querySelector(`#${placeholderId}`);
+                        if (placeholder) placeholder.remove();
+                        textEl.insertAdjacentHTML('beforebegin', mediaHtml);
+
+                        const plaintext = decrypted.text || '';
+                        if (plaintext.trim()) {
+                            textEl.innerHTML = linkifyText(escapeHtml(plaintext));
+                            textEl.style.display = 'inline';
+                            textEl.style.background = 'none';
+                            textEl.style.opacity = '1';
+                        } else {
+                            textEl.style.display = 'none';
+                        }
+                    } catch (mediaErr) {
+                        console.error('Failed to decrypt attachment:', mediaErr);
+                        const placeholder = el.querySelector(`#${placeholderId}`);
+                        if (placeholder) placeholder.innerHTML = `<i class="fas fa-lock"></i> <span>Failed to decrypt attachment</span>`;
+                    }
+                })();
+            } else {
+                const plaintext = decrypted.text || '';
+                textEl.innerHTML = linkifyText(escapeHtml(plaintext));
+                textEl.style.display = 'inline';
+                textEl.style.background = 'none';
+                textEl.style.opacity = '1';
+            }
+        } catch (e) {
+            const label = e?.message?.includes('key')
+                ? ('🔒 ' + ('{{ __('chat.encrypted_previous_keys', ['default' => 'Encrypted with previous keys']) }}' || 'Encrypted with previous keys'))
+                : ('🔒 ' + ('{{ __('chat.e2e_encrypted') }}' || 'Encrypted message'));
+            textEl.innerHTML = label;
+            textEl.style.display = 'inline';
+            textEl.style.background = 'none';
+            textEl.style.opacity = '0.7';
+        }
+    }));
+}
+
+async function decryptSidebarPreviews() {
+    const previews = [...document.querySelectorAll('.preview-text[data-encrypted-preview]')];
+    const e2e = await getManager();
+    if (!e2e) {
+        previews.forEach(el => el.style.opacity = '1');
+        return;
+    }
+
+    await Promise.all(previews.map(async (el) => {
+        let rawContent = el.dataset.encryptedPreview;
+        const senderId = parseInt(el.dataset.latestMessageSenderId || '0');
+        const prefix = el.dataset.previewPrefix || '';
+        if (!rawContent) return;
+
+        if (rawContent.includes('&quot;')) {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = rawContent;
+            rawContent = txt.value;
+        }
+
+        try {
+            const parsed = JSON.parse(rawContent);
+            let decryptTarget = parsed;
+            if (parsed.__nexus_reply__ && typeof parsed.content === 'string') {
+                try {
+                    const inner = JSON.parse(parsed.content);
+                    if (inner.__nexus_encrypted__) decryptTarget = inner;
+                } catch (e) {}
+            }
+            if (!decryptTarget.__nexus_encrypted__) {
+                el.style.opacity = '1';
+                return;
+            }
+
+            const conversationItem = el.closest('.conversation-item');
+            const isGroup = conversationItem?.getAttribute('data-is-group') === 'true';
+            const conversationId = conversationItem?.getAttribute('data-conversation-id') || '';
+
+            let decrypted;
+            if (isGroup) {
+                decryptTarget.conversation_id = conversationId;
+                decrypted = await e2e.decryptGroupMessage(decryptTarget);
+            } else {
+                const otherUserId = parseInt(conversationItem?.getAttribute('data-user-id') || '0');
+                decrypted = await e2e.decryptMessage(decryptTarget, senderId, otherUserId);
+            }
+
+            const plaintext = decrypted.text || '';
+            const displayText = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+            el.textContent = prefix + displayText;
+            el.style.display = 'inline';
+            el.style.background = 'none';
+            el.style.opacity = '1';
+        } catch (e) {
+            console.error('Failed to decrypt sidebar preview:', e);
+            el.textContent = prefix + '🔒 ' + ('{{ __('chat.e2e_encrypted') }}' || 'Encrypted message');
+            el.style.display = 'inline';
+            el.style.background = 'none';
+            el.style.opacity = '1';
+        }
+    }));
+}
+
+async function initE2EShow() {
+    const chatContainer = document.getElementById('chatMessages');
+    try {
+        const e2e = await getManager();
+        if (!e2e) {
+            console.warn('E2E encryption not supported or not loaded in this browser');
+            return;
+        }
+
+        const hasKeys = await e2e.db.hasKeys();
+        if (!hasKeys) {
+            // First-time user: no messages to decrypt yet, so blocking setup is fine
+            await e2e.ensureKeys();
+            await e2e.registerKeys();
+            const hasBackup = await e2e.hasBackup();
+            if (!hasBackup) {
+                const banner = document.getElementById('e2e-key-setup-banner');
+                if (banner && !sessionStorage.getItem('e2e_banner_dismissed')) {
+                    banner.style.display = 'block';
+                }
+            }
+        } else {
+            // Existing user: run key maintenance in background — don't block decrypt/reveal
+            (async () => {
+                try {
+                    const myUserId = {{ auth()->id() }};
+                    const checkResp = await fetch(`/api/e2e/keys/${myUserId}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (checkResp.status === 404) {
+                        console.log('Server public keys missing. Re-registering existing keys.');
+                        await e2e.registerKeys();
+                    }
+                } catch (e) {
+                    console.error('Failed to verify/re-register keys on server:', e);
+                }
+
+                const identity = await e2e.db.getIdentityKey();
+                if (identity && !identity.backup_status) {
+                    const hasBackup = await e2e.hasBackup();
+                    if (hasBackup) {
+                        const identityRecord = await e2e.db.get('user-keys', 'identity');
+                        identityRecord.backup_status = true;
+                        await e2e.db.put('user-keys', identityRecord);
+                    } else {
+                        const recoveryBanner = document.getElementById('e2e-recovery-banner');
+                        if (recoveryBanner) recoveryBanner.style.display = 'none';
+                    }
+                }
+
+                const hasBackup = await e2e.hasBackup();
+                if (hasBackup) {
+                    const recoveryBanner = document.getElementById('e2e-recovery-banner');
+                    if (recoveryBanner) recoveryBanner.style.display = 'none';
+                }
+            })();
+        }
+
+        const wasNearBottom = chatContainer
+            ? (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < 120
+            : false;
+        await decryptMessageElements();
+        if (wasNearBottom && chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        await decryptSidebarPreviews();
+
+        if (window.activeRecipientId && !window.isGroupChat) {
+            startKeyChangePolling(window.activeRecipientId);
+        }
+    } catch (err) {
+        console.error('E2E initialization error:', err);
+    } finally {
+        // Always reveal — even if init/decrypt fails, never leave chat blank
+        if (chatContainer) chatContainer.style.opacity = '1';
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initE2EShow);
+} else {
+    initE2EShow();
+}
+document.addEventListener('turbo:load', initE2EShow);
+
+/**
+ * Poll the server periodically to detect if the recipient's public keys
+ * have changed since we last cached them.  If they have, display a
+ * non-intrusive banner alerting the user.
+ */
+let lastKeyFingerprint = null;
+
+async function startKeyChangePolling(recipientId) {
+    // Cache the initial fingerprint immediately
+    try {
+        const resp = await fetch(`/api/e2e/keys/${recipientId}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.success) {
+                lastKeyFingerprint = data.ecdh_public_key?.x + data.ecdh_public_key?.y;
+            }
+        }
+    } catch (_) {}
+
+    // Poll every 60 seconds
+    setInterval(async () => {
+        if (!recipientId) return;
+        try {
+            const resp = await fetch(`/api/e2e/keys/${recipientId}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.success) return;
+
+            const currentFingerprint = data.ecdh_public_key?.x + data.ecdh_public_key?.y;
+            if (lastKeyFingerprint && currentFingerprint && currentFingerprint !== lastKeyFingerprint) {
+                if (window.e2eManager) {
+                    await window.e2eManager.invalidatePeerCache(recipientId);
+                    try {
+                        await window.e2eManager._getSharedSecret(recipientId);
+                    } catch (e) {
+                        console.error('Failed to pre-derive shared secret after key rotation:', e);
+                    }
+                }
+                showKeyChangeAlert();
+                lastKeyFingerprint = currentFingerprint;
+            } else if (!lastKeyFingerprint && currentFingerprint) {
+                lastKeyFingerprint = currentFingerprint;
+            }
+        } catch (_) {}
+    }, 60000);
+}
+
+function showKeyChangeAlert() {
+    const existing = document.getElementById('e2e-key-change-alert');
+    if (existing) return;
+
+    const alert = document.createElement('div');
+    alert.id = 'e2e-key-change-alert';
+    alert.style.cssText = `
+        position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+        background: var(--warning-bg, #fff3cd); color: var(--warning-text, #856404);
+        padding: 12px 20px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        z-index: 9999; font-size: 14px; display: flex; align-items: center; gap: 10px;
+        max-width: 90%; cursor: pointer;
+    `;
+    alert.innerHTML = `
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>{{ __('chat.e2e_key_change_alert') }}</span>
+        <button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;">&times;</button>
+    `;
+    alert.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            if (window.showSafetyNumber) window.showSafetyNumber();
+        }
+    });
+    document.body.appendChild(alert);
+
+    setTimeout(() => { const el = document.getElementById('e2e-key-change-alert'); if (el) el.remove(); }, 15000);
+}
+
+window.e2eManager.handleSetBackup = async function() {
+    const input = document.getElementById('e2e-passphrase-input');
+    const passphrase = input?.value.trim();
+    if (!passphrase || passphrase.length < 8) {
+        alert('{{ __('chat.e2e_passphrase_min_length') }}');
+        return;
+    }
+    try {
+        await window.e2eManager.backupKeys(passphrase);
+        const banner = document.getElementById('e2e-key-setup-banner');
+        if (banner) banner.style.display = 'none';
+        input.value = '';
+        if (typeof showToast === 'function') {
+            showToast('{{ __('chat.e2e_backup_success') }}', 'success');
+        }
+    } catch (err) {
+        console.error('Backup failed:', err);
+        alert('{{ __('chat.e2e_backup_failed') }}');
+    }
+};
+
+window.e2eManager.dismissBanner = function() {
+    const banner = document.getElementById('e2e-key-setup-banner');
+    if (banner) banner.style.display = 'none';
+    sessionStorage.setItem('e2e_banner_dismissed', 'true');
+};
+
+window.e2eManager.handleRecover = async function() {
+    const input = document.getElementById('e2e-recovery-passphrase-input');
+    const passphrase = input?.value.trim();
+    if (!passphrase) {
+        alert('{{ __('chat.e2e_enter_passphrase') }}');
+        return;
+    }
+    try {
+        await window.e2eManager.restoreKeys(passphrase);
+        const banner = document.getElementById('e2e-recovery-banner');
+        if (banner) banner.style.display = 'none';
+        input.value = '';
+        if (typeof showToast === 'function') {
+            showToast('{{ __('chat.e2e_recovery_success') }}', 'success');
+        }
+        location.reload();
+    } catch (err) {
+        console.error('Recovery failed:', err);
+        alert('{{ __('chat.e2e_recovery_failed') }}');
+    }
+};
 </script>
 @endsection

@@ -1,28 +1,28 @@
-const VISIT_KEY        = 'nexus_pwa_visit_count';
-const INSTALLED_KEY    = 'nexus_pwa_installed';
-const SESSION_KEY      = 'nexus_install_banner_dismissed'; // sessionStorage — clears on new session
-const ENGAGE_MS        = 30_000;
+const VISIT_KEY = "nexus_pwa_visit_count";
+const INSTALLED_KEY = "nexus_pwa_installed";
+const SESSION_KEY = "nexus_install_banner_dismissed"; // sessionStorage — clears on new session
+const ENGAGE_MS = 30_000;
 
 let deferredPrompt = null;
 
 function liftAboveNav(banner) {
-    const nav = document.querySelector('.mobile-bottom-nav');
-    if (!nav || window.getComputedStyle(nav).display === 'none') return;
+    const nav = document.querySelector(".mobile-bottom-nav");
+    if (!nav || window.getComputedStyle(nav).display === "none") return;
     const navH = nav.getBoundingClientRect().height;
     if (navH > 0) {
-        banner.style.setProperty('bottom', navH + 'px', 'important');
-        banner.style.setProperty('padding-bottom', '12px', 'important');
-        banner.style.setProperty('z-index', '10000', 'important');
+        banner.style.setProperty("bottom", navH + "px", "important");
+        banner.style.setProperty("padding-bottom", "12px", "important");
+        banner.style.setProperty("z-index", "10000", "important");
     }
 }
 
 function isDismissedThisSession() {
-    return sessionStorage.getItem(SESSION_KEY) === '1';
+    return sessionStorage.getItem(SESSION_KEY) === "1";
 }
 
 function dismissForSession(banner) {
-    sessionStorage.setItem(SESSION_KEY, '1');
-    banner.setAttribute('hidden', '');
+    sessionStorage.setItem(SESSION_KEY, "1");
+    banner.setAttribute("hidden", "");
 }
 
 function isIOS() {
@@ -30,12 +30,17 @@ function isIOS() {
 }
 
 function isInStandaloneMode() {
-    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        navigator.standalone === true
+    );
 }
 
 function isIOSSafari() {
     const ua = navigator.userAgent;
-    return isIOS() && /safari/i.test(ua) && !/crios|fxios|opios|mercury/i.test(ua);
+    return (
+        isIOS() && /safari/i.test(ua) && !/crios|fxios|opios|mercury/i.test(ua)
+    );
 }
 
 function isIOSNonSafari() {
@@ -43,7 +48,7 @@ function isIOSNonSafari() {
 }
 
 function getVisitCount() {
-    return parseInt(localStorage.getItem(VISIT_KEY) || '0', 10);
+    return parseInt(localStorage.getItem(VISIT_KEY) || "0", 10);
 }
 
 function incrementVisitCount() {
@@ -53,61 +58,79 @@ function incrementVisitCount() {
 }
 
 function showAndroidBanner(prompt) {
-    const banner = document.getElementById('pwa-install-banner');
+    const banner = document.getElementById("pwa-install-banner");
     if (!banner) return;
-    banner.removeAttribute('hidden');
+    banner.removeAttribute("hidden");
     liftAboveNav(banner);
 
-    const installBtn = document.getElementById('pwa-install-btn');
-    const dismissBtn = document.getElementById('pwa-install-dismiss');
+    const installBtn = document.getElementById("pwa-install-btn");
+    const dismissBtn = document.getElementById("pwa-install-dismiss");
 
     if (installBtn) {
-        installBtn.addEventListener('click', async () => {
-            banner.setAttribute('hidden', '');
-            deferredPrompt = null;
-            try {
-                prompt.prompt();
-                const { outcome } = await prompt.userChoice;
-                if (outcome === 'accepted') {
-                    localStorage.setItem(INSTALLED_KEY, '1');
+        installBtn.addEventListener(
+            "click",
+            async () => {
+                banner.setAttribute("hidden", "");
+                deferredPrompt = null;
+                try {
+                    prompt.prompt();
+                    const { outcome } = await prompt.userChoice;
+                    if (outcome === "accepted") {
+                        localStorage.setItem(INSTALLED_KEY, "1");
+                    }
+                } catch (e) {
+                    /* prompt already used */
                 }
-            } catch (e) { /* prompt already used */ }
-        }, { once: true });
+            },
+            { once: true },
+        );
     }
 
     if (dismissBtn) {
-        dismissBtn.addEventListener('click', () => {
-            dismissForSession(banner);
-            deferredPrompt = null;
-        }, { once: true });
+        dismissBtn.addEventListener(
+            "click",
+            () => {
+                dismissForSession(banner);
+                deferredPrompt = null;
+            },
+            { once: true },
+        );
     }
 }
 
 function showIOSBanner() {
-    const banner = document.getElementById('ios-install-banner');
+    const banner = document.getElementById("ios-install-banner");
     if (!banner) return;
-    banner.removeAttribute('hidden');
+    banner.removeAttribute("hidden");
     liftAboveNav(banner);
 
-    const dismissBtn = document.getElementById('ios-install-dismiss');
+    const dismissBtn = document.getElementById("ios-install-dismiss");
     if (dismissBtn) {
-        dismissBtn.addEventListener('click', () => {
-            dismissForSession(banner);
-        }, { once: true });
+        dismissBtn.addEventListener(
+            "click",
+            () => {
+                dismissForSession(banner);
+            },
+            { once: true },
+        );
     }
 }
 
 function showIOSNonSafariBanner() {
-    const banner = document.getElementById('ios-open-in-safari-banner');
+    const banner = document.getElementById("ios-open-in-safari-banner");
     if (!banner) return;
-    banner.removeAttribute('hidden');
+    banner.removeAttribute("hidden");
     liftAboveNav(banner);
 
-    const dismissBtn = document.getElementById('ios-open-in-safari-dismiss');
+    const dismissBtn = document.getElementById("ios-open-in-safari-dismiss");
     if (dismissBtn) {
-        dismissBtn.addEventListener('click', () => {
-            dismissForSession(banner);
-        }, { once: true });
+        dismissBtn.addEventListener(
+            "click",
+            () => {
+                dismissForSession(banner);
+            },
+            { once: true },
+        );
     }
 }
 
@@ -122,35 +145,48 @@ export function init() {
     let scrollFired = false;
     let bannerShown = false;
 
-    window.addEventListener('beforeinstallprompt', (e) => {
+    window.addEventListener("beforeinstallprompt", (e) => {
         e.preventDefault();
         deferredPrompt = e;
 
         if (localStorage.getItem(INSTALLED_KEY)) return;
 
         const tryShow = () => {
-            if (!bannerShown && !isDismissedThisSession() && visitCount >= 2 && deferredPrompt && (engagementFired || scrollFired)) {
+            if (
+                !bannerShown &&
+                !isDismissedThisSession() &&
+                visitCount >= 2 &&
+                deferredPrompt &&
+                (engagementFired || scrollFired)
+            ) {
                 bannerShown = true;
                 showAndroidBanner(deferredPrompt);
             }
         };
 
-        setTimeout(() => { engagementFired = true; tryShow(); }, ENGAGE_MS);
+        setTimeout(() => {
+            engagementFired = true;
+            tryShow();
+        }, ENGAGE_MS);
 
-        window.addEventListener('scroll', function onScroll() {
-            if (window.scrollY > 200) {
-                scrollFired = true;
-                window.removeEventListener('scroll', onScroll);
-                tryShow();
-            }
-        }, { passive: true });
+        window.addEventListener(
+            "scroll",
+            function onScroll() {
+                if (window.scrollY > 200) {
+                    scrollFired = true;
+                    window.removeEventListener("scroll", onScroll);
+                    tryShow();
+                }
+            },
+            { passive: true },
+        );
     });
 
-    window.addEventListener('appinstalled', () => {
-        localStorage.setItem(INSTALLED_KEY, '1');
+    window.addEventListener("appinstalled", () => {
+        localStorage.setItem(INSTALLED_KEY, "1");
         deferredPrompt = null;
-        const banner = document.getElementById('pwa-install-banner');
-        if (banner) banner.setAttribute('hidden', '');
+        const banner = document.getElementById("pwa-install-banner");
+        if (banner) banner.setAttribute("hidden", "");
     });
 
     // ── iOS guide ──

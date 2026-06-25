@@ -24,6 +24,7 @@ return [
     'story_view' => ':user شاف قصتك',
     'reacted_to_your_post' => ':user تفاعل مع منشورك بـ :reaction',
     'reacted_to_your_message' => ':user تفاعل بـ :reaction على ":content"',
+    'reacted_to_your_message_short' => ':user تفاعل بـ :reaction على رسالتك',
 
     // Notification Actions
     'view_post' => 'شوف المنشور',

@@ -121,6 +121,12 @@
 .np-bio {
     font-size: 14px; color: var(--text); line-height: 1.65;
     margin-bottom: 10px; max-width: 520px;
+    overflow-wrap: break-word;
+}
+.np-bio .np-text-trunc,
+.np-bio .np-text-full,
+.np-bio .np-text-raw {
+    white-space: pre-wrap;
 }
 .np-meta {
     display: flex; flex-wrap: wrap; gap: 14px;
@@ -130,14 +136,28 @@
 
 /* About (longer bio) */
 .np-about {
-    font-size: 14px; color: var(--text-muted); line-height: 1.7;
+    font-size: 14px; color: var(--text); line-height: 1.7;
     margin-bottom: 14px; max-width: 520px;
     padding: 12px 14px;
     background: var(--surface-2);
     border-radius: var(--radius);
     border-left: 3px solid var(--primary-soft);
+    overflow-wrap: break-word;
+}
+.np-about .np-text-trunc,
+.np-about .np-text-full,
+.np-about .np-text-raw {
     white-space: pre-wrap;
 }
+.np-toggle-btn {
+    background: none; border: none;
+    color: var(--primary); cursor: pointer;
+    font-size: inherit; font-weight: 600;
+    padding: 0; display: inline;
+    line-height: inherit; vertical-align: baseline;
+    opacity: .85;
+}
+.np-toggle-btn:hover { opacity: 1; background: var(--surface-hover); }
 
 /* ─── Stats ──────────────────────────────────────────── */
 .np-stats-row {
@@ -286,7 +306,8 @@
     .np-identity { padding: 10px 14px 0; }
     .np-name { font-size: 18px; }
     .np-username { font-size: 13px; }
-    .np-bio { font-size: 13px; }
+    .np-bio { font-size: 13px; max-width: 100%; }
+    .np-about { max-width: 100%; padding: 10px 12px; }
     .np-meta { gap: 10px; font-size: 12px; }
     .np-stats-row { padding: 12px 14px; gap: 20px; }
     .np-stat-num { font-size: 16px; }
@@ -444,8 +465,29 @@
         </div>
         <span class="np-username"><bdi dir="ltr">{{ '@' . $user->username }}</bdi></span>
 
+        @php $truncLimit = 50; @endphp
         @if($user->profile && $user->profile->bio)
-            <p class="np-bio">{{ $user->profile->bio }}</p>
+            @php $bioText = $user->profile->bio; @endphp
+            <p class="np-bio">
+                @if(mb_strlen($bioText) > $truncLimit)
+                    @php $bioTrunc = \Illuminate\Support\Str::limit(preg_replace('/\s+/', ' ', trim($bioText)), $truncLimit); @endphp
+                    <span class="np-text-trunc">{{ $bioTrunc }}</span><span class="np-text-full" style="display:none">{{ $bioText }}</span><button type="button" class="np-toggle-btn" onclick="toggleText(this)" data-expanded="false" data-show-more="{{ __('messages.show_more') }}" data-show-less="{{ __('messages.show_less') }}">{{ __('messages.show_more') }}</button>
+                @else
+                    <span class="np-text-raw">{{ $bioText }}</span>
+                @endif
+            </p>
+        @endif
+
+        @if($user->profile && $user->profile->about)
+            @php $aboutText = $user->profile->about; @endphp
+            <div class="np-about">
+                @if(mb_strlen($aboutText) > $truncLimit)
+                    @php $aboutTrunc = \Illuminate\Support\Str::limit(preg_replace('/\s+/', ' ', trim($aboutText)), $truncLimit); @endphp
+                    <span class="np-text-trunc">{{ $aboutTrunc }}</span><span class="np-text-full" style="display:none">{{ $aboutText }}</span><button type="button" class="np-toggle-btn" onclick="toggleText(this)" data-expanded="false" data-show-more="{{ __('messages.show_more') }}" data-show-less="{{ __('messages.show_less') }}">{{ __('messages.show_more') }}</button>
+                @else
+                    <span class="np-text-raw">{{ $aboutText }}</span>
+                @endif
+            </div>
         @endif
 
         <div class="np-meta">
@@ -524,12 +566,6 @@
             @endif
             <span><i class="fas fa-calendar-alt"></i> {{ __('messages.joined_on', ['date' => $user->created_at->format('M Y')]) }}</span>
         </div>
-
-        @if($user->profile && $user->profile->about)
-            <div class="np-about">{{ $user->profile->about }}</div>
-        @endif
-
-
 
         {{-- Blocked-you notice --}}
         @if(auth()->check() && $isBlockedBy)
@@ -922,6 +958,26 @@ document.addEventListener('keydown', function(e) {
     if (document.getElementById('qr-code-modal').style.display === 'flex') closeQrCodeModal();
     if (document.getElementById('image-modal').style.display === 'flex') closeImageModal();
 });
+
+/* ── Toggle text (bio / about show more/less) ──────── */
+function toggleText(btn) {
+    var container = btn.parentElement;
+    var trunc = container.querySelector('.np-text-trunc');
+    var full = container.querySelector('.np-text-full');
+    var isExpanded = btn.getAttribute('data-expanded') === 'true';
+
+    if (isExpanded) {
+        trunc.style.display = '';
+        full.style.display = 'none';
+        btn.textContent = btn.getAttribute('data-show-more');
+        btn.setAttribute('data-expanded', 'false');
+    } else {
+        trunc.style.display = 'none';
+        full.style.display = '';
+        btn.textContent = btn.getAttribute('data-show-less');
+        btn.setAttribute('data-expanded', 'true');
+    }
+}
 
 /* ── Session flash ─────────────────────────────────── */
 @if(session('success'))

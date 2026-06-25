@@ -24,6 +24,7 @@ return [
     'story_view' => ':user viewed your story',
     'reacted_to_your_post' => ':user reacted to your post with :reaction',
     'reacted_to_your_message' => ':user reacted :reaction on ":content"',
+    'reacted_to_your_message_short' => ':user reacted :reaction to your message',
 
     // Notification Actions
     'view_post' => 'View Post',

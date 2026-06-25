@@ -42,10 +42,17 @@
             <span class="system-time">{{ $message->created_at->format('h:i a') }}</span>
         </div>
     @else
-        <div class="message {{ $message->is_mine ? 'own' : 'other' }}" id="message-{{ $message->id }}">
+        @php
+            $isEncrypted = $message->content && str_contains($message->content, '"__nexus_encrypted__":true');
+        @endphp
+        <div class="message {{ $message->is_mine ? 'own' : 'other' }}" id="message-{{ $message->id }}" data-message-id="{{ $message->id }}" data-sender-id="{{ $message->sender_id }}">
             <div class="message-bubble">
                 <div class="message-content">
-                    <span class="text" dir="auto">{{ $message->content }}</span>
+                    @if($isEncrypted)
+                        <span class="text message-text-inner" data-encrypted-content="{{ $message->content }}" data-sender-id="{{ $message->sender_id }}" style="cursor: default;">🔒 {{ __('chat.e2e_encrypted') }}</span>
+                    @else
+                        <span class="text" dir="auto">{{ $message->content }}</span>
+                    @endif
                 </div>
                 <div class="message-time">
                     {{ $message->created_at->format('h:i a') }}

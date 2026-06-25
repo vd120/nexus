@@ -1,14 +1,31 @@
-import { io } from 'socket.io-client';
+import { io } from "socket.io-client";
+
+async function getE2EManager() {
+    if (window.e2eManager && window.e2eManager.initialized) return window.e2eManager;
+    return new Promise((resolve) => {
+        const interval = setInterval(() => {
+            if (window.e2eManager && window.e2eManager.initialized) {
+                clearInterval(interval);
+                resolve(window.e2eManager);
+            }
+        }, 50);
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(window.e2eManager || null);
+        }, 3000);
+    });
+}
+window.getE2EManager = getE2EManager;
 
 class SocketManager {
     constructor() {
         this.config = window.SOCKET_CONFIG || {};
         this.socket = null;
-        this.status = 'DISCONNECTED';
-        this.lastStatus = 'DISCONNECTED';
+        this.status = "DISCONNECTED";
+        this.lastStatus = "DISCONNECTED";
         this.processedMessages = new Set();
         this.notifiedPostSlugs = new Set();
-        
+
         if (this.config.token && this.config.url) {
             this.connect();
             this.clearNotificationsForActiveConversation();
@@ -20,58 +37,70 @@ class SocketManager {
      */
     async clearNotificationsForActiveConversation() {
         const convId = window.activeConversationId;
-        if (!convId || convId === 'global-chat') return;
+        if (!convId || convId === "global-chat") return;
 
         try {
             await fetch(`/notifications/mark-conversation-read/${convId}`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
+                    "X-CSRF-TOKEN": document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute("content"),
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                },
             });
-            
+
             // Proactively update the local notification count if the global counter exists
-            const counter = document.getElementById('notif-badge');
+            const counter = document.getElementById("notif-badge");
             if (window.loadNotifications) {
                 window.loadNotifications(); // Refresh the list and count
             }
         } catch (e) {
-            console.error('[SocketManager] Failed to clear notifications for conversation:', e);
+            console.error(
+                "[SocketManager] Failed to clear notifications for conversation:",
+                e,
+            );
         }
     }
 
     connect() {
         let socketUrl = this.config.url;
-        
+
         // If URL contains localhost but we are accessing via IP, fix it
-        if (socketUrl && socketUrl.includes('localhost') && window.location.hostname !== 'localhost') {
-            socketUrl = socketUrl.replace('localhost', window.location.hostname);
+        if (
+            socketUrl &&
+            socketUrl.includes("localhost") &&
+            window.location.hostname !== "localhost"
+        ) {
+            socketUrl = socketUrl.replace(
+                "localhost",
+                window.location.hostname,
+            );
         }
 
         this.socket = io(socketUrl, {
-            auth: { token: this.config.token }
+            auth: { token: this.config.token },
         });
 
-        this.socket.on('connect', () => {
-            this.status = 'CONNECTED';
-            this.updateConnectionStatus('online');
+        this.socket.on("connect", () => {
+            this.status = "CONNECTED";
+            this.updateConnectionStatus("online");
             this.updateOnlineStatus(this.config.userId, true);
             this.confirmAllMessagesDelivered();
-            
+
             // Start listeners on first connection
             if (!this.initialized) {
                 this.initialize();
                 this.initialized = true;
                 // Signal other scripts (call-manager.js) that the socket is ready.
                 // Must fire AFTER initialize() so all socket listeners are in place.
-                window.dispatchEvent(new CustomEvent('socket:ready'));
+                window.dispatchEvent(new CustomEvent("socket:ready"));
             }
 
             // Join admin room if applicable
             if (this.config.isAdmin) {
-                this.socket.emit('admin:join');
+                this.socket.emit("admin:join");
             }
         });
     }
@@ -79,68 +108,259 @@ class SocketManager {
     initialize() {
         if (!this.socket) return;
 
-        this.socket.on('disconnect', () => {
-            this.status = 'DISCONNECTED';
-            this.updateConnectionStatus('pending');
+        this.socket.on("disconnect", () => {
+            this.status = "DISCONNECTED";
+            this.updateConnectionStatus("pending");
 
             // Clear any lingering "typing…" indicators — peers may have been typing
             // when the connection dropped and would otherwise stay stuck.
             if (this.typingStatus) this.typingStatus.clear();
-            const mainIndicator = document.getElementById('typingIndicator');
-            if (mainIndicator) mainIndicator.style.display = 'none';
-            document.querySelectorAll('.conversation-item.is-typing').forEach((el) => {
-                el.classList.remove('is-typing');
-                const ind = el.querySelector('.typing-indicator-sidebar');
-                if (ind) ind.style.setProperty('display', 'none', 'important');
-                const prev = el.querySelector('.preview-content-wrapper');
-                if (prev) prev.style.setProperty('display', 'block', 'important');
-            });
+            const mainIndicator = document.getElementById("typingIndicator");
+            if (mainIndicator) mainIndicator.style.display = "none";
+            document
+                .querySelectorAll(".conversation-item.is-typing")
+                .forEach((el) => {
+                    el.classList.remove("is-typing");
+                    const ind = el.querySelector(".typing-indicator-sidebar");
+                    if (ind)
+                        ind.style.setProperty("display", "none", "important");
+                    const prev = el.querySelector(".preview-content-wrapper");
+                    if (prev)
+                        prev.style.setProperty("display", "block", "important");
+                });
         });
 
-        this.socket.on('connect_error', () => {
-            this.updateConnectionStatus('pending');
+        this.socket.on("connect_error", () => {
+            this.updateConnectionStatus("pending");
         });
 
         // Online status listeners
-        this.socket.on('user:online', (data) => this.updateOnlineStatus(data.userId, true, data.last_active));
-        this.socket.on('user:offline', (data) => this.updateOnlineStatus(data.userId, false, data.last_active));
-        this.socket.on('users:online', (data) => {
-            const onlineIds = new Set((data.userIds || []).map(id => String(id)));
-            
+        this.socket.on("user:online", (data) =>
+            this.updateOnlineStatus(data.userId, true, data.last_active),
+        );
+        this.socket.on("user:offline", (data) =>
+            this.updateOnlineStatus(data.userId, false, data.last_active),
+        );
+        this.socket.on("users:online", (data) => {
+            const onlineIds = new Set(
+                (data.userIds || []).map((id) => String(id)),
+            );
+
             // Sync all online indicators on the page
-            document.querySelectorAll('.online-indicator, #chat-user-status').forEach(el => {
-                const userId = el.getAttribute('data-user-id');
-                if (userId) {
-                    const isOnline = onlineIds.has(String(userId)) || String(userId) === String(this.config.userId);
-                    this.updateOnlineStatus(userId, isOnline);
-                }
-            });
+            document
+                .querySelectorAll(".online-indicator, #chat-user-status")
+                .forEach((el) => {
+                    const userId = el.getAttribute("data-user-id");
+                    if (userId) {
+                        const isOnline =
+                            onlineIds.has(String(userId)) ||
+                            String(userId) === String(this.config.userId);
+                        this.updateOnlineStatus(userId, isOnline);
+                    }
+                });
         });
 
         // Message listener
-        this.socket.on('chat:message', (msg) => {
+        this.socket.on("chat:message", async (msg) => {
             // Duplicate guard: don't process the same message twice
             if (this.processedMessages.has(msg.id)) return;
             this.processedMessages.add(msg.id);
-            
+
             // Limit the size of the set to prevent memory leaks
             if (this.processedMessages.size > 100) {
                 const firstItem = this.processedMessages.values().next().value;
                 this.processedMessages.delete(firstItem);
             }
 
+            // Decrypt E2E encrypted messages before processing
+            if (typeof msg.content === "string") {
+                try {
+                    const parsed = JSON.parse(msg.content);
+                    let decryptTarget = parsed;
+                    let isReplyWrapped = false;
+                    if (
+                        parsed.__nexus_reply__ &&
+                        typeof parsed.content === "string"
+                    ) {
+                        try {
+                            const inner = JSON.parse(parsed.content);
+                            if (
+                                inner.__nexus_encrypted__ &&
+                                !inner.optimistic
+                            ) {
+                                decryptTarget = inner;
+                                isReplyWrapped = true;
+                            }
+                        } catch (e) {}
+                    }
+                    if (
+                        decryptTarget.__nexus_encrypted__ &&
+                        !decryptTarget.optimistic
+                    ) {
+                        const convId = String(msg.conversation_id);
+                        const sidebarItem = document.querySelector(
+                            `.conversation-item[data-conversation-id="${convId}"]`,
+                        );
+                        const isGroup = sidebarItem
+                            ? sidebarItem.getAttribute("data-is-group") ===
+                              "true"
+                            : String(window.activeConversationId) === convId &&
+                              window.isGroupChat;
+
+                        const e2e = await getE2EManager();
+                        if (e2e) {
+                            let decrypted;
+                            if (isGroup) {
+                                decryptTarget.conversation_id =
+                                    msg.conversation_id;
+                                decrypted =
+                                    await e2e.decryptGroupMessage(
+                                        decryptTarget,
+                                    );
+                            } else {
+                                decrypted = await e2e.decryptMessage(
+                                    decryptTarget,
+                                    msg.sender_id,
+                                );
+                            }
+
+                            if (isReplyWrapped) {
+                                msg.content = JSON.stringify({
+                                    ...parsed,
+                                    content: decrypted.text || "",
+                                });
+                            } else {
+                                msg.content = decrypted.text || "";
+                            }
+                            if (decrypted._signatureWarning) {
+                                msg._signatureWarning = true;
+                            }
+                            if (decrypted.link_preview) {
+                                msg.link_preview = decrypted.link_preview;
+                            }
+                            if (decrypted.media_descriptors) {
+                                msg.media_descriptors =
+                                    decrypted.media_descriptors;
+
+                                // Decrypt chunks for received attachments in real time
+                                if (
+                                    String(window.activeConversationId) ===
+                                    convId
+                                ) {
+                                    for (const desc of msg.media_descriptors) {
+                                        try {
+                                            const mediaKeyObj =
+                                                await window.CryptoCore.importSymmetricKey(
+                                                    desc.media_key,
+                                                );
+                                            const decryptedChunks = [];
+                                            for (const chunk of desc.chunks) {
+                                                const resp = await fetch(
+                                                    "/storage/" + chunk.path,
+                                                );
+                                                if (!resp.ok)
+                                                    throw new Error(
+                                                        "Chunk download failed",
+                                                    );
+                                                const buffer =
+                                                    await resp.arrayBuffer();
+                                                const ciphertext =
+                                                    new Uint8Array(buffer);
+                                                const iv = Uint8Array.from(
+                                                    atob(chunk.iv || ""),
+                                                    (c) => c.charCodeAt(0),
+                                                );
+                                                const decryptedChunk =
+                                                    await crypto.subtle.decrypt(
+                                                        { name: "AES-GCM", iv },
+                                                        mediaKeyObj,
+                                                        ciphertext,
+                                                    );
+                                                decryptedChunks.push(
+                                                    new Uint8Array(
+                                                        decryptedChunk,
+                                                    ),
+                                                );
+                                            }
+                                            const totalLength =
+                                                decryptedChunks.reduce(
+                                                    (acc, c) => acc + c.length,
+                                                    0,
+                                                );
+                                            const assembled = new Uint8Array(
+                                                totalLength,
+                                            );
+                                            let offset = 0;
+                                            for (const c of decryptedChunks) {
+                                                assembled.set(c, offset);
+                                                offset += c.length;
+                                            }
+                                            const blob = new Blob([assembled], {
+                                                type: desc.type,
+                                            });
+                                            desc.url =
+                                                URL.createObjectURL(blob);
+                                        } catch (err) {
+                                            console.error(
+                                                "Failed to decrypt received attachment:",
+                                                err,
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            console.warn(
+                                "[E2E] e2eManager not ready, marking message as encrypted",
+                            );
+                            msg._encrypted = true;
+                            msg.content = "";
+                        }
+                    }
+                } catch (e) {
+                    // Not valid JSON or decryption failed — mark as encrypted so addMessage shows placeholder
+                    if (typeof msg.content === "string") {
+                        try {
+                            const p = JSON.parse(msg.content);
+                            let isEncrypted = p && p.__nexus_encrypted__;
+                            if (
+                                !isEncrypted &&
+                                p &&
+                                p.__nexus_reply__ &&
+                                typeof p.content === "string"
+                            ) {
+                                try {
+                                    const inner = JSON.parse(p.content);
+                                    isEncrypted = !!inner.__nexus_encrypted__;
+                                } catch (_) {}
+                            }
+                            if (isEncrypted) {
+                                msg._encrypted = true;
+                                msg.content = "";
+                            }
+                        } catch (_) {}
+                    }
+                }
+            }
+
             // Process message in sidebar (always)
-            if (window.updateExistingConversationItem) window.updateExistingConversationItem(msg);
-            
+            if (window.updateExistingConversationItem)
+                window.updateExistingConversationItem(msg);
+
             // Should we add this to the active chat window?
-            // We bypass the "own message" check for system messages and group invites 
+            // We bypass the "own message" check for system messages and group invites
             // because they are not added to the UI manually by the sender's frontend.
-            const isSystem = msg.type === 'system' || msg.type === 'system_cleared' || msg.type === 'group_invite';
+            const isSystem =
+                msg.type === "system" ||
+                msg.type === "system_cleared" ||
+                msg.type === "group_invite";
             const isOwn = msg.sender_id == this.config.userId;
-            const isCurrentConv = String(window.activeConversationId) === String(msg.conversation_id);
+            const isCurrentConv =
+                String(window.activeConversationId) ===
+                String(msg.conversation_id);
 
             // Confirm delivery for messages from OTHER users (not own, not global chat).
-            if (!isOwn && String(msg.conversation_id) !== 'global-chat') {
+            if (!isOwn && String(msg.conversation_id) !== "global-chat") {
                 this.confirmMessageDelivery(msg.id);
             }
 
@@ -149,35 +369,52 @@ class SocketManager {
             // hasPendingOptimistic: an opt_* element in DOM means this tab sent the message and is
             // still awaiting the server response — the echo always beats the HTTP response, so
             // _locallySentIds doesn't have the real id yet. This check is order-independent.
-            const hasPendingOptimistic = !!document.querySelector('.message[data-message-id^="opt_"]');
-            const sentFromThisDevice = isOwn && (
-                (window._locallySentIds && window._locallySentIds.has(String(msg.id))) ||
-                hasPendingOptimistic
+            const hasPendingOptimistic = !!document.querySelector(
+                '.message[data-message-id^="opt_"]',
             );
-            const alreadyInDom = !!document.querySelector(`.message[data-message-id="${msg.id}"]`);
+            const sentFromThisDevice =
+                isOwn &&
+                ((window._locallySentIds &&
+                    window._locallySentIds.has(String(msg.id))) ||
+                    hasPendingOptimistic);
+            const alreadyInDom = !!document.querySelector(
+                `.message[data-message-id="${msg.id}"]`,
+            );
 
-            if (isCurrentConv && window.addMessage && !sentFromThisDevice && !alreadyInDom) {
+            if (
+                isCurrentConv &&
+                window.addMessage &&
+                !sentFromThisDevice &&
+                !alreadyInDom
+            ) {
                 window.addMessage(msg);
-                if (!isOwn && window.markMessagesAsRead) window.markMessagesAsRead();
+                if (!isOwn && window.markMessagesAsRead)
+                    window.markMessagesAsRead();
 
                 // Force hide main typing indicator when message arrives
-                const mainIndicator = document.getElementById('typingIndicator');
-                if (mainIndicator) mainIndicator.style.display = 'none';
+                const mainIndicator =
+                    document.getElementById("typingIndicator");
+                if (mainIndicator) mainIndicator.style.display = "none";
             }
         });
 
         // Typing listener
-        this.socket.on('chat:typing', (data) => {
+        this.socket.on("chat:typing", (data) => {
             const convId = String(data.conversationId || data.conversation_id);
             if (!convId) return;
 
             // Track typing users per conversation
             if (!this.typingStatus) this.typingStatus = new Map();
-            if (!this.typingStatus.has(convId)) this.typingStatus.set(convId, new Set());
-            
+            if (!this.typingStatus.has(convId))
+                this.typingStatus.set(convId, new Set());
+
             const typingSet = this.typingStatus.get(convId);
-            const username = data.username || data.user_name || (window.chatTranslations?.user || 'User');
-            
+            const username =
+                data.username ||
+                data.user_name ||
+                window.chatTranslations?.user ||
+                "User";
+
             if (data.isTyping) {
                 typingSet.add(username);
             } else {
@@ -185,39 +422,65 @@ class SocketManager {
             }
 
             // Determine if this is a group chat to decide on the text format
-            const sidebarItem = document.querySelector(`.conversation-item[data-conversation-id="${convId}"]`);
-            const isGroup = sidebarItem ? (sidebarItem.getAttribute('data-is-group') === 'true') : (String(window.activeConversationId) === convId && window.isGroupChat);
+            const sidebarItem = document.querySelector(
+                `.conversation-item[data-conversation-id="${convId}"]`,
+            );
+            const isGroup = sidebarItem
+                ? sidebarItem.getAttribute("data-is-group") === "true"
+                : String(window.activeConversationId) === convId &&
+                  window.isGroupChat;
 
             // Generate the typing text
             const usernames = Array.from(typingSet);
-            let typingText = '';
-            
+            let typingText = "";
+
             if (isGroup) {
                 if (usernames.length === 1) {
-                    typingText = (window.chatTranslations?.is_typing || ':user is typing...').replace(':user', usernames[0]);
+                    typingText = (
+                        window.chatTranslations?.is_typing ||
+                        ":user is typing..."
+                    ).replace(":user", usernames[0]);
                 } else if (usernames.length === 2) {
-                    typingText = usernames[0] + ' ' + (window.chatTranslations?.and || 'and') + ' ' + usernames[1] + ' ' + (window.chatTranslations?.are_typing || 'are typing...');
+                    typingText =
+                        usernames[0] +
+                        " " +
+                        (window.chatTranslations?.and || "and") +
+                        " " +
+                        usernames[1] +
+                        " " +
+                        (window.chatTranslations?.are_typing ||
+                            "are typing...");
                 } else if (usernames.length > 2) {
-                    typingText = window.chatTranslations?.users_typing || 'multiple people are typing...';
+                    typingText =
+                        window.chatTranslations?.users_typing ||
+                        "multiple people are typing...";
                 }
             } else {
                 // For 1-1 chats, just show "typing..."
-                typingText = window.chatTranslations?.typing || 'typing...';
+                typingText = window.chatTranslations?.typing || "typing...";
             }
 
             const hasTypers = usernames.length > 0;
 
             // Update Main chat indicator
-            const mainIndicator = document.getElementById('typingIndicator');
-            if (mainIndicator && String(window.activeConversationId) === convId) {
-                const textEl = mainIndicator.querySelector('.typing-text');
+            const mainIndicator = document.getElementById("typingIndicator");
+            if (
+                mainIndicator &&
+                String(window.activeConversationId) === convId
+            ) {
+                const textEl = mainIndicator.querySelector(".typing-text");
                 if (textEl) textEl.textContent = typingText;
-                
-                const chatMessages = document.getElementById('chatMessages');
-                const wasAtBottom = chatMessages && (chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 100);
-                
-                mainIndicator.style.display = hasTypers ? 'flex' : 'none';
-                
+
+                const chatMessages = document.getElementById("chatMessages");
+                const wasAtBottom =
+                    chatMessages &&
+                    chatMessages.scrollHeight -
+                        chatMessages.scrollTop -
+                        chatMessages.clientHeight <
+                        100;
+
+                mainIndicator.style.display = hasTypers ? "flex" : "none";
+
                 // If we were at bottom, stay at bottom after showing indicator
                 if (hasTypers && wasAtBottom && chatMessages) {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -226,72 +489,222 @@ class SocketManager {
 
             // Update Sidebar indicator
             if (sidebarItem) {
-                let sidebarIndicator = sidebarItem.querySelector('.typing-indicator-sidebar');
-                const previewWrapper = sidebarItem.querySelector('.preview-content-wrapper');
-                
+                let sidebarIndicator = sidebarItem.querySelector(
+                    ".typing-indicator-sidebar",
+                );
+                const previewWrapper = sidebarItem.querySelector(
+                    ".preview-content-wrapper",
+                );
+
                 // Ensure indicator exists
                 if (!sidebarIndicator) {
-                    const previewContainer = sidebarItem.querySelector('.conv-preview');
+                    const previewContainer =
+                        sidebarItem.querySelector(".conv-preview");
                     if (previewContainer) {
-                        sidebarIndicator = document.createElement('span');
-                        sidebarIndicator.className = 'typing-indicator-sidebar';
+                        sidebarIndicator = document.createElement("span");
+                        sidebarIndicator.className = "typing-indicator-sidebar";
                         previewContainer.appendChild(sidebarIndicator);
                     }
                 }
 
                 if (hasTypers) {
-                    if (sidebarIndicator) sidebarIndicator.textContent = typingText;
-                    sidebarItem.classList.add('is-typing');
-                    if (sidebarIndicator) sidebarIndicator.style.setProperty('display', 'block', 'important');
-                    if (previewWrapper) previewWrapper.style.setProperty('display', 'none', 'important');
+                    if (sidebarIndicator)
+                        sidebarIndicator.textContent = typingText;
+                    sidebarItem.classList.add("is-typing");
+                    if (sidebarIndicator)
+                        sidebarIndicator.style.setProperty(
+                            "display",
+                            "block",
+                            "important",
+                        );
+                    if (previewWrapper)
+                        previewWrapper.style.setProperty(
+                            "display",
+                            "none",
+                            "important",
+                        );
                 } else {
-                    sidebarItem.classList.remove('is-typing');
-                    if (sidebarIndicator) sidebarIndicator.style.setProperty('display', 'none', 'important');
-                    if (previewWrapper) previewWrapper.style.setProperty('display', 'block', 'important');
+                    sidebarItem.classList.remove("is-typing");
+                    if (sidebarIndicator)
+                        sidebarIndicator.style.setProperty(
+                            "display",
+                            "none",
+                            "important",
+                        );
+                    if (previewWrapper)
+                        previewWrapper.style.setProperty(
+                            "display",
+                            "block",
+                            "important",
+                        );
                 }
             }
         });
-        
+
         // Notification listener
-        this.socket.on('notification:new', (notif) => {
+        this.socket.on("notification:new", (notif) => {
+            if (notif && notif.data && typeof notif.data === "string") {
+                try {
+                    notif.data = JSON.parse(notif.data);
+                } catch (e) {
+                    console.error("[SocketManager] Failed to parse notification data:", e);
+                }
+            }
+
             // Check if this is a chat-related notification (message or reaction)
-            const isChatRelated = notif.type === 'message' || notif.type === 'chat_reaction';
-            const notifConvId = notif.data?.conversation_id || notif.data?.message?.conversation_id;
-            
+            const isChatRelated =
+                notif.type === "message" || notif.type === "chat_reaction";
+            const notifConvId =
+                notif.data?.conversation_id ||
+                notif.data?.message?.conversation_id;
+
             // Check if it belongs to the currently active chat
-            const isActiveChat = notifConvId && window.activeConversationId && 
-                               String(window.activeConversationId) === String(notifConvId);
+            const isActiveChat =
+                notifConvId &&
+                window.activeConversationId &&
+                String(window.activeConversationId) === String(notifConvId);
 
             // Silence if DND is on OR if it's the active chat
-            const isDND = localStorage.getItem('nexus_dnd_enabled') === 'true';
-            
+            const isDND = localStorage.getItem("nexus_dnd_enabled") === "true";
+
             if (!isActiveChat && !isDND) {
                 // Audible + tactile arrival (respects user's nexus_sound preference)
                 if (window.NexusSoul) window.NexusSoul.feedback.notification();
                 // Bell shake — purely visual, communicates "something happened"
-                const bell = document.getElementById('notif-bell-icon');
+                const bell = document.getElementById("notif-bell-icon");
                 if (bell) {
-                    bell.classList.remove('nx-bell-ring'); // restart animation
+                    bell.classList.remove("nx-bell-ring"); // restart animation
                     void bell.offsetWidth;
-                    bell.classList.add('nx-bell-ring');
+                    bell.classList.add("nx-bell-ring");
                 }
                 // TRACKING: If this is a post-related notification, track the slug to prevent double-toast from post:new
                 if (notif.data && notif.data.post_slug) {
                     this.notifiedPostSlugs.add(notif.data.post_slug);
                     // Clear after 10 seconds to keep memory lean
-                    setTimeout(() => this.notifiedPostSlugs.delete(notif.data.post_slug), 10000);
+                    setTimeout(
+                        () =>
+                            this.notifiedPostSlugs.delete(notif.data.post_slug),
+                        10000,
+                    );
                 }
 
                 if (window.showToast) {
-                    const avatarUrl = notif.data?.from_user?.avatar_url || notif.data?.reactor_avatar || notif.data?.sender_avatar;
-                    const message = notif.message || '';
-                    
-                    // Pass the notification ID in extraData so showToast can mark it as read on click
-                    window.showToast(message, notif.type, avatarUrl, notif.link, 4000, { ...notif.data, notification_id: notif.id });
+                    const avatarUrl =
+                        notif.data?.from_user?.avatar_url ||
+                        notif.data?.reactor_avatar ||
+                        notif.data?.sender_avatar;
+                    let toastMessage = notif.message || "";
+                    const extraData = {
+                        ...notif.data,
+                        notification_id: notif.id,
+                    };
+
+                    const doToast = (msg) =>
+                        window.showToast(
+                            msg,
+                            notif.type,
+                            avatarUrl,
+                            notif.link,
+                            4000,
+                            extraData,
+                        );
+
+                    if (
+                        notif.type === "message" &&
+                        notif.data?.is_e2e_encrypted &&
+                        notif.data?.encrypted_content
+                    ) {
+                        // Try client-side decrypt; fall back to placeholder
+                        const sender = notif.data.sender_username || "";
+                        const prefix = sender ? `${sender}: ` : "";
+                        (async () => {
+                            try {
+                                const e2e = await getE2EManager();
+                                if (!e2e) {
+                                    doToast(toastMessage);
+                                    window.dispatchEvent(new CustomEvent('notification:page:new', { detail: notif }));
+                                    return;
+                                }
+                                let rawContent = notif.data.encrypted_content;
+                                if (rawContent.includes("&quot;")) {
+                                    const t =
+                                        document.createElement("textarea");
+                                    t.innerHTML = rawContent;
+                                    rawContent = t.value;
+                                }
+                                let parsed = JSON.parse(rawContent);
+                                let decryptTarget = parsed;
+                                if (
+                                    parsed.__nexus_reply__ &&
+                                    typeof parsed.content === "string"
+                                ) {
+                                    try {
+                                        const inner = JSON.parse(
+                                            parsed.content,
+                                        );
+                                        if (inner.__nexus_encrypted__)
+                                            decryptTarget = inner;
+                                    } catch (e) {}
+                                }
+                                if (!decryptTarget.__nexus_encrypted__) {
+                                    doToast(toastMessage);
+                                    window.dispatchEvent(new CustomEvent('notification:page:new', { detail: notif }));
+                                    return;
+                                }
+                                const decryptPromise = (notif.data.is_group === true || String(notif.data.is_group) === "true")
+                                     ? e2e.decryptGroupMessage({
+                                           ...decryptTarget,
+                                           conversation_id:
+                                               notif.data.conversation_id,
+                                       })
+                                     : e2e.decryptMessage(
+                                           decryptTarget,
+                                           notif.data.sender_id,
+                                       );
+                                const timeout = new Promise((_, rej) =>
+                                    setTimeout(
+                                        () => rej(new Error("timeout")),
+                                        2000,
+                                    ),
+                                );
+                                const result = await Promise.race([
+                                    decryptPromise,
+                                    timeout,
+                                ]);
+                                const text = result?.text || "";
+                                if (text) {
+                                    const decryptedText = prefix +
+                                            (text.length > 40
+                                                ? text.substring(0, 37) + "..."
+                                                : text);
+                                    doToast(decryptedText);
+                                    
+                                    const cleanText = window.sanitizeMessage ? window.sanitizeMessage(text) : text;
+                                    const isGroup = notif.data.is_group || false;
+                                    const groupName = notif.data.group_name || null;
+                                    if (isGroup && groupName) {
+                                        notif.message = `${groupName} - ${prefix}${cleanText}`;
+                                    } else {
+                                        notif.message = `${prefix}${cleanText}`;
+                                    }
+                                } else {
+                                    doToast(toastMessage);
+                                }
+                            } catch (_) {
+                                doToast(toastMessage);
+                            }
+                            window.dispatchEvent(new CustomEvent('notification:page:new', { detail: notif }));
+                        })();
+                    } else {
+                        doToast(toastMessage);
+                        window.dispatchEvent(new CustomEvent('notification:page:new', { detail: notif }));
+                    }
+                } else {
+                    window.dispatchEvent(new CustomEvent('notification:page:new', { detail: notif }));
                 }
                 if (window.loadNotifications) window.loadNotifications();
             }
-            
+
             // Even if suppressed, we might want to update the sidebar or notification badge
             if (isActiveChat && window.loadNotifications) {
                 window.loadNotifications();
@@ -303,18 +716,28 @@ class SocketManager {
             }
         });
 
-        this.socket.on('notification:count', (data) => {
-            if (window.updateNotificationBadge) window.updateNotificationBadge(data.unread_count);
+        this.socket.on("notification:count", (data) => {
+            if (window.updateNotificationBadge)
+                window.updateNotificationBadge(data.unread_count);
         });
 
         // Admin: New Report Listener
-        this.socket.on('admin:report:new', (data) => {
+        this.socket.on("admin:report:new", (data) => {
             if (this.config.isAdmin) {
                 if (window.showToast) {
-                    const reasonStr = window.chatTranslations?.report_reason_prefix || 'New report for: ';
-                    window.showToast(reasonStr + (data.reason || 'content'), 'warning', null, `/admin/reports/${data.report_slug}`, 5000, data);
+                    const reasonStr =
+                        window.chatTranslations?.report_reason_prefix ||
+                        "New report for: ";
+                    window.showToast(
+                        reasonStr + (data.reason || "content"),
+                        "warning",
+                        null,
+                        `/admin/reports/${data.report_slug}`,
+                        5000,
+                        data,
+                    );
                 }
-                
+
                 // If on admin dashboard, trigger a refresh of stats
                 if (window.refreshAdminDashboardStats) {
                     window.refreshAdminDashboardStats(data);
@@ -323,69 +746,120 @@ class SocketManager {
         });
 
         // Read receipts listener
-        this.socket.on('chat:read', (data) => {
-            if (String(window.activeConversationId) === String(data.conversation_id) || !data.conversation_id) {
+        this.socket.on("chat:read", (data) => {
+            if (
+                String(window.activeConversationId) ===
+                    String(data.conversation_id) ||
+                !data.conversation_id
+            ) {
                 if (window.updateReadReceiptsUI) {
-                    window.updateReadReceiptsUI(data.read_message_ids, data.reader_id, data);
+                    window.updateReadReceiptsUI(
+                        data.read_message_ids,
+                        data.reader_id,
+                        data,
+                    );
                 }
                 // Refresh message info if open
                 if (window.refreshMessageInfoIfOpen) {
-                    if (data.read_message_ids && data.read_message_ids.length > 0) {
-                        data.read_message_ids.forEach(id => window.refreshMessageInfoIfOpen(id, data.conversation_id));
+                    if (
+                        data.read_message_ids &&
+                        data.read_message_ids.length > 0
+                    ) {
+                        data.read_message_ids.forEach((id) =>
+                            window.refreshMessageInfoIfOpen(
+                                id,
+                                data.conversation_id,
+                            ),
+                        );
                     } else {
-                        window.refreshMessageInfoIfOpen(null, data.conversation_id);
+                        window.refreshMessageInfoIfOpen(
+                            null,
+                            data.conversation_id,
+                        );
                     }
                 }
             }
             // Update sidebar globally
             if (window.updateSidebarReadReceipts) {
-                window.updateSidebarReadReceipts(data.conversation_id, true, false, data.reader_id, data);
+                window.updateSidebarReadReceipts(
+                    data.conversation_id,
+                    true,
+                    false,
+                    data.reader_id,
+                    data,
+                );
             }
-            
+
             // Sync global badges
             if (window.updateMobileBadge) window.updateMobileBadge();
         });
 
         // Delivery receipts listener
-        this.socket.on('chat:delivered', (data) => {
-            if (String(window.activeConversationId) === String(data.conversation_id)) {
+        this.socket.on("chat:delivered", (data) => {
+            if (
+                String(window.activeConversationId) ===
+                String(data.conversation_id)
+            ) {
                 if (window.updateDeliveredReceiptsUI) {
                     window.updateDeliveredReceiptsUI(data.message_id, data);
                 }
                 // Refresh message info if open
                 if (window.refreshMessageInfoIfOpen) {
-                    window.refreshMessageInfoIfOpen(data.message_id, data.conversation_id);
+                    window.refreshMessageInfoIfOpen(
+                        data.message_id,
+                        data.conversation_id,
+                    );
                 }
             }
             // Update sidebar globally
             if (window.updateSidebarReadReceipts) {
-                window.updateSidebarReadReceipts(data.conversation_id, false, true, null, data);
+                window.updateSidebarReadReceipts(
+                    data.conversation_id,
+                    false,
+                    true,
+                    null,
+                    data,
+                );
             }
         });
 
         // Message deletion listener
-        this.socket.on('chat:message:deleted', (data) => {
+        this.socket.on("chat:message:deleted", (data) => {
             if (window.handleDeleteMessage) {
-                window.handleDeleteMessage(data.message_id, data.delete_type, data.deleted_for);
+                window.handleDeleteMessage(
+                    data.message_id,
+                    data.delete_type,
+                    data.deleted_for,
+                );
             }
         });
 
         // Conversation deletion listener
-        this.socket.on('chat:conversation:deleted', (data) => {
+        this.socket.on("chat:conversation:deleted", (data) => {
             const convId = data.conversation_id;
-            const sidebar = document.getElementById('sidebarConvList');
-            
+            const sidebar = document.getElementById("sidebarConvList");
+
             // 1. Remove from sidebar
-            const sidebarItem = document.querySelector(`.conversation-item[data-conversation-id="${convId}"]`);
+            const sidebarItem = document.querySelector(
+                `.conversation-item[data-conversation-id="${convId}"]`,
+            );
             if (sidebarItem) {
                 sidebarItem.remove();
             }
 
             // Show empty state if no conversations left
-            if (sidebar && sidebar.querySelectorAll('.conversation-item').length === 0 && !sidebar.querySelector('.empty-state')) {
-                const noMsgs = window.chatTranslations?.no_messages_yet || 'No messages yet';
-                const startNew = window.chatTranslations?.start_new_conversation || 'Start a new conversation';
-                
+            if (
+                sidebar &&
+                sidebar.querySelectorAll(".conversation-item").length === 0 &&
+                !sidebar.querySelector(".empty-state")
+            ) {
+                const noMsgs =
+                    window.chatTranslations?.no_messages_yet ||
+                    "No messages yet";
+                const startNew =
+                    window.chatTranslations?.start_new_conversation ||
+                    "Start a new conversation";
+
                 sidebar.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon"><i class="fas fa-comments"></i></div>
@@ -398,36 +872,51 @@ class SocketManager {
             // 2. If active chat, redirect with notification
             if (String(window.activeConversationId) === String(convId)) {
                 if (window.showToast) {
-                    window.showToast(window.chatTranslations?.conversation_deleted || 'This conversation has been deleted.', 'warning');
+                    window.showToast(
+                        window.chatTranslations?.conversation_deleted ||
+                            "This conversation has been deleted.",
+                        "warning",
+                    );
                 }
-                
+
                 // Redirect after a small delay
                 setTimeout(() => {
-                    window.location.href = '/chat';
+                    window.location.href = "/chat";
                 }, 1500);
             }
 
             // 3. Clear typing indicators
-            const mainIndicator = document.getElementById('typingIndicator');
-            if (mainIndicator && String(window.activeConversationId) === String(convId)) {
-                mainIndicator.style.display = 'none';
+            const mainIndicator = document.getElementById("typingIndicator");
+            if (
+                mainIndicator &&
+                String(window.activeConversationId) === String(convId)
+            ) {
+                mainIndicator.style.display = "none";
             }
         });
 
-
         // Real-time post reactions
-        this.socket.on('post:reacted', (data) => {
-            const postCard = document.querySelector(`.post-card[data-post-id="${data.post_id}"]`);
+        this.socket.on("post:reacted", (data) => {
+            const postCard = document.querySelector(
+                `.post-card[data-post-id="${data.post_id}"]`,
+            );
             if (postCard && window.updatePostReactionSummary) {
-                window.updatePostReactionSummary(postCard, data.reaction_summaries, null, data.reactors);
+                window.updatePostReactionSummary(
+                    postCard,
+                    data.reaction_summaries,
+                    null,
+                    data.reactors,
+                );
             }
         });
 
         // Real-time post likes
-        this.socket.on('post:liked', (data) => {
-            const postCard = document.querySelector(`.post-card[data-post-id="${data.post_id}"]`);
+        this.socket.on("post:liked", (data) => {
+            const postCard = document.querySelector(
+                `.post-card[data-post-id="${data.post_id}"]`,
+            );
             if (postCard) {
-                const likeCountEl = postCard.querySelector('.likes-count');
+                const likeCountEl = postCard.querySelector(".likes-count");
                 if (likeCountEl) {
                     likeCountEl.textContent = data.count;
                 }
@@ -435,14 +924,20 @@ class SocketManager {
         });
 
         // Real-time new posts
-        this.socket.on('post:new', (data) => {
+        this.socket.on("post:new", (data) => {
             // Skip if this is the current user's own post (they get owner HTML via AJAX response)
-            if (data.user_id && window.currentUserId && Number(data.user_id) === Number(window.currentUserId)) {
+            if (
+                data.user_id &&
+                window.currentUserId &&
+                Number(data.user_id) === Number(window.currentUserId)
+            ) {
                 return;
             }
 
             // Find appropriate container (home feed or group feed)
-            const container = document.getElementById('posts-container') || document.getElementById('posts-feed');
+            const container =
+                document.getElementById("posts-container") ||
+                document.getElementById("posts-feed");
 
             if (container && data.html) {
                 // Check if post already exists
@@ -454,155 +949,189 @@ class SocketManager {
                 const targetGroupId = container.dataset.groupId;
                 const incomingGroupId = data.social_group_id;
 
-                if (targetGroupId && String(targetGroupId) !== String(incomingGroupId)) {
+                if (
+                    targetGroupId &&
+                    String(targetGroupId) !== String(incomingGroupId)
+                ) {
                     // This is a group-specific feed, and the incoming post is for a different group (or global)
                     return;
                 }
 
                 // Pick the HTML version that matches the current page language
-                const lang = document.documentElement.lang || 'en';
-                const html = (lang === 'ar' && data.html_ar) ? data.html_ar : data.html;
+                const lang = document.documentElement.lang || "en";
+                const html =
+                    lang === "ar" && data.html_ar ? data.html_ar : data.html;
 
                 // Prepend new post
-                container.insertAdjacentHTML('afterbegin', html);
+                container.insertAdjacentHTML("afterbegin", html);
 
                 // Remove empty state if exists
-                const emptyState = container.querySelector('.empty-state');
+                const emptyState = container.querySelector(".empty-state");
                 if (emptyState) {
                     emptyState.remove();
                 }
-                
+
                 // Re-initialize post components if needed (e.g. tooltips, sliders)
                 if (window.initializePostComponents) {
-                    window.initializePostComponents(document.getElementById(`post-${data.id}`));
+                    window.initializePostComponents(
+                        document.getElementById(`post-${data.id}`),
+                    );
                 }
             }
         });
 
         // Real-time community member counts
-        this.socket.on('community:member_count', (data) => {
+        this.socket.on("community:member_count", (data) => {
             const slug = data.slug;
             const count = data.members_count;
             if (!slug || count === undefined) return;
 
             // 1. Update header on community page
-            const headerEl = document.querySelector(`[data-community-members-count="${slug}"]`);
+            const headerEl = document.querySelector(
+                `[data-community-members-count="${slug}"]`,
+            );
             if (headerEl) {
-                const strongEl = headerEl.querySelector('strong');
+                const strongEl = headerEl.querySelector("strong");
                 if (strongEl) {
                     strongEl.textContent = Number(count).toLocaleString();
                 }
             }
 
             // 2. Update Your Communities mini card list
-            const miniEl = document.querySelector(`[data-mini-members-count="${slug}"]`);
+            const miniEl = document.querySelector(
+                `[data-mini-members-count="${slug}"]`,
+            );
             if (miniEl) {
-                const label = window.layoutTranslations?.members || 'members';
+                const label = window.layoutTranslations?.members || "members";
                 miniEl.textContent = `${Number(count).toLocaleString()} ${label}`;
             }
 
             // 3. Update Discovery Grid card
-            const discoveryEl = document.querySelector(`[data-discovery-members-count="${slug}"]`);
+            const discoveryEl = document.querySelector(
+                `[data-discovery-members-count="${slug}"]`,
+            );
             if (discoveryEl) {
                 discoveryEl.innerHTML = `<i class="fas fa-users"></i> ${Number(count).toLocaleString()}`;
             }
         });
 
         // Real-time new stories
-        this.socket.on('story:new', (data) => {
+        this.socket.on("story:new", (data) => {
             if (window.addStoryToSection) {
                 window.addStoryToSection(data);
             }
         });
 
         // Real-time deleted stories
-        this.socket.on('story:deleted', (data) => {
+        this.socket.on("story:deleted", (data) => {
             if (window.removeStoryFromSection) {
                 window.removeStoryFromSection(data.username);
             }
         });
 
         // Real-time comments
-        this.socket.on('post:commented', (data) => {
+        this.socket.on("post:commented", (data) => {
             if (window.handlePostCommented) {
                 window.handlePostCommented(data);
             }
         });
 
         // Real-time comment likes
-        this.socket.on('comment:liked', (data) => {
+        this.socket.on("comment:liked", (data) => {
             if (window.handleCommentLiked) {
                 window.handleCommentLiked(data);
             }
         });
 
         // Real-time deletions
-        this.socket.on('post:deleted', (data) => {
+        this.socket.on("post:deleted", (data) => {
             if (window.handlePostDeleted) {
                 window.handlePostDeleted(data);
             }
         });
 
-        this.socket.on('comment:deleted', (data) => {
+        this.socket.on("comment:deleted", (data) => {
             if (window.handleCommentDeleted) {
                 window.handleCommentDeleted(data);
             }
         });
 
-        this.socket.on('poll:vote', (data) => {
+        this.socket.on("poll:vote", (data) => {
             if (window.updatePollUI) {
-                document.querySelectorAll(`.post-poll[data-post-slug="${data.post_slug}"]`).forEach(container => {
-                    window.updatePollUI(container, null, data.results, data.total_votes);
-                });
+                document
+                    .querySelectorAll(
+                        `.post-poll[data-post-slug="${data.post_slug}"]`,
+                    )
+                    .forEach((container) => {
+                        window.updatePollUI(
+                            container,
+                            null,
+                            data.results,
+                            data.total_votes,
+                        );
+                    });
             }
         });
 
         // Real-time chat clearing
-        this.socket.on('chat:cleared', (data) => {
+        this.socket.on("chat:cleared", (data) => {
             // 1. Update sidebar/chats list globally
-            const item = document.querySelector(`.conversation-item[data-conversation-id="${data.conversation_id}"]`);
+            const item = document.querySelector(
+                `.conversation-item[data-conversation-id="${data.conversation_id}"]`,
+            );
             if (item) {
-                const previewEl = item.querySelector('.preview-text');
+                const previewEl = item.querySelector(".preview-text");
                 if (previewEl) {
-                    const userText = (data.user_id == this.config.userId) ? (window.chatTranslations?.you || 'You') : (data.username || 'User');
-                    const clearMsg = (window.chatTranslations?.cleared_the_chat || 'Cleared the chat').replace(':user', userText);
+                    const userText =
+                        data.user_id == this.config.userId
+                            ? window.chatTranslations?.you || "You"
+                            : data.username || "User";
+                    const clearMsg = (
+                        window.chatTranslations?.cleared_the_chat ||
+                        "Cleared the chat"
+                    ).replace(":user", userText);
                     previewEl.textContent = clearMsg;
-                    
+
                     // Remove unread state if it was active
-                    item.classList.remove('unread');
-                    const pill = item.querySelector('.unread-pill');
+                    item.classList.remove("unread");
+                    const pill = item.querySelector(".unread-pill");
                     if (pill) pill.remove();
-                    previewEl.classList.remove('unread-text');
+                    previewEl.classList.remove("unread-text");
                 }
-                
+
                 // Remove checkmarks if any
-                const checkIcon = item.querySelector('.preview-content-wrapper i');
+                const checkIcon = item.querySelector(
+                    ".preview-content-wrapper i",
+                );
                 if (checkIcon) checkIcon.remove();
 
                 // Move to top of sidebar
-                const sidebar = document.getElementById('sidebarConvList');
+                const sidebar = document.getElementById("sidebarConvList");
                 if (sidebar) {
                     sidebar.prepend(item);
                 }
             }
 
             // 2. If it's the active conversation, clear the message window
-            if (String(window.activeConversationId) === String(data.conversation_id)) {
+            if (
+                String(window.activeConversationId) ===
+                String(data.conversation_id)
+            ) {
                 if (window.handleChatCleared) {
                     window.handleChatCleared(data);
                 } else {
-                    const container = document.getElementById('chatMessages');
+                    const container = document.getElementById("chatMessages");
                     if (container) {
-                        container.innerHTML = '';
+                        container.innerHTML = "";
                         if (window.addMessage) {
                             window.addMessage({
                                 id: data.message_id,
                                 conversation_id: data.conversation_id,
                                 sender_id: data.user_id,
-                                content: 'system_cleared',
-                                type: 'system',
+                                content: "system_cleared",
+                                type: "system",
                                 created_at: new Date().toISOString(),
-                                username: data.username
+                                username: data.username,
                             });
                         }
                     }
@@ -611,60 +1140,87 @@ class SocketManager {
         });
 
         // Real-time message reactions
-        this.socket.on('chat:reaction', (data) => {
-            if (String(window.activeConversationId) === String(data.conversation_id)) {
+        this.socket.on("chat:reaction", (data) => {
+            if (
+                String(window.activeConversationId) ===
+                String(data.conversation_id)
+            ) {
                 if (window.updateReactionsFromSocket) {
                     window.updateReactionsFromSocket(data);
                 }
             }
         });
 
+        // Real-time group key rotation
+        this.socket.on("chat:e2e:group-key-rotation", async (data) => {
+            if (data.conversation_id) {
+                const e2e = await getE2EManager();
+                if (e2e) {
+                    console.log(
+                        "[E2E] Group key rotation triggered for conversation:",
+                        data.conversation_id,
+                    );
+                    await e2e.db.storeGroupKeys(data.conversation_id, []);
+                    await e2e.fetchAndCacheGroupKeys(data.conversation_id);
+                }
+            }
+        });
+
         // Security Challenge listener (Concurrent Login Approval)
-        this.socket.on('security:challenge', (data) => {
+        this.socket.on("security:challenge", (data) => {
             // If this challenge was triggered BY this session, don't show it here
-            if (data.except_session && data.except_session === this.config.sessionId) {
-                console.log('[SocketManager] Ignoring security challenge from current session');
+            if (
+                data.except_session &&
+                data.except_session === this.config.sessionId
+            ) {
+                console.log(
+                    "[SocketManager] Ignoring security challenge from current session",
+                );
                 return;
             }
 
             window.currentSecurityChallenge = data.uuid;
-            
-            const modal = document.getElementById('security-challenge-modal');
-            const deviceSpan = document.getElementById('security-device-name');
-            const ipSpan = document.getElementById('security-ip');
-            
+
+            const modal = document.getElementById("security-challenge-modal");
+            const deviceSpan = document.getElementById("security-device-name");
+            const ipSpan = document.getElementById("security-ip");
+
             if (modal && deviceSpan && ipSpan) {
-                deviceSpan.textContent = data.device || 'Unknown Device';
-                ipSpan.textContent = data.ip || 'Unknown IP';
-                
-                modal.classList.add('show');
-                
+                deviceSpan.textContent = data.device || "Unknown Device";
+                ipSpan.textContent = data.ip || "Unknown IP";
+
+                modal.classList.add("show");
+
                 // Play a subtle alert sound if possible
                 try {
-                    const audio = new Audio('/sounds/security-alert.mp3');
+                    const audio = new Audio("/sounds/security-alert.mp3");
                     audio.play().catch(() => {});
-                } catch(e) {}
+                } catch (e) {}
             }
         });
-        
+
         // Security Approval listener (to close the modal on other devices)
-        this.socket.on('security:approved', (data) => {
-            const modal = document.getElementById('security-challenge-modal');
+        this.socket.on("security:approved", (data) => {
+            const modal = document.getElementById("security-challenge-modal");
             if (modal && window.currentSecurityChallenge === data.uuid) {
-                modal.classList.remove('show');
+                modal.classList.remove("show");
                 window.currentSecurityChallenge = null;
                 const t = window.layoutTranslations || {};
                 if (window.showToast) {
-                    window.showToast(t.approved_another_device || 'Login approved from another device.', 'success');
+                    window.showToast(
+                        t.approved_another_device ||
+                            "Login approved from another device.",
+                        "success",
+                    );
                 }
             }
         });
 
         // Security Denial listener
-        this.socket.on('security:denied', (data) => {
-            const modal = document.getElementById('security-challenge-modal');
+        this.socket.on("security:denied", (data) => {
+            const modal = document.getElementById("security-challenge-modal");
             if (modal && window.currentSecurityChallenge === data.uuid) {
-                modal.classList.remove('show');
+                modal.classList.remove("show");
                 window.currentSecurityChallenge = null;
             }
         });
@@ -679,104 +1235,188 @@ class SocketManager {
             window.currentSecurityChallenge = null;
 
             const t = window.layoutTranslations || {};
-            const btn = document.getElementById('approve-security-btn');
-            const modal = document.getElementById('security-challenge-modal');
+            const btn = document.getElementById("approve-security-btn");
+            const modal = document.getElementById("security-challenge-modal");
 
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t.authorizing || 'Authorizing...'}`;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${t.authorizing || "Authorizing..."}`;
             }
 
             fetch(`/login/challenge/${uuid}/approve`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                }
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]',
+                    ).content,
+                    Accept: "application/json",
+                },
             })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    if (modal) modal.classList.remove('show');
-                    if (window.showToast) {
-                        window.showToast(data.message || t.grant_access || 'Access granted.', 'success');
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.success) {
+                        if (modal) modal.classList.remove("show");
+                        if (window.showToast) {
+                            window.showToast(
+                                data.message ||
+                                    t.grant_access ||
+                                    "Access granted.",
+                                "success",
+                            );
+                        }
+                    } else {
+                        if (window.showToast) {
+                            window.showToast(
+                                data.message ||
+                                    t.approval_failed ||
+                                    "Approval failed.",
+                                "error",
+                            );
+                        }
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || "Grant Access"}`;
+                        }
                     }
-                } else {
+                })
+                .catch(() => {
                     if (window.showToast) {
-                        window.showToast(data.message || t.approval_failed || 'Approval failed.', 'error');
+                        window.showToast(
+                            t.connection_error_retry ||
+                                "Connection error. Please try again.",
+                            "error",
+                        );
                     }
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || 'Grant Access'}`;
+                        btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || "Grant Access"}`;
                     }
-                }
-            })
-            .catch(() => {
-                if (window.showToast) {
-                    window.showToast(t.connection_error_retry || 'Connection error. Please try again.', 'error');
-                }
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = `<i class="fas fa-check-circle"></i> ${t.grant_access || 'Grant Access'}`;
-                }
-            });
+                });
         };
 
         window.denySecurityChallenge = () => {
             const uuid = window.currentSecurityChallenge;
             if (!uuid) return;
-            
+
             window.currentSecurityChallenge = null;
-            
-            const modal = document.getElementById('security-challenge-modal');
-            if (modal) modal.classList.remove('show');
-            
+
+            const modal = document.getElementById("security-challenge-modal");
+            if (modal) modal.classList.remove("show");
+
             fetch(`/login/challenge/${uuid}/deny`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                }
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]',
+                    ).content,
+                    Accept: "application/json",
+                },
             });
         };
 
         // Sync conversation state (unread counts, etc.)
-        this.socket.on('chat:conversation:updated', (data) => {
-            const item = document.querySelector(`.conversation-item[data-conversation-id="${data.conversation_id}"]`);
+        this.socket.on("chat:conversation:updated", (data) => {
+            const item = document.querySelector(
+                `.conversation-item[data-conversation-id="${data.conversation_id}"]`,
+            );
             if (item) {
-                let pill = item.querySelector('.unread-pill');
-                const previewEl = item.querySelector('.preview-text');
-                const timeEl = item.querySelector('.conv-time');
-                
+                let pill = item.querySelector(".unread-pill");
+                const previewEl = item.querySelector(".preview-text");
+                const timeEl = item.querySelector(".conv-time");
+
                 // Update latest message ID for read/delivery tracking
                 if (data.last_message_id) {
-                    item.setAttribute('data-latest-message-id', data.last_message_id);
+                    item.setAttribute(
+                        "data-latest-message-id",
+                        data.last_message_id,
+                    );
                 }
 
                 // Update preview text if provided
                 if (previewEl && data.last_message) {
-                    const previewText = window.sanitizeMessage(data.last_message);
-                    previewEl.textContent = previewText;
+                    if (data.is_e2e_encrypted && data.encrypted_content) {
+                        // Show placeholder immediately, then decrypt async
+                        previewEl.textContent = data.last_message;
+                        previewEl.style.opacity = "1";
+                        (async () => {
+                            try {
+                                const e2e = await getE2EManager();
+                                if (!e2e) return;
+                                const isGroup =
+                                    item.getAttribute("data-is-group") ===
+                                    "true";
+                                let rawContent = data.encrypted_content;
+                                if (rawContent.includes("&quot;")) {
+                                    const t =
+                                        document.createElement("textarea");
+                                    t.innerHTML = rawContent;
+                                    rawContent = t.value;
+                                }
+                                const parsed = JSON.parse(rawContent);
+                                let decrypted;
+                                if (isGroup) {
+                                    parsed.conversation_id =
+                                        data.conversation_id;
+                                    decrypted =
+                                        await e2e.decryptGroupMessage(parsed);
+                                } else {
+                                    const otherUserId = parseInt(
+                                        item.getAttribute("data-user-id") ||
+                                            "0",
+                                    );
+                                    decrypted = await e2e.decryptMessage(
+                                        parsed,
+                                        data.sender_id,
+                                        otherUserId,
+                                    );
+                                }
+                                const plaintext = decrypted.text || "";
+                                const prefix = data.preview_prefix || "";
+                                const display =
+                                    plaintext.length > 30
+                                        ? plaintext.substring(0, 27) + "..."
+                                        : plaintext;
+                                previewEl.textContent = prefix + display;
+                            } catch (_) {}
+                        })();
+                    } else {
+                        previewEl.textContent = window.sanitizeMessage(
+                            data.last_message,
+                        );
+                        previewEl.style.opacity = "1";
+                    }
                 }
 
                 // Update checkmarks if provided
                 if (data.show_checkmarks !== undefined) {
-                    const wrapper = item.querySelector('.preview-content-wrapper');
+                    const wrapper = item.querySelector(
+                        ".preview-content-wrapper",
+                    );
                     if (wrapper) {
-                        let checkIcon = wrapper.querySelector('i.fa-check, i.fa-check-double');
+                        let checkIcon = wrapper.querySelector(
+                            "i.fa-check, i.fa-check-double",
+                        );
                         if (data.show_checkmarks) {
                             if (!checkIcon) {
-                                checkIcon = document.createElement('i');
+                                checkIcon = document.createElement("i");
                                 wrapper.prepend(checkIcon);
                             }
                             // No-downgrade: never replace a higher-rank icon with a lower one
                             // (read > double-gray > single). Prevents flicker when a stale
                             // single-check payload arrives after delivery/read.
-                            const rank = (c) => c.includes('read') ? 3 : c.includes('fa-check-double') ? 2 : 1;
-                            const nextCls = data.checkmark_class || 'fa-check sent';
-                            const curRank = checkIcon.className ? rank(checkIcon.className) : 0;
+                            const rank = (c) =>
+                                c.includes("read")
+                                    ? 3
+                                    : c.includes("fa-check-double")
+                                      ? 2
+                                      : 1;
+                            const nextCls =
+                                data.checkmark_class || "fa-check sent";
+                            const curRank = checkIcon.className
+                                ? rank(checkIcon.className)
+                                : 0;
                             if (curRank < rank(nextCls)) {
-                                checkIcon.className = 'fas ' + nextCls;
+                                checkIcon.className = "fas " + nextCls;
                             }
                         } else {
                             if (checkIcon) checkIcon.remove();
@@ -788,26 +1428,27 @@ class SocketManager {
                 if (timeEl && data.last_message_time) {
                     const date = new Date(data.last_message_time);
                     let hours = date.getHours();
-                    const minutes = String(date.getMinutes()).padStart(2, '0');
-                    const ampm = hours >= 12 ? 'pm' : 'am';
+                    const minutes = String(date.getMinutes()).padStart(2, "0");
+                    const ampm = hours >= 12 ? "pm" : "am";
                     hours = hours % 12;
                     hours = hours ? hours : 12;
-                    timeEl.textContent = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+                    timeEl.textContent = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
                 }
-                
-                const isActive = String(window.activeConversationId) === String(data.conversation_id);
-                const unreadCount = isActive ? 0 : (data.unread_count || 0);
 
-
+                const isActive =
+                    String(window.activeConversationId) ===
+                    String(data.conversation_id);
+                const unreadCount = isActive ? 0 : data.unread_count || 0;
 
                 if (unreadCount > 0) {
-                    item.classList.add('unread');
+                    item.classList.add("unread");
                     if (!pill) {
-                        const meta = item.querySelector('.conv-footer-meta');
+                        const meta = item.querySelector(".conv-footer-meta");
                         if (meta) {
-                            pill = document.createElement('span');
-                            pill.className = 'unread-pill';
-                            const actions = meta.querySelector('.conv-item-actions');
+                            pill = document.createElement("span");
+                            pill.className = "unread-pill";
+                            const actions =
+                                meta.querySelector(".conv-item-actions");
                             if (actions) {
                                 meta.insertBefore(pill, actions);
                             } else {
@@ -816,17 +1457,18 @@ class SocketManager {
                         }
                     }
                     if (pill) {
-                        pill.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                        pill.textContent =
+                            unreadCount > 99 ? "99+" : unreadCount;
                     }
-                    if (previewEl) previewEl.classList.add('unread-text');
+                    if (previewEl) previewEl.classList.add("unread-text");
                 } else {
-                    item.classList.remove('unread');
+                    item.classList.remove("unread");
                     if (pill) pill.remove();
-                    if (previewEl) previewEl.classList.remove('unread-text');
+                    if (previewEl) previewEl.classList.remove("unread-text");
                 }
 
                 // Move to top if it's a new message update (unless no_reorder is set)
-                const sidebar = document.getElementById('sidebarConvList');
+                const sidebar = document.getElementById("sidebarConvList");
                 if (sidebar && data.last_message && !data.no_reorder) {
                     sidebar.prepend(item);
                 }
@@ -843,10 +1485,13 @@ class SocketManager {
     }
 
     updateConnectionStatus(status) {
-        const dot = document.getElementById('connection-status-dot');
+        const dot = document.getElementById("connection-status-dot");
         if (dot) {
             dot.className = `status-dot ${status}`;
-            dot.title = status === 'online' ? 'Nexus Real-time Engine: Connected' : 'Nexus Real-time Engine: Reconnecting...';
+            dot.title =
+                status === "online"
+                    ? "Nexus Real-time Engine: Connected"
+                    : "Nexus Real-time Engine: Reconnecting...";
         }
 
         this.lastStatus = status;
@@ -855,35 +1500,41 @@ class SocketManager {
     updateOnlineStatus(userId, isOnline, lastActive = null) {
         if (!userId) return;
         const id = String(userId);
-        
+
         // Update all dots with this user ID
-        document.querySelectorAll(`.online-indicator[data-user-id="${id}"]`).forEach(el => {
-            if (isOnline) {
-                el.classList.add('online');
-                el.classList.remove('offline');
-            } else {
-                el.classList.remove('online');
-                el.classList.add('offline');
-            }
-        });
+        document
+            .querySelectorAll(`.online-indicator[data-user-id="${id}"]`)
+            .forEach((el) => {
+                if (isOnline) {
+                    el.classList.add("online");
+                    el.classList.remove("offline");
+                } else {
+                    el.classList.remove("online");
+                    el.classList.add("offline");
+                }
+            });
 
         // Update chat header if it's the same user
-        const headerStatus = document.getElementById('chat-user-status');
-        if (headerStatus && headerStatus.getAttribute('data-user-id') == id) {
-            headerStatus.className = `status ${isOnline ? 'online' : 'offline'}`;
-            const text = headerStatus.querySelector('.status-text');
+        const headerStatus = document.getElementById("chat-user-status");
+        if (headerStatus && headerStatus.getAttribute("data-user-id") == id) {
+            headerStatus.className = `status ${isOnline ? "online" : "offline"}`;
+            const text = headerStatus.querySelector(".status-text");
             if (text) {
                 if (isOnline) {
-                    text.textContent = window.chatTranslations?.online || 'online';
+                    text.textContent =
+                        window.chatTranslations?.online || "online";
                 } else if (lastActive) {
                     text.textContent = this.formatLastSeen(lastActive);
                 } else {
                     // Transitioning to offline without a specific timestamp
                     // Only overwrite if it was previously "online"
                     const currentText = text.textContent.toLowerCase();
-                    const onlineText = (window.chatTranslations?.online || 'online').toLowerCase();
+                    const onlineText = (
+                        window.chatTranslations?.online || "online"
+                    ).toLowerCase();
                     if (currentText.includes(onlineText)) {
-                        text.textContent = window.chatTranslations?.offline || 'offline';
+                        text.textContent =
+                            window.chatTranslations?.offline || "offline";
                     }
                 }
             }
@@ -891,40 +1542,41 @@ class SocketManager {
     }
 
     formatLastSeen(dateStr) {
-        if (!dateStr) return window.chatTranslations?.offline || 'offline';
-        
+        if (!dateStr) return window.chatTranslations?.offline || "offline";
+
         try {
             const date = new Date(dateStr);
             const now = new Date();
             const isToday = date.toDateString() === now.toDateString();
-            
+
             const yesterday = new Date();
             yesterday.setDate(now.getDate() - 1);
-            const isYesterday = date.toDateString() === yesterday.toDateString();
-            
+            const isYesterday =
+                date.toDateString() === yesterday.toDateString();
+
             let hours = date.getHours();
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'pm' : 'am';
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            const ampm = hours >= 12 ? "pm" : "am";
             hours = hours % 12;
             hours = hours ? hours : 12;
-            const timeStr = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-            
+            const timeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+
             const trans = window.chatTranslations || {};
-            const lastSeenLabel = trans.last_seen || 'Last seen';
-            const atLabel = trans.at || 'at';
-            
+            const lastSeenLabel = trans.last_seen || "Last seen";
+            const atLabel = trans.at || "at";
+
             if (isToday) {
-                return `${lastSeenLabel} ${trans.today || 'Today'} ${atLabel} ${timeStr}`;
+                return `${lastSeenLabel} ${trans.today || "Today"} ${atLabel} ${timeStr}`;
             } else if (isYesterday) {
-                return `${lastSeenLabel} ${trans.yesterday || 'Yesterday'} ${atLabel} ${timeStr}`;
+                return `${lastSeenLabel} ${trans.yesterday || "Yesterday"} ${atLabel} ${timeStr}`;
             } else {
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, "0");
+                const month = String(date.getMonth() + 1).padStart(2, "0");
                 const year = date.getFullYear();
                 return `${lastSeenLabel} ${day}/${month}/${year} ${timeStr}`;
             }
         } catch (e) {
-            return window.chatTranslations?.offline || 'offline';
+            return window.chatTranslations?.offline || "offline";
         }
     }
 
@@ -943,38 +1595,48 @@ class SocketManager {
         }
     }
 
-    joinConversation(id) { this.emit('conversation:join', { conversationId: id }); }
-    leaveConversation(id) { this.emit('conversation:leave', { conversationId: id }); }
-    sendTyping(id, isTyping) { 
-        this.emit('chat:typing', { 
-            conversationId: id, 
+    joinConversation(id) {
+        this.emit("conversation:join", { conversationId: id });
+    }
+    leaveConversation(id) {
+        this.emit("conversation:leave", { conversationId: id });
+    }
+    sendTyping(id, isTyping) {
+        this.emit("chat:typing", {
+            conversationId: id,
             isTyping,
-            username: this.config.username 
-        }); 
+            username: this.config.username,
+        });
     }
 
     confirmMessageDelivery(messageId) {
         if (!messageId) return;
-        fetch('/chat/confirm-delivery', {
-            method: 'POST',
+        fetch("/chat/confirm-delivery", {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector(
+                    'meta[name="csrf-token"]',
+                ).content,
+                Accept: "application/json",
             },
-            body: JSON.stringify({ message_id: messageId })
-        }).catch(err => {});
+            body: JSON.stringify({ message_id: messageId }),
+        }).catch((err) => {});
     }
 
     confirmAllMessagesDelivered() {
-        fetch('/chat/mark-delivered-all', {
-            method: 'POST',
+        fetch("/chat/mark-delivered-all", {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
-            }
-        }).catch(err => console.error('Bulk delivery confirmation failed:', err));
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector(
+                    'meta[name="csrf-token"]',
+                ).content,
+                Accept: "application/json",
+            },
+        }).catch((err) =>
+            console.error("Bulk delivery confirmation failed:", err),
+        );
     }
 }
 

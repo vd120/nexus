@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
                     'resources/js/legacy/mention-hashtag-autocomplete.js',
                     'resources/js/legacy/community-admin-inline.js',
                     'resources/js/legacy/life-chapters.js',
+                    // E2E Encryption
+                    'resources/js/e2e/crypto-core.js',
+                    'resources/js/e2e/db-manager.js',
+                    'resources/js/e2e/e2e-manager.js',
+                    'resources/js/e2e/media-crypto.js',
                     // CSS
                     'resources/css/app-layout.css',
                     'resources/css/mobile-header.css',

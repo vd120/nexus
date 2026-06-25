@@ -280,3 +280,4 @@ Route::get('/push/vapid-key', [PushNotificationController::class, 'getVapidKey']
 
 // Username availability check
 Route::get('/check-username', [UserController::class, 'checkUsername']);
+

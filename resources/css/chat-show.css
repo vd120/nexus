@@ -1,6 +1,12 @@
 /* Hide layout mobile nav on chat page */
 .mobile-nav { display: none !important; }
 
+/* Hide encrypted placeholders until JS decrypts them — prevents flash of "🔒" text */
+.message-text-inner[data-encrypted-content] {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
 /* Override layout constraints for full width chat */
 .app-layout, .main-content {
     max-width: 100% !important;
@@ -791,6 +797,8 @@ body:has(.chat-page) .mobile-nav {
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
+    flex: 1;
 }
 
 /* Group chat clickable links */
@@ -821,11 +829,20 @@ body:has(.chat-page) .mobile-nav {
     object-fit: cover;
 }
 
+.chat-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
 .chat-details h3 {
     margin: 0;
     font-size: 15px;
     font-weight: 500;
     color: var(--wa-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: color 0.2s;
 }
 
@@ -834,11 +851,21 @@ body:has(.chat-page) .mobile-nav {
 }
 
 .status {
-    font-size: 13px;
+    font-size: 10px;
     display: flex;
     align-items: center;
     gap: 6px;
     color: var(--wa-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status, .status .status-text {
+    font-size: 10px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .status.online {
@@ -2240,4 +2267,134 @@ body:has(.chat-page) .mobile-nav {
             padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
     }
+}
+
+/* E2E Encryption Styles */
+.chat-e2e-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    transition: background 0.2s ease;
+    white-space: nowrap;
+}
+
+.chat-e2e-badge:hover {
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+#e2e-key-change-alert {
+    animation: e2e-slide-up 0.3s ease-out;
+}
+
+@keyframes e2e-slide-up {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.e2e-modal {
+    animation: e2e-fade-in 0.2s ease-out;
+}
+
+.e2e-modal-content {
+    animation: e2e-scale-in 0.25s ease-out;
+}
+
+@keyframes e2e-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes e2e-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.e2e-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.e2e-btn-primary {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+}
+
+.e2e-btn-primary:hover {
+    opacity: 0.9;
+}
+
+.e2e-btn:not(.e2e-btn-primary) {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.e2e-passphrase-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--wa-bg);
+    color: var(--text);
+    font-size: 14px;
+    width: 200px;
+    outline: none;
+}
+
+.e2e-passphrase-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.e2e-banner {
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 15%, transparent);
+    padding: 10px 16px;
+}
+
+.e2e-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.e2e-banner-icon {
+    font-size: 18px;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.e2e-banner-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.e2e-banner-text strong {
+    font-size: 13px;
+    display: block;
+}
+
+.e2e-banner-text p {
+    font-size: 12px;
+    margin: 2px 0 0 0;
+    color: var(--text-muted);
+}
+
+.e2e-banner-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
 }

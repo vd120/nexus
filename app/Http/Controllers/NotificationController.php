@@ -39,6 +39,7 @@ class NotificationController extends Controller
                             'id' => $n->id,
                             'type' => $n->type,
                             'message' => $n->message ?? 'New notification',
+                            'data' => $n->data,
                             'link' => $n->link,
                             'read_at' => $n->read_at ? $n->read_at->toISOString() : null,
                             'created_at' => $n->created_at ? $n->created_at->toISOString() : now()->toISOString(),
@@ -325,11 +326,14 @@ class NotificationController extends Controller
                     $pushTitle,
                     $pushBody,
                     $pushUrl,
-                    [
-                        'type'            => $notification->type,
-                        'notification_id' => $notification->id,
-                        'message_id'      => $notification->data['message_id'] ?? null,
-                    ]
+                    array_merge(
+                        $notification->data ?? [],
+                        [
+                            'type'            => $notification->type,
+                            'notification_id' => $notification->id,
+                            'message_id'      => $notification->data['message_id'] ?? null,
+                        ]
+                    )
                 );
             }
         } catch (\Throwable $e) {
@@ -363,41 +367,49 @@ class NotificationController extends Controller
         // Generate appropriate preview text based on message type
         $messagePreview = '';
         $messageType = $message->type ?? 'text';
-        
+        $isE2E = false;
+        $rawContent = $message->content ?? '';
+
         if ($messageType === 'text' || empty($messageType)) {
-            $rawContent = $message->content ?? '';
-            
-            // If the message is a reply, extract the actual content from the JSON
-            if (str_starts_with($rawContent, '{"__nexus_reply__":true')) {
-                $decoded = json_decode($rawContent, true);
-                if ($decoded && isset($decoded['content'])) {
-                    $rawContent = '↩ ' . $decoded['content'];
+            // Check if this is an E2E encrypted message
+            if (str_contains($rawContent, '"__nexus_encrypted__":true')) {
+                $isE2E = true;
+                $messagePreview = '🔒 ' . __('chat.e2e_encrypted');
+            } else {
+                // If the message is a reply, extract the actual content from the JSON
+                if (str_starts_with($rawContent, '{"__nexus_reply__":true')) {
+                    $decoded = json_decode($rawContent, true);
+                    if ($decoded && isset($decoded['content'])) {
+                        $rawContent = '↩ ' . $decoded['content'];
+                    }
                 }
+
+                $messagePreview = mb_substr($rawContent, 0, 35) . (mb_strlen($rawContent) > 35 ? '...' : '');
             }
-            
-            $messagePreview = mb_substr($rawContent, 0, 35) . (mb_strlen($rawContent) > 35 ? '...' : '');
         } else {
             // For media messages, show type instead of content
             $messagePreview = self::getMessageTypeText($messageType);
         }
-        
-        return self::createNotification(
-            $recipientId,
-            'message',
-            [
-                'sender_name' => $sender->username ?? 'Someone',
-                'sender_username' => $sender->username ?? 'Unknown',
-                'sender_id' => $sender->id,
-                'sender_avatar' => $sender->avatar_url,
-                'message_preview' => $messagePreview,
-                'message_type' => $messageType,
-                'message_id' => $message->id ?? null,
-                'conversation_id' => $message->conversation_id ?? null,
-                'is_group' => $message->conversation->is_group ?? false,
-                'group_name' => ($message->conversation && $message->conversation->is_group) ? $message->conversation->display_name : null,
-            ],
-            $message
-        );
+
+        $notifData = [
+            'sender_name'      => $sender->username ?? 'Someone',
+            'sender_username'  => $sender->username ?? 'Unknown',
+            'sender_id'        => $sender->id,
+            'sender_avatar'    => $sender->avatar_url,
+            'message_preview'  => $messagePreview,
+            'message_type'     => $messageType,
+            'message_id'       => $message->id ?? null,
+            'conversation_id'  => $message->conversation_id ?? null,
+            'is_group'         => $message->conversation->is_group ?? false,
+            'group_name'       => ($message->conversation && $message->conversation->is_group) ? $message->conversation->display_name : null,
+        ];
+
+        if ($isE2E) {
+            $notifData['is_e2e_encrypted']  = true;
+            $notifData['encrypted_content'] = $message->content;
+        }
+
+        return self::createNotification($recipientId, 'message', $notifData, $message);
     }
 
     /**
@@ -416,38 +428,43 @@ class NotificationController extends Controller
             }
         }
 
-        // Truncate message content for notification
-        $content = $message->content;
-        if ($message->type !== 'text') {
-            $content = '[' . ucfirst($message->type) . ']';
-        }
-        
-        // Handle reply JSON
-        if (str_starts_with($content, '{"__nexus_reply__":true')) {
-            $decoded = json_decode($content, true);
-            $content = $decoded['content'] ?? '';
-        }
-        
-        $truncatedContent = mb_substr(strip_tags($content), 0, 30);
-        if (mb_strlen($content) > 30) $truncatedContent .= '...';
+        $content = $message->content ?? '';
+        $isE2E = str_contains($content, '"__nexus_encrypted__":true');
 
-        return self::createNotification(
-            $recipientId,
-            'chat_reaction',
-            [
-                'reactor_name' => $reactor->username ?? 'Someone',
-                'reactor_username' => $reactor->username ?? 'Unknown',
-                'reactor_id' => $reactor->id,
-                'reactor_avatar' => $reactor->avatar_url,
-                'reaction_type' => $reactionType,
-                'message_id' => $message->id,
-                'message_content' => $truncatedContent,
-                'conversation_id' => $message->conversation_id ?? null,
-                'is_group' => $message->conversation->is_group ?? false,
-                'group_name' => ($message->conversation && $message->conversation->is_group) ? $message->conversation->display_name : null,
-            ],
-            $message
-        );
+        if ($isE2E) {
+            $truncatedContent = '🔒 ' . __('chat.e2e_encrypted');
+        } else {
+            if ($message->type !== 'text') {
+                $content = '[' . ucfirst($message->type) . ']';
+            }
+
+            if (str_starts_with($content, '{"__nexus_reply__":true')) {
+                $decoded = json_decode($content, true);
+                $content = $decoded['content'] ?? '';
+            }
+
+            $truncatedContent = mb_substr(strip_tags($content), 0, 30);
+            if (mb_strlen($content) > 30) $truncatedContent .= '...';
+        }
+
+        $reactionData = [
+            'reactor_name'    => $reactor->username ?? 'Someone',
+            'reactor_username'=> $reactor->username ?? 'Unknown',
+            'reactor_id'      => $reactor->id,
+            'reactor_avatar'  => $reactor->avatar_url,
+            'reaction_type'   => $reactionType,
+            'message_id'      => $message->id,
+            'message_content' => $truncatedContent,
+            'conversation_id' => $message->conversation_id ?? null,
+            'is_group'        => $message->conversation->is_group ?? false,
+            'group_name'      => ($message->conversation && $message->conversation->is_group) ? $message->conversation->display_name : null,
+        ];
+
+        if ($isE2E) {
+            $reactionData['is_e2e_encrypted'] = true;
+        }
+
+        return self::createNotification($recipientId, 'chat_reaction', $reactionData, $message);
     }
     
     /**

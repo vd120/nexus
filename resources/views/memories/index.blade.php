@@ -178,7 +178,14 @@
         const endsAt = new Date(hero.dataset.memoryEnds).getTime();
         const tick = () => {
             const diff = endsAt - Date.now();
-            if (diff <= 0) { countdownEl.textContent = '—'; return; }
+            if (diff <= 0) { 
+                countdownEl.textContent = '—'; 
+                if (!sessionStorage.getItem('reloaded_for_memory_' + hero.dataset.memoryEnds)) {
+                    sessionStorage.setItem('reloaded_for_memory_' + hero.dataset.memoryEnds, '1');
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+                return; 
+            }
             const d = Math.floor(diff / 86400000);
             const h = Math.floor((diff % 86400000) / 3600000);
             const m = Math.floor((diff % 3600000) / 60000);

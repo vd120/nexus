@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active Implementation Plan: specs/020-social-groups-notifications/plan.md
+Active Implementation Plan: specs/021-e2e-encryption/plan.md
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information

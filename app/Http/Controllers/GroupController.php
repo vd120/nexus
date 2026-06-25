@@ -7,6 +7,8 @@ use App\Models\GroupMember;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Models\Message;
+use App\Services\KeyStorageService;
+use App\Services\SocketEmitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -233,6 +235,17 @@ class GroupController extends Controller
             'user'  => $added->username ?? 'user',
         ]));
 
+        // Trigger E2E group key rotation: delete existing keys so the new member
+        // cannot read old messages, and notify remaining members to rotate.
+        if ($group->conversation) {
+            app(KeyStorageService::class)->deleteGroupMemberKeys($group->conversation->id, $request->user_id);
+            app(SocketEmitService::class)->emitToConversation(
+                $group->conversation->id,
+                'chat:e2e:group-key-rotation',
+                ['conversation_id' => $group->conversation->id, 'action' => 'member_added']
+            );
+        }
+
         if ($request->ajax()) {
             $user = User::find($request->user_id);
             $member = $group->members()->where('user_id', $request->user_id)->first();
@@ -272,6 +285,12 @@ class GroupController extends Controller
             ->delete();
 
         $removed = User::find($userId);
+
+        // Remove E2E group keys for the removed member
+        if ($group->conversation) {
+            app(KeyStorageService::class)->deleteGroupMemberKeys($group->conversation->id, $userId);
+        }
+
         if (Auth::id() == $userId) {
             $this->emitGroupSystemMessage($group, __('chat.system_member_left', [
                 'user' => $removed->username ?? 'user',
@@ -283,11 +302,20 @@ class GroupController extends Controller
             ]));
             // Drop the conversation from the removed user's sidebar
             if ($group->conversation) {
-                app(\App\Services\SocketEmitService::class)->emitToUser($userId, 'chat:conversation:deleted', [
+                app(SocketEmitService::class)->emitToUser($userId, 'chat:conversation:deleted', [
                     'conversation_id' => $group->conversation->id,
                     'deleted_by'      => Auth::id(),
                 ]);
             }
+        }
+
+        // Notify remaining members to rotate group keys
+        if ($group->conversation && Auth::id() != $userId) {
+            app(SocketEmitService::class)->emitToConversation(
+                $group->conversation->id,
+                'chat:e2e:group-key-rotation',
+                ['conversation_id' => $group->conversation->id, 'action' => 'member_removed']
+            );
         }
 
         if (Auth::id() == $userId) {
@@ -377,6 +405,16 @@ class GroupController extends Controller
             'user' => Auth::user()->username,
         ]));
 
+        // Trigger E2E group key rotation so the new member gets a fresh shared key
+        if ($group->conversation) {
+            app(KeyStorageService::class)->deleteGroupMemberKeys($group->conversation->id, Auth::id());
+            app(SocketEmitService::class)->emitToConversation(
+                $group->conversation->id,
+                'chat:e2e:group-key-rotation',
+                ['conversation_id' => $group->conversation->id, 'action' => 'member_joined']
+            );
+        }
+
         return redirect()->route('chat.show', $group->conversation->slug)->with('success', "Joined {$group->name} successfully.");
     }
 
@@ -392,6 +430,16 @@ class GroupController extends Controller
             ->delete();
 
         $this->emitGroupSystemMessage($group, __('chat.system_member_left', ['user' => $leaverName]));
+
+        // Trigger E2E group key rotation so remaining members generate a new shared key
+        if ($group->conversation) {
+            app(KeyStorageService::class)->deleteGroupMemberKeys($group->conversation->id, Auth::id());
+            app(SocketEmitService::class)->emitToConversation(
+                $group->conversation->id,
+                'chat:e2e:group-key-rotation',
+                ['conversation_id' => $group->conversation->id, 'action' => 'member_left']
+            );
+        }
 
         if (request()->ajax()) {
             return response()->json([

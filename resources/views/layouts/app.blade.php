@@ -107,10 +107,11 @@
 
     
     <script>
+        window.SW_PATH = '/sw.js?v={{ filemtime(public_path("sw.js")) }}';
         // Register Service Worker for PWA support
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register(window.SW_PATH)
                     .then(reg => console.log('Nexus Service Worker registered'))
                     .catch(err => console.log('Nexus Service Worker failed', err));
             });
@@ -1055,10 +1056,18 @@
                         const prefixPart = message.substring(0, jsonStart);
                         const jsonPart = message.substring(jsonStart);
                         const replyData = JSON.parse(jsonPart);
+                        if (typeof replyData.content === 'string' && replyData.content.includes('"__nexus_encrypted__":true')) {
+                            return prefixPart + '↩ 🔒 Encrypted message';
+                        }
                         return prefixPart + '↩ ' + (replyData.content || '');
                     }
                 } catch(e) {}
+                return '↩ 🔒 Encrypted message';
             }
+            try {
+                const parsed = JSON.parse(message);
+                if (parsed.__nexus_encrypted__) return '🔒 Encrypted message';
+            } catch(e) {}
             return message;
         };
 
@@ -1130,7 +1139,7 @@
 
     @vite(['resources/js/app.js', 'resources/js/nexus-soul.js', 'resources/js/legacy/ui-utils.js', 'resources/js/legacy/comments.js', 'resources/js/legacy/posts.js', 'resources/js/legacy/mention-hashtag-autocomplete.js', 'resources/js/legacy/community-admin-inline.js', 'resources/js/legacy/life-chapters.js'])
     @auth
-        @vite(['resources/js/socket-manager.js'])
+        @vite(['resources/js/e2e/crypto-core.js', 'resources/js/e2e/media-crypto.js', 'resources/js/e2e/e2e-manager.js', 'resources/js/socket-manager.js'])
     @endauth
     <script>
         function toggleUserMenu(event) {
@@ -1415,6 +1424,71 @@
             ).join('');
         }
 
+        async function decryptNotificationDropdownItem(id, data) {
+            try {
+                const e2e = await getE2EManager();
+                if (!e2e) return;
+
+                let rawContent = data.encrypted_content;
+                if (rawContent.includes("&quot;")) {
+                    const t = document.createElement("textarea");
+                    t.innerHTML = rawContent;
+                    rawContent = t.value;
+                }
+
+                let parsed = JSON.parse(rawContent);
+                let decryptTarget = parsed;
+                if (parsed.__nexus_reply__ && typeof parsed.content === "string") {
+                    try {
+                        const inner = JSON.parse(parsed.content);
+                        if (inner.__nexus_encrypted__) decryptTarget = inner;
+                    } catch (e) {}
+                }
+
+                if (!decryptTarget.__nexus_encrypted__) return;
+
+                const decryptPromise = (data.is_group === true || String(data.is_group) === "true")
+                    ? e2e.decryptGroupMessage({
+                          ...decryptTarget,
+                          conversation_id: data.conversation_id,
+                      })
+                    : e2e.decryptMessage(
+                          decryptTarget,
+                          data.sender_id,
+                      );
+
+                const timeout = new Promise((_, rej) =>
+                    setTimeout(() => rej(new Error("timeout")), 2000)
+                );
+
+                const result = await Promise.race([decryptPromise, timeout]);
+                const text = result?.text || "";
+                if (text) {
+                    const notifItem = document.getElementById(`notif-${id}`);
+                    if (notifItem) {
+                        const pEl = notifItem.querySelector('.notif-content p');
+                        if (pEl) {
+                            const sender = data.sender_username || "";
+                            const prefix = sender ? `${sender}: ` : "";
+                            const cleanText = window.sanitizeMessage ? window.sanitizeMessage(text) : text;
+                            const truncatedText = cleanText.length > 120 ? cleanText.substring(0, 120) + '...' : cleanText;
+                            
+                            // Check if this is a group message
+                            const isGroup = data.is_group || false;
+                            const groupName = data.group_name || null;
+                            if (isGroup && groupName) {
+                                pEl.textContent = `${groupName} - ${prefix}${truncatedText}`;
+                            } else {
+                                pEl.textContent = `${prefix}${truncatedText}`;
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("[E2E] Failed to decrypt dropdown notification item:", err);
+            }
+        }
+
         const _loadNotificationsRaw = function loadNotifications() {
             const list = document.getElementById('notif-list');
             // Only show skeleton on first load (list has no real items yet)
@@ -1479,6 +1553,17 @@
                         </div>
                     </div>
                 `}).join('');
+
+                // Decrypt E2E messages in notification dropdown
+                data.notifications.forEach(n => {
+                    let notifData = n.data;
+                    if (typeof notifData === 'string') {
+                        try { notifData = JSON.parse(notifData); } catch(e) { notifData = {}; }
+                    }
+                    if (n.type === 'message' && notifData?.is_e2e_encrypted && notifData?.encrypted_content) {
+                        decryptNotificationDropdownItem(n.id, notifData);
+                    }
+                });
             })
             .catch(err => {
                 console.error('loadNotifications: Error:', err);
