@@ -21,6 +21,31 @@ export class E2EManager {
             try {
                 await this.db.open();
                 this.initialized = true;
+
+                // Safety check: clear IndexedDB if the logged-in user doesn't match the owner of the local keys
+                const myId = String(window.SOCKET_CONFIG?.userId || window.NexusUser?.id || 0);
+                if (myId !== "0") {
+                    const identity = await this.db.getIdentityKey();
+                    if (identity) {
+                        if (identity.user_id && String(identity.user_id) !== myId) {
+                            console.warn("[E2E] Logged-in user mismatch. Clearing IndexedDB stores to prevent key leakage...");
+                            await this.db.clear("user-keys");
+                            await this.db.clear("peer-keys");
+                            await this.db.clear("group-keys");
+                        } else if (!identity.user_id) {
+                            // Lock existing key to the current user (backwards compatibility)
+                            identity.user_id = myId;
+                            await this.db.put("user-keys", identity);
+                            
+                            const prekey = await this.db.getPrekey();
+                            if (prekey) {
+                                prekey.user_id = myId;
+                                await this.db.put("user-keys", prekey);
+                            }
+                        }
+                    }
+                }
+
                 this._prekey = await this.db.getPrekey();
 
                 // Pre-derive shared secret for the active P2P conversation

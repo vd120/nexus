@@ -99,8 +99,10 @@ export class E2EDBManager {
     }
 
     async storeIdentityKey(privateKey, publicKey) {
+        const myId = String(window.SOCKET_CONFIG?.userId || window.NexusUser?.id || 0);
         return this.put("user-keys", {
             key_type: "identity",
+            user_id: myId,
             private_key: privateKey,
             public_key: publicKey,
             backup_status: false,
@@ -109,8 +111,10 @@ export class E2EDBManager {
     }
 
     async storePrekey(privateKey, publicKey) {
+        const myId = String(window.SOCKET_CONFIG?.userId || window.NexusUser?.id || 0);
         return this.put("user-keys", {
             key_type: "prekey",
+            user_id: myId,
             private_key: privateKey,
             public_key: publicKey,
             backup_status: false,

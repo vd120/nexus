@@ -339,6 +339,7 @@ class ActivityService
         $logoutTimes = ActivityLog::where('user_id', $userId)
             ->where('action', 'logout')
             ->where('logged_at', '>=', now()->subDays(30))
+            ->orderBy('logged_at', 'asc')
             ->get()
             ->mapWithKeys(fn($log) => [
                 md5(($log->ip_address ?? '') . '|' . ($log->user_agent ?? '')) => $log->logged_at
