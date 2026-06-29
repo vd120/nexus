@@ -35,15 +35,26 @@ class PostController extends Controller
         $followedUsers = collect();
         $topHashtags = collect();
         $globalChatMessages = collect();
+        $feedMode = 'algorithmic';
 
         if ($user) {
             $blockedUserIds = $this->getBlockedUserIds($user);
             // Anchor ranking time to page-1 load so it stays stable across paginated requests
             $anchorKey = "feed_anchor_{$user->id}";
             $rankingAnchor = \Illuminate\Support\Facades\Cache::remember($anchorKey, 120, fn() => now()->toDateTimeString());
-            $feedCacheKey = "feed_{$user->id}_p{$page}_pp{$perPage}";
-            $posts = \Illuminate\Support\Facades\Cache::remember($feedCacheKey, 120, function () use ($user, $blockedUserIds, $perPage, $page, $rankingAnchor) {
-                return $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor)
+            
+            // Read and persist feed mode
+            $feedMode = $request->get('feed_mode');
+            if ($feedMode && in_array($feedMode, ['algorithmic', 'chronological', 'following'])) {
+                session(['feed_mode' => $feedMode]);
+            } else {
+                $feedMode = session('feed_mode', 'algorithmic');
+            }
+
+            $feedCacheKey = "feed_{$user->id}_mode_{$feedMode}_p{$page}_pp{$perPage}";
+            \Log::info("CACHE KEY ACCESSED: " . $feedCacheKey);
+            $posts = \Illuminate\Support\Facades\Cache::remember($feedCacheKey, 120, function () use ($user, $blockedUserIds, $perPage, $page, $rankingAnchor, $feedMode) {
+                return $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor, $feedMode)
                     ->paginate($perPage, ['*'], 'page', $page)
                     ->withQueryString();
             });
@@ -107,7 +118,8 @@ class PostController extends Controller
             'myStories',
             'followedUsers',
             'topHashtags',
-            'globalChatMessages'
+            'globalChatMessages',
+            'feedMode'
         ));
     }
 
@@ -124,7 +136,11 @@ class PostController extends Controller
             $blockedUserIds = $this->getBlockedUserIds($user);
             // Reuse the same ranking anchor set by the initial page load
             $rankingAnchor = \Illuminate\Support\Facades\Cache::get("feed_anchor_{$user->id}", now()->toDateTimeString());
-            $posts = $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor)
+            
+            // Read feed mode (or default to session)
+            $feedMode = $request->get('feed_mode', session('feed_mode', 'algorithmic'));
+
+            $posts = $this->buildFeedQuery($user, $blockedUserIds, $rankingAnchor, $feedMode)
                 ->paginate($perPage, ['*'], 'page', $page)
                 ->withQueryString();
         } else {
@@ -299,8 +315,7 @@ class PostController extends Controller
 
         $post = auth()->user()->posts()->create($postData);
 
-        \Illuminate\Support\Facades\Cache::forget("feed_" . auth()->id() . "_p1_pp5");
-        \Illuminate\Support\Facades\Cache::forget("feed_anchor_" . auth()->id());
+        $this->clearFeedCache(auth()->id());
 
         // Create poll if provided
         if ($request->filled('poll_options')) {
@@ -484,7 +499,10 @@ class PostController extends Controller
 
                     // Global broadcast
                     if ($isPublicPost) {
-                        $socketService->emit('global', 'post:new', array_merge($socketPayload, ['social_group_id' => null]));
+                        $socketService->emit('global', 'post:new', array_merge($socketPayload, [
+                            'social_group_id' => null,
+                            'is_global' => true
+                        ]));
                     }
                 } catch (\Exception $e) {
                     \Log::error('Post broadcast failed: ' . $e->getMessage());
@@ -681,7 +699,10 @@ class PostController extends Controller
         app(\App\Services\HashtagService::class)->removePostHashtags($post);
 
         $postId = $post->id;
+        $postOwnerId = $post->user_id;
         $post->delete();
+
+        $this->clearFeedCache($postOwnerId);
 
         // Notify the post owner when an admin deletes their post
         if ($adminDeletedOwnersPost) {
@@ -748,6 +769,12 @@ class PostController extends Controller
             'count' => $likesCount
         ]);
 
+        // Clear user's feed caches to refresh like status
+        $this->clearFeedCache($user->id);
+        if ($post->user_id !== $user->id) {
+            $this->clearFeedCache($post->user_id);
+        }
+
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
             $recentLikers = $post->likes()->with('user:id,name')->latest()->limit(10)->get()->map(function($like) {
@@ -779,6 +806,9 @@ class PostController extends Controller
                 'post_id' => $post->id
             ]);
         }
+
+        // Clear user's feed caches to refresh saved status
+        $this->clearFeedCache(auth()->id());
 
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
@@ -919,6 +949,12 @@ class PostController extends Controller
 
         }
 
+        // Clear user's feed caches to refresh reaction status
+        $this->clearFeedCache($userId);
+        if ($post->user_id !== $userId) {
+            $this->clearFeedCache($post->user_id);
+        }
+
         return response()->json([
             'success' => true,
             'reaction_summaries' => $summaries,
@@ -949,6 +985,12 @@ class PostController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::debug('Socket.io post:reacted broadcast failed: ' . $e->getMessage());
+        }
+
+        // Clear user's feed caches to refresh reaction status
+        $this->clearFeedCache(auth()->id());
+        if ($post->user_id !== auth()->id()) {
+            $this->clearFeedCache($post->user_id);
         }
 
         return response()->json([
@@ -1008,7 +1050,7 @@ class PostController extends Controller
         );
     }
 
-    private function buildFeedQuery(User $user, array $blockedUserIds, ?string $rankingAnchor = null)
+    private function buildFeedQuery(User $user, array $blockedUserIds, ?string $rankingAnchor = null, string $feedMode = 'algorithmic')
     {
         // Use a fixed anchor so ranking thresholds don't shift across paginated requests
         $anchor = $rankingAnchor ?? now()->toDateTimeString();
@@ -1053,8 +1095,17 @@ class PostController extends Controller
             })
             ->when(!empty($blockedUserIds), function($q) use ($blockedUserIds) {
                 $q->whereNotIn('posts.user_id', $blockedUserIds);
-            })
-            ->orderByRaw("
+            });
+
+        if ($feedMode === 'following') {
+            $followingIds = $user->following()->pluck('users.id')->toArray();
+            $followingIds[] = $user->id; // Always include user's own posts in following feed
+            $query->whereIn('posts.user_id', $followingIds)
+                  ->orderBy('posts.created_at', 'desc');
+        } elseif ($feedMode === 'chronological') {
+            $query->orderBy('posts.created_at', 'desc');
+        } else { // algorithmic ranking
+            $query->orderByRaw("
                 (
                     COALESCE(posts.cached_likes_count, 0) * 2 +
                     COALESCE(posts.cached_reactions_count, 0) * 2 +
@@ -1071,7 +1122,13 @@ class PostController extends Controller
                 \Carbon\Carbon::parse($anchor)->subHours(24)->toDateTimeString(),
                 \Carbon\Carbon::parse($anchor)->subHours(48)->toDateTimeString(),
             ]);
+        }
 
         return $query;
+    }
+
+    private function clearFeedCache(int $userId = null): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();
     }
 }

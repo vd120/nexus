@@ -115,4 +115,26 @@ class E2EMessageTest extends TestCase
             ->withArgs(fn ($cid, $event) => $event === 'chat:message' && $cid === $this->conversation->id)
             ->once();
     }
+
+    public function test_upload_encrypted_media_chunk_returns_string_path_instead_of_boolean(): void
+    {
+        $response = $this->actingAs($this->userA)
+            ->postJson(route('chat.upload-encrypted-media', $this->conversation), [
+                'file_id' => 'test_file_123',
+                'index' => 0,
+                'chunk' => base64_encode('fake encrypted chunk content'),
+                'original_size' => 100,
+            ]);
+
+        $response->assertOk()
+            ->assertJson(['success' => true])
+            ->assertJsonStructure(['success', 'path', 'index', 'file_id']);
+
+        $path = $response->json('path');
+        $this->assertIsString($path);
+        $this->assertStringContainsString('chunk_0000.enc', $path);
+        
+        // Assert file exists on public disk
+        $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('public')->exists($path));
+    }
 }

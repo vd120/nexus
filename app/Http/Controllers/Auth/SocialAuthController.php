@@ -53,11 +53,17 @@ class SocialAuthController extends Controller
                     'email_verified_at' => now(),
                 ]);
             } else {
-                $user->update([
+                $updateData = [
                     'avatar' => $googleUser->getAvatar(),
                     'google_id' => $googleUser->getId(),
                     'email_verified_at' => $user->email_verified_at ?? now(),
-                ]);
+                ];
+
+                if (is_null($user->email_verified_at)) {
+                    $updateData['password'] = null;
+                }
+
+                $user->update($updateData);
             }
 
             // Log the attempt to check for suspicious activity
@@ -66,10 +72,12 @@ class SocialAuthController extends Controller
             // Check for Suspicion (Exclude admins)
             if ($activity->is_suspicious && !$user->is_admin) {
                 $challengeUuid = (string) Str::uuid();
+                $is2fa = !empty($user->two_factor_secret);
+                $type = $is2fa ? '2fa' : 'oauth';
                 
                 Cache::put('suspicious_challenge_' . $challengeUuid, [
                     'user_id' => $user->id,
-                    'type' => 'oauth',
+                    'type' => $type,
                     'ip' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                     'remember' => true,

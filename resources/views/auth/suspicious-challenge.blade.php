@@ -85,6 +85,20 @@
                     </button>
                     <span id="resendTimer" style="margin-inline-start: 8px; font-size: 13px; opacity: 0.7;"></span>
                 </div>
+            @elseif($type === '2fa')
+                <!-- 2FA Authenticator Code -->
+                <div class="field">
+                    <label for="code">{{ __('auth.two_factor_authentication') }}</label>
+                    <input id="code" type="text" name="code" required autocomplete="one-time-code" maxlength="12" 
+                           placeholder="{{ __('auth.two_factor_code_placeholder') ?? '000000 or recovery code' }}" class="@error('code') is-invalid @enderror" 
+                           style="text-align: center; font-size: 20px; font-weight: 700; @if(app()->getLocale() !== 'ar') letter-spacing: 4px; @endif">
+                    @error('code')
+                        <div class="field-error">{{ $message }}</div>
+                    @enderror
+                    <p class="login-sub" style="margin-top: 12px; font-size: 13px; line-height: 1.4;">
+                        {{ __('auth.two_factor_challenge_desc') ?? __('Enter the 6-digit code from your authenticator app, or use one of your recovery codes.') }}
+                    </p>
+                </div>
             @else
                 <!-- OAuth Login: Password -->
                 <div class="field">

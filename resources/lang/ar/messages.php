@@ -31,6 +31,7 @@ return [
     'more' => 'المزيد',
     'less' => 'أقل',
     'view_all' => 'عرض الكل',
+    'view' => 'عرض',
     'open' => 'فتح',
     'top_communities' => 'أبرز المجتمعات',
     'community_info' => 'المجتمع',

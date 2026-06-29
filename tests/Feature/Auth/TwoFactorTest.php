@@ -28,7 +28,9 @@ class TwoFactorTest extends TestCase
     {
         $user = User::factory()->create(['two_factor_secret' => 'EXISTINGSECRET']);
 
-        $response = $this->actingAs($user)->get(route('2fa.setup'));
+        $response = $this->actingAs($user)
+            ->withSession(['two_factor_confirmed' => true])
+            ->get(route('2fa.setup'));
 
         $response->assertOk()->assertJson(['enabled' => true]);
     }
@@ -61,6 +63,7 @@ class TwoFactorTest extends TestCase
         $user = User::factory()->create(['two_factor_secret' => 'SOMESECRET']);
 
         $response = $this->actingAs($user)
+            ->withSession(['two_factor_confirmed' => true])
             ->postJson(route('2fa.disable'), ['password' => 'wrongpassword']);
 
         $response->assertStatus(422);
@@ -75,6 +78,7 @@ class TwoFactorTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
+            ->withSession(['two_factor_confirmed' => true])
             ->postJson(route('2fa.disable'), ['password' => 'password']);
 
         $response->assertOk();
@@ -112,5 +116,14 @@ class TwoFactorTest extends TestCase
             ->post(route('2fa.challenge.post'), ['code' => 'WRONGCODE1']);
 
         $response->assertSessionHasErrors('code');
+    }
+
+    public function test_protected_route_redirects_to_2fa_challenge_when_2fa_enabled_but_not_confirmed(): void
+    {
+        $user = User::factory()->create(['two_factor_secret' => 'FAKESECRET']);
+
+        $response = $this->actingAs($user)->get(route('home'));
+
+        $response->assertRedirect(route('2fa.challenge'));
     }
 }

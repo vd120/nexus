@@ -181,6 +181,9 @@ class CommentController extends Controller
 
         app(\App\Services\SocketEmitService::class)->emit('global', 'post:commented', $socketPayload);
 
+        // Clear global cache to refresh comments on all devices
+        \Illuminate\Support\Facades\Cache::flush();
+
         // Check if it's an AJAX request
         if ($request->expectsJson()) {
             return response()->json([
@@ -236,6 +239,9 @@ class CommentController extends Controller
             'post_id' => $postId,
             'count' => $post ? $post->comments()->count() : 0
         ]);
+
+        // Clear global cache to refresh comments on all devices
+        \Illuminate\Support\Facades\Cache::flush();
 
         // Check if it's an AJAX request
         if (request()->expectsJson()) {

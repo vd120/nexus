@@ -653,7 +653,7 @@
             </script>
             {{-- 2FA security nudge for new/unprotected users --}}
             @auth
-                @if(!auth()->user()->two_factor_secret && !auth()->user()->onboarding_completed_at && !session('2fa_nudge_dismissed'))
+                 @if(!auth()->user()->two_factor_secret && !request()->routeIs('onboarding.*') && !session('2fa_nudge_dismissed'))
                     <div id="2fa-nudge-banner" style="
                         position:fixed; bottom:1.5rem; right:1.5rem; z-index:8888;
                         max-width:360px; width:calc(100vw - 3rem);

@@ -337,45 +337,49 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-const viewsData = @json($viewsByDay);
+window.addEventListener('load', function() {
+    const viewsData = @json($viewsByDay);
 
-// Fill in missing days with 0
-const labels = [], counts = [];
-for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    labels.push(key.slice(5)); // MM-DD
-    counts.push(viewsData[key] || 0);
-}
-
-const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-const tickColor = isDark ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.35)';
-const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.08)';
-
-const ctx = document.getElementById('views-chart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels,
-        datasets: [{
-            label: 'Views',
-            data: counts,
-            backgroundColor: isDark ? 'rgba(99,102,241,.5)' : 'rgba(99,102,241,.35)',
-            borderColor: 'rgba(99,102,241,1)',
-            borderWidth: 1,
-            borderRadius: 4,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: { beginAtZero: true, ticks: { stepSize: 1, color: tickColor }, grid: { color: gridColor } },
-            x: { ticks: { color: tickColor, maxRotation: 45 }, grid: { display: false } }
-        }
+    // Fill in missing days with 0
+    const labels = [], counts = [];
+    for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        labels.push(key.slice(5)); // MM-DD
+        counts.push(viewsData[key] || 0);
     }
+
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const tickColor = isDark ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.35)';
+    const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.08)';
+
+    const canvasEl = document.getElementById('views-chart');
+    if (!canvasEl) return;
+    const ctx = canvasEl.getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Views',
+                data: counts,
+                backgroundColor: isDark ? 'rgba(99,102,241,.5)' : 'rgba(99,102,241,.35)',
+                borderColor: 'rgba(99,102,241,1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, color: tickColor }, grid: { color: gridColor } },
+                x: { ticks: { color: tickColor, maxRotation: 45 }, grid: { display: false } }
+            }
+        }
+    });
 });
 </script>
 @endpush

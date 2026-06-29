@@ -148,6 +148,9 @@ class UserController extends Controller
             );
         }
 
+        // Clear global cache so the timeline updates immediately
+        \Illuminate\Support\Facades\Cache::flush();
+
         // Check if it's an AJAX request
         if (request()->expectsJson()) {
             // Check if the user has an active story

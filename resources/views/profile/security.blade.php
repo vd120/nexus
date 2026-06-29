@@ -11,7 +11,7 @@
                 <i class="fas fa-check-circle"></i> {{ __('Your encryption keys are backed up.') }}
             </p>
 
-            <form id="e2e-update-passphrase-form" onsubmit="return false;">
+            <div id="e2e-update-passphrase-form" class="e2e-form-container">
                 @csrf
                 <div class="field">
                     <label for="e2e-current-passphrase">{{ __('Current Backup Passphrase') }}</label>
@@ -48,13 +48,13 @@
                 </button>
 
                 <div id="e2e-passphrase-result" class="e2e-result" style="display:none;"></div>
-            </form>
+            </div>
         @else
             <p class="e2e-status e2e-status-not-backed-up">
                 <i class="fas fa-exclamation-triangle"></i> {{ __('chat.e2e_set_backup_description') }}
             </p>
 
-            <form id="e2e-setup-passphrase-form" onsubmit="return false;">
+            <div id="e2e-setup-passphrase-form" class="e2e-form-container">
                 @csrf
                 <div class="field">
                     <label for="e2e-setup-passphrase">{{ __('chat.e2e_passphrase_label') }}</label>
@@ -76,7 +76,7 @@
                 </button>
 
                 <div id="e2e-passphrase-result" class="e2e-result" style="display:none;"></div>
-            </form>
+            </div>
         @endif
     </div>
 </div>

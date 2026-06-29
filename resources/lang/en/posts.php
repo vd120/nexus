@@ -44,4 +44,9 @@ return [
     'sensitive_content_desc' => 'This post contains sensitive content. Tap to view.',
     'mark_as_sensitive' => 'Sensitive',
     'add_poll' => 'Poll',
+    
+    // Feed modes
+    'feed_algorithmic' => 'For You',
+    'feed_chronological' => 'Latest',
+    'feed_following' => 'Following',
 ];

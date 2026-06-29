@@ -370,6 +370,19 @@ class ActivityService
             $isCurrent = ($log->session_id === $currentSessionId)
                 || ($log->ip_address === $currentIp && $log->user_agent === $currentUA);
 
+            // Skip if the session is no longer active in session storage (except for current session)
+            if (!$isCurrent && $log->session_id) {
+                $sessionData = '';
+                try {
+                    $sessionData = app('session')->getHandler()->read($log->session_id);
+                } catch (\Exception $e) {
+                    // Ignore
+                }
+                if (empty($sessionData)) {
+                    continue;
+                }
+            }
+
             $activeSessions->push((object) [
                 'id'                 => $log->session_id,
                 'ip_address'         => $log->ip_address,

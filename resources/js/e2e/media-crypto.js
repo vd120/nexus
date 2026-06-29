@@ -24,10 +24,8 @@ export class MediaCrypto {
             chunks.push({
                 file_id: fileId,
                 index: i,
-                ciphertext: btoa(
-                    String.fromCharCode(...new Uint8Array(ciphertext)),
-                ),
-                iv: btoa(String.fromCharCode(...iv)),
+                ciphertext: CryptoCore._toBase64(ciphertext),
+                iv: CryptoCore._toBase64(iv),
                 original_size: plaintext.length,
             });
         }

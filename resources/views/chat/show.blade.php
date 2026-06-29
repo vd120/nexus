@@ -633,6 +633,9 @@ $chatTitle = $isGroup
                         </div>
                         <div class="preview-info">
                             <span id="previewCount">1 / 1</span>
+                            <label for="mediaInput" class="add-more-btn" title="{{ __('chat.add_more', ['default' => 'Add more']) }}">
+                                <i class="fas fa-plus"></i>
+                            </label>
                             <button type="button" class="clear-all" onclick="clearMediaPreview()" title="{{ __('chat.remove_all') }}">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -1245,6 +1248,32 @@ body:has(.chat-page) .mobile-bottom-nav {
     flex-shrink: 0;
 }
 
+.chat-e2e-badge {
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .chat-e2e-badge {
+        padding: 0 !important;
+        background: transparent !important;
+        gap: 0 !important;
+        margin-right: 0 !important;
+        font-size: 0 !important;
+        border-radius: 50% !important;
+        width: 36px;
+        height: 36px;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+    }
+    .chat-e2e-badge span {
+        display: none;
+    }
+    .chat-e2e-badge i {
+        font-size: 16px;
+    }
+}
+
 /* Static Input Area - Fixed on mobile, static on desktop */
 .chat-input-area {
     padding: 12px 16px;
@@ -1671,6 +1700,22 @@ body:has(.chat-page) .mobile-bottom-nav {
 }
 
 .action-btn:hover { background: var(--wa-panel-hover); color: var(--wa-text); }
+
+.call-icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--wa-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background 0.2s, color 0.2s;
+}
+.call-icon-btn:hover { background: var(--wa-panel-hover); color: var(--wa-text); }
 
 .message {
     display: flex;
@@ -3538,6 +3583,24 @@ body:has(.chat-page) .mobile-bottom-nav {
     border-radius: 6px;
 }
 
+.add-more-btn {
+    background: transparent;
+    border: none;
+    color: var(--primary, #6c63ff);
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+    border-radius: 6px;
+}
+.add-more-btn:hover {
+    background: rgba(108, 99, 255, 0.12);
+}
+
 .input-row {
     display: flex;
     align-items: center;
@@ -5319,10 +5382,13 @@ async function processMediaMessage(messageData) {
     messageData.input.disabled = true;
     messageData.sendButton.disabled = true;
 
+    // Snapshot all selected files immediately so async yields cannot race with UI changes
+    const filesToSend = selectedFiles.slice();
+
     try {
         const uploadedDescriptors = [];
         
-        for (const file of selectedFiles) {
+        for (const file of filesToSend) {
             const mediaKey = await window.CryptoCore.generateGroupKey();
             const encrypted = await window.MediaCrypto.encryptFile(file, mediaKey);
             const rawMediaKey = await window.CryptoCore.exportSymmetricKey(mediaKey);
@@ -5335,7 +5401,7 @@ async function processMediaMessage(messageData) {
                 chunkFormData.append('chunk', chunk.ciphertext);
                 chunkFormData.append('original_size', chunk.original_size);
 
-                const uploadResponse = await fetch(`/chat/{{ $conversation->id }}/upload-encrypted-media`, {
+                const uploadResponse = await fetch(`/chat/{{ $conversation->slug }}/upload-encrypted-media`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -5347,7 +5413,7 @@ async function processMediaMessage(messageData) {
                 if (!uploadResult.success) {
                     throw new Error('Chunk upload failed');
                 }
-                uploadedChunks.push({ index: chunk.index, path: uploadResult.path });
+                uploadedChunks.push({ index: chunk.index, path: uploadResult.path, iv: chunk.iv });
             }
 
             const localUrl = URL.createObjectURL(file);
@@ -5387,7 +5453,7 @@ async function processMediaMessage(messageData) {
             encryptedEnvelope = await window.e2eManager.encryptMessage(window.activeConversationId, window.activeRecipientId, plainPayload);
         }
 
-        const msgType = selectedFiles.length > 0 ? getMessageType(selectedFiles[0]) : 'image';
+        const msgType = filesToSend.length > 0 ? getMessageType(filesToSend[0]) : 'image';
 
         // Clear files array and preview
         selectedFiles = [];
@@ -5420,7 +5486,15 @@ async function processMediaMessage(messageData) {
                 addMessage(message);
             }
             if (window.updateExistingConversationItem) {
+                const _mediaType = filesToSend.length > 0 ? filesToSend[0].type : '';
+                let _mediaPreview = '';
+                if (_mediaType.startsWith('image/')) _mediaPreview = '\u{1F4F7} ' + (window.chatTranslations?.you_sent_photo || 'You sent a photo');
+                else if (_mediaType.startsWith('video/')) _mediaPreview = '\u{1F3A5} ' + (window.chatTranslations?.you_sent_video || 'You sent a video');
+                else _mediaPreview = '\u{1F4CE} ' + (window.chatTranslations?.you_sent_document || 'You sent a file');
+                if (filesToSend.length > 1) _mediaPreview += ' (' + filesToSend.length + ')';
                 const _msg2 = Object.assign({}, message, {
+                    content: plainPayload.text || _mediaPreview,
+                    last_message: _mediaPreview,
                     checkmark_class: message.read_at ? 'fa-check-double read'
                                    : message.delivered_at ? 'fa-check-double sent'
                                    : 'fa-check sent'
@@ -5606,12 +5680,10 @@ window.addMessage = function(msg, opts) {
 
     // Handle E2E encrypted media descriptors
     if (msg.media_descriptors && msg.media_descriptors.length > 0) {
-        msg.media_descriptors.forEach(desc => {
-            const blobUrl = desc.url || (desc.blob ? URL.createObjectURL(desc.blob) : '');
-            if (blobUrl && window.renderDecryptedMediaHTML) {
-                contentHtml += window.renderDecryptedMediaHTML(desc, blobUrl, msg.id);
-            }
-        });
+        const urls = msg.media_descriptors.map(desc => desc.url || (desc.blob ? URL.createObjectURL(desc.blob) : ''));
+        if (window.renderDecryptedMediaListHTML) {
+            contentHtml += window.renderDecryptedMediaListHTML(msg.media_descriptors, urls, msg.id);
+        }
     } else if (msg.media_path && msg.media_path.startsWith('[')) {
         try {
             const mediaItems = JSON.parse(msg.media_path);
@@ -6073,7 +6145,7 @@ const NexusGallery = {
 
     cleanPath(path) {
         if (!path) return '';
-        if (path.startsWith('http')) return path;
+        if (path.startsWith('http') || path.startsWith('blob:')) return path;
         const sPath = path.startsWith('/') ? path : '/' + path;
         return sPath.startsWith('/storage/') ? sPath : '/storage' + sPath;
     },
@@ -6089,6 +6161,7 @@ const NexusGallery = {
         if (album) {
             const scriptTag = album.querySelector('script.media-data');
             if (scriptTag) {
+                // Unencrypted legacy media — paths from JSON
                 try {
                     const items = JSON.parse(scriptTag.textContent.trim());
                     items.forEach((item, index) => {
@@ -6099,8 +6172,18 @@ const NexusGallery = {
                 } catch (e) {
                     console.error('Failed to parse album:', e);
                 }
+            } else {
+                // E2E decrypted media — blob URLs already in the DOM
+                const mediaEls = album.querySelectorAll('.media-item img, .media-item video');
+                mediaEls.forEach((el, index) => {
+                    const galleryIdx = this.items.length;
+                    const isVideo = el.tagName === 'VIDEO';
+                    this.items.push({ src: el.src, type: isVideo ? 'video' : 'image' });
+                    mediaMap.set(`${targetMessageId}_${index}`, galleryIdx);
+                });
             }
         } else {
+            // Single unencrypted media
             const singleImg = msg.querySelector('.message-media img');
             const singleVid = msg.querySelector('.message-media video');
             if (singleImg || singleVid) {
@@ -6109,10 +6192,19 @@ const NexusGallery = {
                     type: singleImg ? 'image' : 'video'
                 });
                 mediaMap.set(`${targetMessageId}_0`, 0);
+            } else {
+                // Single E2E decrypted media (no .message-media wrapper)
+                const e2eImg = msg.querySelector('.media-grid-single img, .media-grid-single video');
+                if (e2eImg) {
+                    const isVideo = e2eImg.tagName === 'VIDEO';
+                    this.items.push({ src: e2eImg.src, type: isVideo ? 'video' : 'image' });
+                    mediaMap.set(`${targetMessageId}_0`, 0);
+                }
             }
         }
         return mediaMap;
     },
+
 
     open(messageId, index = 0) {
         const mediaMap = this.build(messageId);
@@ -7731,7 +7823,7 @@ async function sendVoiceMessage() {
             chunkFormData.append('chunk', chunk.ciphertext);
             chunkFormData.append('original_size', chunk.original_size);
 
-            const uploadResponse = await fetch(`/chat/{{ $conversation->id }}/upload-encrypted-media`, {
+            const uploadResponse = await fetch(`/chat/{{ $conversation->slug }}/upload-encrypted-media`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -7743,7 +7835,7 @@ async function sendVoiceMessage() {
             if (!uploadResult.success) {
                 throw new Error('Voice chunk upload failed');
             }
-            uploadedChunks.push({ index: chunk.index, path: uploadResult.path });
+            uploadedChunks.push({ index: chunk.index, path: uploadResult.path, iv: chunk.iv });
         }
 
         const localUrl = URL.createObjectURL(file);
@@ -8446,17 +8538,6 @@ window.updateReactionsFromSocket = function(data) {
 </script>
 
 <style>
-.call-icon-btn {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--text-muted, #888);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.2s, color 0.2s;
-}
-.call-icon-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 </style>
 
 <script>
@@ -8579,6 +8660,60 @@ function renderDecryptedMediaHTML(descriptor, blobUrl, msgId) {
     }
 }
 
+function renderDecryptedMediaListHTML(descriptors, blobUrls, msgId) {
+    if (!descriptors || descriptors.length === 0) return '';
+    if (descriptors.length === 1) {
+        return renderDecryptedMediaHTML(descriptors[0], blobUrls[0], msgId);
+    }
+
+    const displayCount = Math.min(descriptors.length, 4);
+    const remainingCount = descriptors.length - displayCount;
+
+    const mediaData = descriptors.map((desc, i) => ({
+        path: blobUrls[i] || '',
+        type: desc.type && desc.type.startsWith('video/') ? 'video' : 'image'
+    }));
+    let html = `<div class="message-media-album">
+        <script type="application/json" class="media-data">${JSON.stringify(mediaData)}<\/script>`;
+
+    if (displayCount === 2) {
+        html += `<div class="media-grid-two">`;
+    } else {
+        html += `<div class="media-grid-${displayCount}">`;
+    }
+    
+    for (let i = 0; i < displayCount; i++) {
+        const desc = descriptors[i];
+        const blobUrl = blobUrls[i];
+        const type = desc.type || '';
+        if (type.startsWith('image/')) {
+            html += `<div class="media-item">
+                <img src="${blobUrl}" alt="${escapeHtml(desc.name)}" onclick="openMediaViewerFromAlbum(this, ${msgId}, ${i})">`;
+            if (i === 3 && remainingCount > 0) {
+                html += `<div class="media-overlay" onclick="openMediaViewerFromAlbum(this, ${msgId}, 4)">
+                    <span class="overlay-text">+${remainingCount}</span>
+                </div>`;
+            }
+            html += `</div>`;
+        } else if (type.startsWith('video/')) {
+            html += `<div class="media-item video">
+                <video src="${blobUrl}"></video>
+                <div class="media-overlay" onclick="openMediaViewerFromAlbum(this, ${msgId}, ${i})">
+                    <i class="fas fa-play"></i>
+                </div>
+            </div>`;
+        } else {
+            html += `<div class="media-item">`;
+            html += renderDecryptedMediaHTML(desc, blobUrl, msgId);
+            html += `</div>`;
+        }
+    }
+    
+    html += `</div></div>`;
+    return html;
+}
+window.renderDecryptedMediaListHTML = renderDecryptedMediaListHTML;
+
 async function decryptMessageElements() {
     const container = document.getElementById('chatMessages');
     if (!container) return;
@@ -8639,12 +8774,13 @@ async function decryptMessageElements() {
 
                 (async () => {
                     try {
-                        let mediaHtml = '';
+                        const urls = [];
                         for (const desc of decrypted.media_descriptors) {
                             const blob = await decryptAndAssembleMedia(desc);
                             const blobUrl = URL.createObjectURL(blob);
-                            mediaHtml += renderDecryptedMediaHTML(desc, blobUrl, el.dataset.messageId);
+                            urls.push(blobUrl);
                         }
+                        const mediaHtml = renderDecryptedMediaListHTML(decrypted.media_descriptors, urls, el.dataset.messageId);
                         const placeholder = el.querySelector(`#${placeholderId}`);
                         if (placeholder) placeholder.remove();
                         textEl.insertAdjacentHTML('beforebegin', mediaHtml);
@@ -8730,9 +8866,43 @@ async function decryptSidebarPreviews() {
                 decrypted = await e2e.decryptMessage(decryptTarget, senderId, otherUserId);
             }
 
-            const plaintext = decrypted.text || '';
-            const displayText = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
-            el.textContent = prefix + displayText;
+            const isOwn = senderId === {{ auth()->id() }};
+            let display = '';
+            if (decrypted.media_descriptors && decrypted.media_descriptors.length > 0) {
+                const desc = decrypted.media_descriptors[0];
+                const type = desc.type || '';
+                const isVoice = desc.isVoice || type.includes('audio/ogg') || type.includes('audio/webm') || type.includes('audio/weba') || type.includes('audio/wav');
+                
+                let mediaText = '';
+                if (type.startsWith('image/')) {
+                    mediaText = '📷 ' + (isOwn ? window.chatTranslations.you_sent_photo : window.chatTranslations.sent_photo);
+                } else if (type.startsWith('video/')) {
+                    mediaText = '🎥 ' + (isOwn ? window.chatTranslations.you_sent_video : window.chatTranslations.sent_video);
+                } else if (isVoice) {
+                    mediaText = '🎤 ' + (isOwn ? window.chatTranslations.you_sent_voice_message : window.chatTranslations.sent_voice_message);
+                } else if (type.startsWith('audio/')) {
+                    mediaText = '🎵 ' + (isOwn ? window.chatTranslations.you_sent_audio : window.chatTranslations.sent_audio);
+                } else {
+                    mediaText = '📎 ' + (isOwn ? window.chatTranslations.you_sent_document : window.chatTranslations.sent_document);
+                }
+
+                const caption = decrypted.text || '';
+                if (caption.trim()) {
+                    mediaText += ': ' + (caption.length > 20 ? caption.substring(0, 17) + '...' : caption);
+                }
+
+                const youPrefix = (window.chatTranslations.you || 'You') + ':';
+                if (isOwn && prefix.trim().startsWith(youPrefix)) {
+                    display = mediaText;
+                } else {
+                    display = prefix + mediaText;
+                }
+            } else {
+                const plaintext = decrypted.text || '';
+                const displayText = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+                display = prefix + displayText;
+            }
+            el.textContent = display;
             el.style.display = 'inline';
             el.style.background = 'none';
             el.style.opacity = '1';

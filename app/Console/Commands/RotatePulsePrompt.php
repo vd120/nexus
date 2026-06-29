@@ -63,13 +63,15 @@ class RotatePulsePrompt extends Command
             return self::FAILURE;
         }
 
-        // Memory prompts live for a full week, daily for 24h.
-        $windowHours = $type === 'memory' ? 24 * 7 : 24;
+        // Align prompt rotation duration to end exactly when the scheduler next runs
+        $endsAt = $type === 'memory'
+            ? $now->copy()->next('Sunday')->setTime(0, 5, 0)
+            : $now->copy()->addDay()->setTime(0, 1, 0);
 
         $next->update([
             'is_active'    => true,
             'starts_at'    => $now,
-            'ends_at'      => $now->copy()->addHours($windowHours),
+            'ends_at'      => $endsAt,
             'last_used_at' => $now,
         ]);
 

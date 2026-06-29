@@ -1274,9 +1274,15 @@ class ChatController extends Controller
         $dir = 'chat/encrypted/' . $conversation->id . '/' . $request->file_id;
         $filename = 'chunk_' . str_pad($request->index, 4, '0', STR_PAD_LEFT) . '.enc';
 
-        $path = $request->file('chunk')
-            ? $request->file('chunk')->store($dir, 'public')
-            : \Illuminate\Support\Facades\Storage::disk('public')->put($dir . '/' . $filename, $chunkData);
+        if ($request->file('chunk')) {
+            $path = $request->file('chunk')->store($dir, 'public');
+        } else {
+            $path = $dir . '/' . $filename;
+            $success = \Illuminate\Support\Facades\Storage::disk('public')->put($path, $chunkData);
+            if (!$success) {
+                return response()->json(['success' => false, 'error' => 'Failed to save chunk'], 500);
+            }
+        }
 
         return response()->json([
             'success' => true,

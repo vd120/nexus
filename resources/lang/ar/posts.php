@@ -44,4 +44,9 @@ return [
     'sensitive_content_desc' => 'المنشور ده فيه محتوى حساس. اضغط عشان تشوفه.',
     'mark_as_sensitive' => 'حساس',
     'add_poll' => 'استطلاع',
+    
+    // Feed modes
+    'feed_algorithmic' => 'لك',
+    'feed_chronological' => 'الأحدث',
+    'feed_following' => 'المتابَعون',
 ];

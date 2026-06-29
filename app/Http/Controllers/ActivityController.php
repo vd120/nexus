@@ -162,8 +162,8 @@ class ActivityController extends Controller
 
         $terminatedCount = 0;
         foreach ($otherSessions as $session) {
-            // Delete from Redis — sessions stored as cache keys via CacheBasedSessionHandler
-            \Illuminate\Support\Facades\Cache::forget($session->id);
+            // Destroy session via the configured session handler (driver-agnostic)
+            app('session')->getHandler()->destroy($session->id);
 
             // Write logout entry so getActiveSessions() fingerprint logic hides this session
             $this->activityService->logActivityForSession(
@@ -212,8 +212,8 @@ class ActivityController extends Controller
             'remember_token' => \Illuminate\Support\Str::random(60),
         ])->save();
 
-        // 2. DELETE FROM REDIS — sessions live in Redis cache, not the DB sessions table
-        \Illuminate\Support\Facades\Cache::forget($sessionId);
+        // 2. Destroy session via the configured session handler (driver-agnostic)
+        app('session')->getHandler()->destroy($sessionId);
 
         // 3. WRITE LOGOUT ACTIVITY so getActiveSessions() stops listing this session
         $this->activityService->logActivityForSession(

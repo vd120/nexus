@@ -843,10 +843,43 @@
                         } else {
                             decrypted = await e2e.decryptMessage(decryptTarget, senderId);
                         }
-                        const plaintext = decrypted.text || '';
-                        const display = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+                        let display = '';
+                        if (decrypted.media_descriptors && decrypted.media_descriptors.length > 0) {
+                            const desc = decrypted.media_descriptors[0];
+                            const type = desc.type || '';
+                            const isVoice = desc.isVoice || type.includes('audio/ogg') || type.includes('audio/webm') || type.includes('audio/weba') || type.includes('audio/wav');
+                            
+                            let mediaText = '';
+                            if (type.startsWith('image/')) {
+                                mediaText = '📷 ' + (isOwn ? window.chatTranslations.you_sent_photo : window.chatTranslations.sent_photo);
+                            } else if (type.startsWith('video/')) {
+                                mediaText = '🎥 ' + (isOwn ? window.chatTranslations.you_sent_video : window.chatTranslations.sent_video);
+                            } else if (isVoice) {
+                                mediaText = '🎤 ' + (isOwn ? window.chatTranslations.you_sent_voice_message : window.chatTranslations.sent_voice_message);
+                            } else if (type.startsWith('audio/')) {
+                                mediaText = '🎵 ' + (isOwn ? window.chatTranslations.you_sent_audio : window.chatTranslations.sent_audio);
+                            } else {
+                                mediaText = '📎 ' + (isOwn ? window.chatTranslations.you_sent_document : window.chatTranslations.sent_document);
+                            }
+
+                            const caption = decrypted.text || '';
+                            if (caption.trim()) {
+                                mediaText += ': ' + (caption.length > 20 ? caption.substring(0, 17) + '...' : caption);
+                            }
+
+                            const youPrefix = (window.chatTranslations.you || 'You') + ':';
+                            if (isOwn && prefix.trim().startsWith(youPrefix)) {
+                                display = mediaText;
+                            } else {
+                                display = prefix + mediaText;
+                            }
+                        } else {
+                            const plaintext = decrypted.text || '';
+                            const displayText = plaintext.length > 30 ? plaintext.substring(0, 27) + '...' : plaintext;
+                            display = prefix + displayText;
+                        }
                         const previewEl_ = convItem.querySelector('.preview-text');
-                        if (previewEl_) previewEl_.textContent = prefix + display;
+                        if (previewEl_) previewEl_.textContent = display;
                     } catch (_) {}
                 })();
             }

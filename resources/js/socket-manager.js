@@ -940,6 +940,14 @@ class SocketManager {
                 document.getElementById("posts-feed");
 
             if (container && data.html) {
+                // If in following feed mode, ignore global/non-follower broadcasts
+                if (
+                    container.dataset.feedMode === "following" &&
+                    data.is_global
+                ) {
+                    return;
+                }
+
                 // Check if post already exists
                 if (document.getElementById(`post-${data.id}`)) {
                     return;

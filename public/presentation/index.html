@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus Architecture Presentation</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script type="module" crossorigin src="/presentation/assets/index-Bdcdgx8u.js"></script>
+    <link rel="stylesheet" crossorigin href="/presentation/assets/index-C2b2qI85.css">
+  </head>
+  <body>
+    <!-- Ambient glowing backgrounds -->
+    <div class="glow-orb glow-1"></div>
+    <div class="glow-orb glow-2"></div>
+    <div class="glow-orb glow-3"></div>
+
+    <div class="presentation-wrapper">
+      <!-- Top header HUD -->
+      <header class="hud-header">
+        <a href="/" class="hud-logo" title="Back to Home">
+          <img src="/images/nexus_logo.svg" alt="Nexus" style="height: 72px; width: auto;" />
+          <span class="hud-logo-text">NEXUS</span>
+        </a>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <button id="themeToggleBtn" class="theme-switch-btn" title="Toggle Theme (T)">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <button id="menuToggleBtn" class="hud-menu-btn" title="Toggle Slide Menu (M)">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main slides container -->
+      <main id="deck" class="slide-deck">
+        <!-- Slides will be injected here dynamically by TypeScript -->
+      </main>
+
+      <!-- Bottom controls HUD -->
+      <footer class="hud-footer">
+        <div class="progress-container">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div class="footer-controls">
+          <div class="slide-counter">
+            <span id="currentSlideNum">1</span> / <span id="totalSlidesNum">7</span>
+          </div>
+          <div class="nav-buttons">
+            <button id="prevBtn" class="nav-btn" title="Previous Slide (Left Arrow)"><i class="fa-solid fa-chevron-left"></i></button>
+            <button id="nextBtn" class="nav-btn" title="Next Slide (Right Arrow / Space)"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Navigation Overlay Sidebar -->
+    <div id="sidebarMenu" class="sidebar-menu">
+      <div class="sidebar-header">
+        <h3>Presentation Slides</h3>
+        <button id="closeMenuBtn" class="close-btn">&times;</button>
+      </div>
+      <ul id="slideMenuList" class="slide-menu-list">
+        <!-- List items injected here dynamically -->
+      </ul>
+      <div class="sidebar-shortcuts">
+        <h4>Keyboard Shortcuts</h4>
+        <ul>
+          <li><span>Right Arrow / Space</span> Next Slide</li>
+          <li><span>Left Arrow</span> Prev Slide</li>
+          <li><span>M</span> Toggle Menu</li>
+          <li><span>F</span> Toggle Fullscreen</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- JS entry point -->
+  </body>
+</html>

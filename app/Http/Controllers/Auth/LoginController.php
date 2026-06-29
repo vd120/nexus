@@ -36,11 +36,13 @@ class LoginController extends Controller
             // Check for Suspicion (Exclude admins)
             if ($activity->is_suspicious && !$user->is_admin) {
                 $challengeUuid = (string) \Illuminate\Support\Str::uuid();
-                $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $is2fa = !empty($user->two_factor_secret);
+                $type = $is2fa ? '2fa' : 'manual';
+                $code = $is2fa ? null : str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                 
                 \Illuminate\Support\Facades\Cache::put('suspicious_challenge_' . $challengeUuid, [
                     'user_id' => $user->id,
-                    'type' => 'manual',
+                    'type' => $type,
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                     'remember' => $request->boolean('remember'),
@@ -48,11 +50,13 @@ class LoginController extends Controller
                     'activity_id' => $activity->id
                 ], 600);
 
-                // Send Security Code Email
-                $originalLocale = app()->getLocale();
-                if ($user->language) app()->setLocale($user->language);
-                \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new VerificationCodeMail($user, $code));
-                app()->setLocale($originalLocale);
+                if (!$is2fa) {
+                    // Send Security Code Email
+                    $originalLocale = app()->getLocale();
+                    if ($user->language) app()->setLocale($user->language);
+                    \Illuminate\Support\Facades\Mail::to($user->email, $user->name)->send(new VerificationCodeMail($user, $code));
+                    app()->setLocale($originalLocale);
+                }
 
                 return redirect()->route('login.suspicious.view', $challengeUuid);
             }

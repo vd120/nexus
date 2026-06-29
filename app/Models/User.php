@@ -434,21 +434,28 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('logged_at', '>=', now()->subDays(30))
             ->get();
 
-        $logoutFingerprints = \App\Models\ActivityLog::where('user_id', $this->id)
-            ->where('action', 'logout')
-            ->where('logged_at', '>=', now()->subDays(30))
-            ->get()
-            ->map(fn($l) => md5(($l->ip_address ?? '') . '|' . ($l->user_agent ?? '')))
-            ->unique();
-
         $seenFingerprints = [];
 
         foreach ($loginLogs as $log) {
+            if (!$log->session_id) continue;
+
             $fp = md5(($log->ip_address ?? '') . '|' . ($log->user_agent ?? ''));
 
             if ($fp === $currentFingerprint) continue;
             if (isset($seenFingerprints[$fp])) continue;
             $seenFingerprints[$fp] = true;
+
+            // Verify if the session still exists in the session storage backend (driver-agnostic)
+            $sessionData = '';
+            try {
+                $sessionData = app('session')->getHandler()->read($log->session_id);
+            } catch (\Exception $e) {
+                // Ignore and treat as expired
+            }
+
+            if (empty($sessionData)) {
+                continue;
+            }
 
             $logoutAt = \App\Models\ActivityLog::where('user_id', $this->id)
                 ->where('action', 'logout')

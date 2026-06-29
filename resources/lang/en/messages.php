@@ -31,6 +31,7 @@ return [
     'more' => 'More',
     'less' => 'Less',
     'view_all' => 'View All',
+    'view' => 'View',
     'open' => 'Open',
     'top_communities' => 'Top Communities',
     'community_info' => 'Community',

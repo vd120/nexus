@@ -52,7 +52,7 @@ class SuspiciousLoginController extends Controller
 
         if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($limiterKey, 5)) {
             $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($limiterKey);
-            $field = $challenge['type'] === 'manual' ? 'code' : 'password';
+            $field = ($challenge['type'] === 'manual' || $challenge['type'] === '2fa') ? 'code' : 'password';
             return back()->withErrors([
                 $field => __('auth.throttle', ['seconds' => $seconds])
             ]);
@@ -66,6 +66,37 @@ class SuspiciousLoginController extends Controller
                 \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300);
                 return back()->withErrors(['code' => __('auth.invalid_verification_code')]);
             }
+        } elseif ($challenge['type'] === '2fa') {
+            $request->validate(['code' => 'required|string']);
+            $google2fa = app('pragmarx.google2fa');
+            $code = trim($request->code);
+            $verified = false;
+
+            if (strlen($code) === 6 && ctype_digit($code)) {
+                if ($google2fa->verifyKey($user->two_factor_secret, $code)) {
+                    $verified = true;
+                }
+            }
+
+            if (!$verified) {
+                $recoveryCodes = $user->two_factor_recovery_codes ?? [];
+                foreach ($recoveryCodes as $index => $hashed) {
+                    if (Hash::check($code, $hashed)) {
+                        $recoveryCodes[$index] = null;
+                        $user->two_factor_recovery_codes = array_values(array_filter($recoveryCodes));
+                        $user->save();
+                        $verified = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$verified) {
+                \Illuminate\Support\Facades\RateLimiter::hit($limiterKey, 300);
+                return back()->withErrors(['code' => __('auth.two_factor_invalid_code')]);
+            }
+
+            session(['two_factor_confirmed' => true]);
         } else {
             $request->validate(['password' => 'required|string']);
             if (!$user->password || !Hash::check($request->password, $user->password)) {

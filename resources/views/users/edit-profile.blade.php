@@ -96,7 +96,7 @@
         <p>{{ __('users.update_profile_desc') }}</p>
     </div>
 
-    <form action="{{ route('profile.update', $user) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('profile.update', $user) }}" method="POST" enctype="multipart/form-data" id="profile-edit-form" novalidate>
         @csrf
 
         {{-- Avatar & Cover --}}

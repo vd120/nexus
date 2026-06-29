@@ -308,8 +308,69 @@
         </div>
         @endauth
 
+        @auth
+        <style>
+            .feed-sort-container {
+                display: flex;
+                gap: 4px;
+                margin: 10px 0;
+                border-bottom: 1px solid var(--border-color, #2a2a3e);
+                padding-bottom: 8px;
+                align-items: center;
+                width: 100%;
+            }
+            .feed-tab-btn {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                padding: 5px 8px;
+                border-radius: 20px;
+                cursor: pointer;
+                background: none;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                text-align: center;
+                white-space: nowrap;
+            }
+            @media (min-width: 640px) {
+                .feed-sort-container {
+                    justify-content: flex-start;
+                    gap: 8px;
+                    width: auto;
+                }
+                .feed-tab-btn {
+                    flex: initial;
+                    padding: 6px 16px;
+                    font-size: 0.875rem;
+                }
+            }
+        </style>
+        {{-- Feed Sorting Segmented Control --}}
+        <div class="feed-sort-container">
+            <button type="button" class="feed-tab-btn" onclick="changeFeedMode('algorithmic')" style="background: {{ $feedMode === 'algorithmic' ? 'rgba(139, 92, 246, 0.15)' : 'none' }}; border: 1px solid {{ $feedMode === 'algorithmic' ? 'rgba(139, 92, 246, 0.3)' : 'transparent' }}; color: {{ $feedMode === 'algorithmic' ? 'var(--primary, #8b5cf6)' : 'var(--text-muted, #6b7280)' }};" onmouseover="if('{{ $feedMode }}'!=='algorithmic') this.style.color='var(--primary,#8b5cf6)'" onmouseout="if('{{ $feedMode }}'!=='algorithmic') this.style.color='var(--text-muted,#6b7280)'">
+                <i class="fas fa-magic" aria-hidden="true"></i> {{ __('posts.feed_algorithmic') }}
+            </button>
+            <button type="button" class="feed-tab-btn" onclick="changeFeedMode('chronological')" style="background: {{ $feedMode === 'chronological' ? 'rgba(139, 92, 246, 0.15)' : 'none' }}; border: 1px solid {{ $feedMode === 'chronological' ? 'rgba(139, 92, 246, 0.3)' : 'transparent' }}; color: {{ $feedMode === 'chronological' ? 'var(--primary, #8b5cf6)' : 'var(--text-muted, #6b7280)' }};" onmouseover="if('{{ $feedMode }}'!=='chronological') this.style.color='var(--primary,#8b5cf6)'" onmouseout="if('{{ $feedMode }}'!=='chronological') this.style.color='var(--text-muted,#6b7280)'">
+                <i class="fas fa-clock" aria-hidden="true"></i> {{ __('posts.feed_chronological') }}
+            </button>
+            <button type="button" class="feed-tab-btn" onclick="changeFeedMode('following')" style="background: {{ $feedMode === 'following' ? 'rgba(139, 92, 246, 0.15)' : 'none' }}; border: 1px solid {{ $feedMode === 'following' ? 'rgba(139, 92, 246, 0.3)' : 'transparent' }}; color: {{ $feedMode === 'following' ? 'var(--primary, #8b5cf6)' : 'var(--text-muted, #6b7280)' }};" onmouseover="if('{{ $feedMode }}'!=='following') this.style.color='var(--primary,#8b5cf6)'" onmouseout="if('{{ $feedMode }}'!=='following') this.style.color='var(--text-muted,#6b7280)'">
+                <i class="fas fa-user-friends" aria-hidden="true"></i> {{ __('posts.feed_following') }}
+            </button>
+        </div>
+        <script>
+            function changeFeedMode(mode) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('feed_mode', mode);
+                window.location.href = url.toString();
+            }
+        </script>
+        @endauth
+
         {{-- Posts Feed --}}
-        <div class="posts-feed" id="posts-container">
+        <div class="posts-feed" id="posts-container" data-feed-mode="{{ $feedMode }}">
             @forelse($posts as $post)
                 @include('partials.post', ['post' => $post])
             @empty
@@ -871,7 +932,7 @@ window.loadMorePosts = async function() {
 
     try {
         const nextPage = window.currentFeedPage + 1;
-        const response = await fetch(`/posts/load-more?page=${nextPage}&per_page=5`, {
+        const response = await fetch(`/posts/load-more?page=${nextPage}&per_page=5&feed_mode=${encodeURIComponent('{{ $feedMode }}')}`, {
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'

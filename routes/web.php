@@ -130,7 +130,7 @@ Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleC
 
 
 // Onboarding
-Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
+Route::middleware(['auth', 'suspended', 'verified', 'password.set', '2fa'])->group(function () {
     Route::get('/welcome', [App\Http\Controllers\OnboardingController::class, 'welcome'])->name('onboarding.welcome');
     Route::post('/welcome/complete', [App\Http\Controllers\OnboardingController::class, 'complete'])->name('onboarding.complete');
 });
@@ -142,7 +142,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // 2FA management (fully authenticated)
-Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
+Route::middleware(['auth', 'suspended', 'verified', 'password.set', '2fa'])->group(function () {
     Route::get('/settings/2fa/setup', [App\Http\Controllers\TwoFactorController::class, 'setup'])->name('2fa.setup');
     Route::post('/settings/2fa/confirm', [App\Http\Controllers\TwoFactorController::class, 'confirm'])->name('2fa.confirm');
     Route::post('/settings/2fa/disable', [App\Http\Controllers\TwoFactorController::class, 'disable'])->name('2fa.disable');
@@ -317,10 +317,10 @@ Route::get('/', function () {
 
     // Show posts feed for authenticated and verified users
     return app(\App\Http\Controllers\PostController::class)->index(request());
-})->name('home');
+})->name('home')->middleware('2fa');
 
 
-Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(function () {
+Route::middleware(['auth', 'suspended', 'verified', 'password.set', '2fa'])->group(function () {
     Route::get('/posts/load-more', [PostController::class, 'loadMore'])->name('posts.load-more');
     Route::get('/feed-preview', [PostController::class, 'indexPreview'])->name('feed.preview');
     Route::resource('posts', PostController::class, [
@@ -618,7 +618,7 @@ Route::middleware(['auth', 'suspended', 'verified', 'password.set'])->group(func
     Route::get('/hashtags/{slug}', [App\Http\Controllers\HashtagController::class, 'show'])->name('hashtags.show')->where('slug', '(?!api)[a-zA-Z0-9_-]+');
 
     // User reports management (authenticated users can view their reports)
-    Route::middleware(['auth', 'verified', 'password.set'])->group(function () {
+    Route::middleware(['auth', 'verified', 'password.set', '2fa'])->group(function () {
         Route::get('/my-reports', [App\Http\Controllers\ReportController::class, 'myReports'])->name('reports.my-reports');
         Route::get('/my-reports/{slug}', [App\Http\Controllers\ReportController::class, 'showReport'])->name('reports.show-user');
         Route::delete('/reports/{report}', [App\Http\Controllers\ReportController::class, 'deleteReport'])->name('reports.delete');
@@ -640,4 +640,9 @@ require __DIR__.'/mini-chat.php';
 Route::middleware(['auth:sanctum,web', 'suspended', 'verified', 'password.set'])->group(function () {
     Route::get('/api/conversations', [App\Http\Controllers\ChatController::class, 'getConversations'])->name('api.conversations');
 });
+
+Route::get('/presentation', function () {
+    return response(file_get_contents(public_path('presentation/index.html')));
+});
+
 
